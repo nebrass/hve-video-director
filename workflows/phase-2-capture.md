@@ -27,6 +27,37 @@ A scene's `Capture:` value selects a source; each is feature-detected and degrad
 
 Stills remain the universal fallback — a missing source never blocks Phase 2.
 
+### Canonical clip helper — normalize & stitch (don't re-author per run)
+
+`scripts/stitch_clip.py` is the reviewed, portable normalizer/stitcher shipped with the skill —
+invoke it instead of writing a throwaway `stitch-clip` each run (issue #19). It enforces the
+Phase-2 clip contract (constant 30fps, H.264 high / yuv420p, even dimensions, `+faststart`) and
+stitches multiple takes with ffmpeg's concat **filter** — each segment is re-encoded onto a shared
+canvas, so heterogeneous captures with sparse VFR stitch cleanly (the concat *demuxer* / `.ffconcat`
+list needs byte-identical inputs and is **not** used).
+
+Copy it into the project like the voiceover script (locate the skill dir the way
+`workflows/phase-5-audio.md` § "Generate with ElevenLabs" resolves `$SKILL_DIR`), then run:
+
+```bash
+cp "$SKILL_DIR/scripts/stitch_clip.py" ./
+# normalize one raw capture to the clip path
+python3 ./stitch_clip.py raw.mp4 -o public/clips/scene-02-dashboard.mp4
+# trim a sub-range (path::START::DURATION, in seconds)
+python3 ./stitch_clip.py raw.mov::1.5::6 -o public/clips/scene-02-dashboard.mp4
+# stitch several takes onto a shared canvas
+python3 ./stitch_clip.py a.mp4 b.mp4::0::4 --width 1920 --height 1080 -o public/clips/scene-03-flow.mp4
+```
+
+Use it for anything beyond a trivial single-file re-time (which the inline `ffmpeg -r 30 …` note
+below still covers).
+
+**Native screen *capture* (`capture-screen`) is intentionally not shipped** — a portable capture
+backend is impossible (macOS AVFoundation, Windows gdigrab/ddagrab, X11 x11grab, Wayland portal, and
+WSL all differ). Produce raw clips via the screencast (below) or asciinema+agg (CLI) paths, or have
+the user supply a recording, then normalize/stitch them here. A native capture backend is a separate
+follow-up (issue #19).
+
 ### Recording a web scene (screencast)
 
 When `Capture: screencast` and screencast is available (see detection above):
