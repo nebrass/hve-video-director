@@ -67,6 +67,7 @@ Cal.com is built on **Framer** — Framer Motion's spring physics is in the bran
 | Scene-to-scene transition | Crossfade 0.4–0.5s, `power2.inOut` |
 | Section-boundary | Surface tint shift (`#ffffff` → `#f5f5f5`) |
 | Counter ease | `power2.out`, ~2.0s |
+| Product-shot camera | Restrained 1.02→1.00 settle over ~0.8s, `power2.out` — confident without showing off (inferred from Framer-Motion defaults) |
 | Avoid | Hard flash, glitch, shader transitions — wrong tone for OSS friendliness |
 
 The brand is "approachable competence." Motion is confident without showing off.

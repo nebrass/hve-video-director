@@ -89,6 +89,7 @@ For video:
 | Stagger | 0.08–0.12s |
 | Scene-to-scene transition | Crossfade with subtle gradient drift 0.5–0.7s — let the gradient continue moving slightly during transition |
 | Section-boundary | Cross-gradient morph (sunset → twilight) over 0.7s |
+| Product-shot camera | None — a scale push-in is off-brand (Arc's tab-swap explicitly forbids scale change). If motion is needed, a slow ≤2% positional/parallax drift of the frosted pane, `power1.inOut` |
 | Avoid | Scale-driven transitions (Arc's tab-swap explicitly forbids scale change), hard cuts, flash |
 
 Arc's voice: smooth, generous, frosted-glass elegant. Motion never snaps.

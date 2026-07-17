@@ -68,6 +68,7 @@ Upstream rule: *"Default to short, purposeful transitions (150–250ms) with sta
 | Scene-to-scene transition | Crossfade 0.4s, `power2.inOut`. Cards-shuffle effect (each card stagger-fades out then new scene's cards stagger-fade in) is on-brand. |
 | Section-boundary | Surface tint shift OR card-shuffle |
 | Counter ease | `power2.out`, ~1.6s |
+| Product-shot camera | Gentle 1.03→1.00 push-in over ~1.2s, `power2.out` — friendly, never flashy (inferred from the brand's soft card motion) |
 | Avoid | Glitch, flash, hard cuts — wrong tone for friendly link-in-bio |
 
 The signature animated moment is **bento-grid reveal**: a 2×3 grid of cards each entering with stagger from `y: 30, opacity: 0`. Plan one such scene per video.
