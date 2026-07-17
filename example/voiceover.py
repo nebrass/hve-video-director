@@ -3,7 +3,7 @@
 example/voiceover.py — Voiceover generation for THIS example project.
 
 Self-contained instantiation of the canonical scripts/generate_voiceover.py
-with the (start, text) sections for hve-spielberg's own 60s promo.
+with the (start, text) sections for the 53s blog.nebrass.fr reference promo.
 
 Usage:
     cd example
@@ -48,7 +48,7 @@ if not API_KEY:
     sys.exit(1)
 
 VOICE_ID = "XrExE9yKIg1WjnnlVkGX"  # Matilda — warm, confident female
-VIDEO_DURATION = 60
+VIDEO_DURATION = 53
 
 # (start_time_seconds, text)
 # Aligned to scenes in storyboard.md. Each section starts 1s after its
@@ -61,52 +61,33 @@ VIDEO_DURATION = 60
 # "hve-spielberg" in full, so what the viewer reads and what they hear
 # match (letters spelled out).
 sections = [
-    # Scene 0 Hook (0–6s) — VO 1.0–5.0  (~10 words / ~4s)
-    # The hook is a meta-conceit: the viewer is hearing AI-generated audio
-    # from an AI-generated promo for the AI tool that made the promo.
-    # That self-referential loop closes in 10 words.
+    # Scene 0 Establishing (0–8.4s) — VO 1.0–~7  : the blog, framed (real homepage hero).
     (1.0,
-     "One slash command. This whole video. Made in Claude Code."),
+     "This is Nebrass's blog — software engineering, the cloud, and Java, "
+     "written by someone who actually ships."),
 
-    # Scene 1 How (6.4–16s) — VO 7.4–15.0  (~18 words / ~7s)
-    # Concrete: where it lives, what it does. No filler verbs.
-    (7.4,
-     "Inside Claude Code. Slash Aitch Vee Ee Spielberg. "
-     "It interviews you, picks a brand, captures your app, renders the video."),
+    # Scene 1 Depth (8–20.4s) — VO 9.0–~18.5 : a real post's code + a real merged fix.
+    # The Puppeteer claim is verifiable (the post + merged PR #15112).
+    (9.0,
+     "Every post goes deep. Real bugs, real fixes — "
+     "like the two compounding bugs that were slowing Puppeteer's screencasts, "
+     "traced and merged upstream."),
 
-    # Scene 2 Pipeline (16.4–32s) — VO 17.4–~31.5  (~26 words / ~12s)
-    # Each phase spoken with its method, in compact form. The verbose first
-    # attempt (34 words) clocked 19s after Matilda's natural comma pauses;
-    # this version drops articles and connectives to fit the budget while
-    # keeping a method on every phase.
-    (17.4,
-     "Six phases. "
-     "Discover with design thinking. "
-     "Storyboard the narrative. "
-     "Capture via Chrome DevTools. "
-     "Design with brand DNA. "
-     "Compose with GSAP at sub-second precision. "
-     "Render to deterministic MP4."),
+    # Scene 2 Breadth (20–30.4s) — VO 21.0–~28 : the real categories index.
+    (21.0,
+     "Kubernetes, security, Azure, machine learning — "
+     "dozens of topics, all in one place."),
 
-    # Scene 3 Proof (32.4–47s) — VO 33.4–46.0  (~24 words / ~9.5s)
-    # Names the actual tools that made THIS video. Closes the dogfooding loop.
-    # "Fifteen minutes, not three weeks" is the only comparison claim — and
-    # it's specific to a real production timeline, not a strawman.
-    (33.4,
-     "This video proves the loop. "
-     "Vercel design system. ElevenLabs voiceover. Whisper-verified timing. "
-     "Freesound score. Headless Chrome render. "
-     "Fifteen minutes, not three weeks."),
+    # Scene 3 Volume (30–42.4s) — VO 31.0–~36 : the homepage post list scrolling.
+    (31.0,
+     "Years of write-ups. Free to read, and always something new."),
 
-    # Scene 4 CTA (47.4–60s) — VO 48.4–58.5  (~26 words / ~10s)
-    # The slash command takes no argument — `/hve-spielberg` alone is enough.
-    # The full repo URL is spoken as "nebrass slash hve dash spielberg" so the
-    # viewer hears the canonical path while the wordmark + full URL render
-    # on screen.
-    (48.4,
-     "Slash Aitch Vee Ee Spielberg, in Claude Code. "
-     "Free, open source on GitHub at nebrass slash hve dash spielberg. "
-     "Your turn to ship something good."),
+    # Scene 4 CTA (42–53s) — VO 43.0–~52 : URL + made-with sign-off (dogfood hook).
+    # Pronunciation: "eff arr" forces the .fr TLD letter-by-letter; "Aitch Vee Ee
+    # Spielberg" forces hve-spielberg as individual letters (plain "H V E" blobs).
+    (43.0,
+     "Find it at blog dot nebrass dot eff arr. "
+     "This whole video? Made with one command — slash Aitch Vee Ee Spielberg."),
 ]
 
 # ─── ElevenLabs TTS ──────────────────────────────────────────────────────────
@@ -362,7 +343,7 @@ def check_overlaps(segments: list, sections: list) -> list:
 
 
 def main():
-    print("hve-spielberg promo — voiceover generation")
+    print("blog.nebrass.fr promo — voiceover generation")
     print("=" * 50)
 
     print("\n[1/3] Generating voiceover sections via ElevenLabs (Matilda)...")

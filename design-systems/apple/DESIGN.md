@@ -63,6 +63,7 @@ Apple's brand is *spring physics tradition*. Generous timing. Restrained energy.
 | Stagger | 0.10–0.15s |
 | Scene-to-scene transition | Crossfade 0.5–0.7s. Pale-to-black transitions: 0.7s `power1.inOut`. |
 | Section-boundary | Surface-swap (one scene fades out as new surface colour fades in). NO flash. |
+| Product-shot camera | Slow 1.0–1.2s push-in, `back.out(1.1)` spring settle |
 | Avoid | Glitch, RGB-split, fast cuts, anything that breaks the gallery calm |
 
 The hardware always gets the entrance flourish — never the chrome. In a product video, that means: a feature mockup arrives with spring-physics motion; the headline above it fades in plain.

@@ -102,39 +102,61 @@ The single autonomous sequence (also reproduced in
 # keeps wide output (kubectl get, docker ps) from wrapping — size it to the scene.
 # RECORD_TIMEOUT = storyboard `Record timeout` (default scene_duration + 2s).
 RECORD_TIMEOUT="${RECORD_TIMEOUT:-60}"
-timeout "${RECORD_TIMEOUT}s" env -i HOME="$HOME" PATH="$PATH" SHELL=/bin/bash TERM=xterm-256color \
+WORK_DIR=$(mktemp -d "${TMPDIR:-/tmp}/hve-terminal-clip.XXXXXX")
+CAST_TMP="$WORK_DIR/scene.cast"
+GIF_TMP="$WORK_DIR/scene.gif"
+MP4_TMP="$WORK_DIR/scene.mp4"
+CAST_OUT="public/clips/scene-{NN}-{slug}.cast"
+MP4_OUT="public/clips/scene-{NN}-{slug}.mp4"
+
+# Preserve any previous result outside the accepted destination so a failed or
+# interrupted attempt cannot be mistaken for a fresh terminal clip.
+mkdir -p public/clips
+[ ! -e "$CAST_OUT" ] || mv "$CAST_OUT" "$WORK_DIR/previous.cast" ||
+  { echo "cannot quarantine previous cast — aborting terminal capture" >&2; exit 1; }
+[ ! -e "$MP4_OUT" ] || mv "$MP4_OUT" "$WORK_DIR/previous.mp4" ||
+  { echo "cannot quarantine previous MP4 — aborting terminal capture" >&2; exit 1; }
+
+record_ok=
+if timeout "${RECORD_TIMEOUT}s" env -i HOME="$HOME" PATH="$PATH" SHELL=/bin/bash TERM=xterm-256color \
   LANG="${LANG:-C.UTF-8}" COLUMNS=175 LINES=32 PS1='$ ' \
   asciinema rec --idle-time-limit 1.5 \
     --command "<cmd-from-storyboard>" \
-    public/clips/scene-{NN}-{slug}.cast \
-  || true   # exit 124 (timeout) is non-fatal; check the .cast exists before
-            # rendering — || true also masks real failures (missing binary, locale)
-[ -s public/clips/scene-{NN}-{slug}.cast ] || { echo "no cast recorded — falling back to authored-terminal"; }
+    "$CAST_TMP"; then
+  record_ok=1
+else
+  status=$?
+  [ "$status" -eq 124 ] && [ -s "$CAST_TMP" ] && record_ok=1
+fi
 
 # Render — agg emits a GIF (it ignores the output extension), so render to a TEMP
 # .gif (multi-MB intermediate — keep it out of public/clips/). Never pass
 # --cols/--rows: agg reads the size from the cast header (the COLUMNS/LINES
 # recorded above); a mismatch wraps/letterboxes the output.
-agg --font-size 28 --theme monokai --fps-cap 30 \
-  public/clips/scene-{NN}-{slug}.cast \
-  "${TMPDIR:-/tmp}/scene-{NN}-{slug}.gif"
-
-# …then normalize to constant-fps H.264. REQUIRED, not optional: agg emits
-# change-only frames (a 2-line deploy can be 2–4 frames total) that break
-# seek-driven <video> sync. `fps=30` rebuilds a constant timeline; the
-# scale=trunc(...)*2 keeps dimensions even for H.264.
-ffmpeg -y -i "${TMPDIR:-/tmp}/scene-{NN}-{slug}.gif" \
-  -vf "fps=30,scale=trunc(iw/2)*2:trunc(ih/2)*2" \
-  -c:v libx264 -profile:v high -pix_fmt yuv420p -movflags +faststart \
-  public/clips/scene-{NN}-{slug}.mp4
-
-# Verify — expect ~30 × duration frames at a constant rate (not 2–4 sparse frames).
-# nb_frames is read from the container header ffmpeg just wrote — no -count_frames
-# full decode needed.
-ffprobe -v error -select_streams v:0 \
-  -show_entries stream=nb_frames,avg_frame_rate -of default=noprint_wrappers=1 \
-  public/clips/scene-{NN}-{slug}.mp4
+if [ -n "$record_ok" ] && [ -s "$CAST_TMP" ] &&
+  agg --font-size 28 --theme monokai --fps-cap 30 "$CAST_TMP" "$GIF_TMP" &&
+  ffmpeg -y -i "$GIF_TMP" \
+    -vf "fps=30,scale=trunc(iw/2)*2:trunc(ih/2)*2" \
+    -c:v libx264 -profile:v high -pix_fmt yuv420p -movflags +faststart \
+    "$MP4_TMP" &&
+  [ -s "$MP4_TMP" ] &&
+  ffprobe -v error -select_streams v:0 \
+    -show_entries stream=nb_frames,avg_frame_rate -of default=noprint_wrappers=1 \
+    "$MP4_TMP"; then
+  mv "$CAST_TMP" "$CAST_OUT"
+  mv "$MP4_TMP" "$MP4_OUT"
+  clip_ready=1
+else
+  clip_ready=
+  echo "terminal clip failed — switching this scene to the authored-terminal path" >&2
+  # Stop here, rewrite Capture: terminal, and author the deterministic terminal
+  # scene. Never continue with stale output from a previous attempt.
+fi
 ```
+
+Only author `templates/scene-terminal-clip.html` when `clip_ready=1`. Otherwise rewrite the
+storyboard scene to `Capture: terminal` and author `templates/scene-terminal.html` from the real
+command output. The fallback is the accepted result, not a successful clip attempt.
 
 The storyboard carries the inputs the skill needs:
 

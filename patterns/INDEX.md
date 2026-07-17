@@ -6,7 +6,7 @@ Quick map: *"I need to do X"* → *"read this file."* hve-spielberg leans on the
 
 | File | What it covers |
 |---|---|
-| `visual-patterns.md` | Easing vocabulary, scene-entry tweens (fade-up, scale-in, stagger, typewriter, counter), screenshot mockups (browser, floating card, device frame), colour psychology, text sizing, project-wide DON'Ts |
+| `visual-patterns.md` | Easing vocabulary, scene-entry tweens (fade-up, scale-in, stagger, typewriter, counter), screenshot mockups (browser, floating card, device frame), **camera & depth** (camera moves on stills, scroll-within-frame, motivated parallax, anchored callout/spotlight, in-scene shine sweep, masked reveal), colour psychology, text sizing, project-wide DON'Ts |
 | `metallic-swoosh.md` | Diagonal-shine transition between two scenes (inline in root timeline, not a sub-comp) |
 | `marker-highlight.md` | 5 word-emphasis patterns: highlight, circle, burst, scribble, sketchout — for kicker lines, stat reveals, before/after |
 | `transition-catalog.md` | One-page map of every CSS transition family + catalog blocks, mapped to product-video moments |
@@ -66,6 +66,13 @@ Phase 1 (storytelling)
 Phase 3 (design)
   ├─ Scene authoring → hyperframes skill SKILL.md + patterns.md
   ├─ Animation → ../visual-patterns.md (this repo)
+  ├─ Camera & depth on a still → ../visual-patterns.md § Camera & Depth (this repo):
+  │     ├─ Push / pull / drift on a screenshot → § Camera Moves on Stills
+  │     ├─ Pan a tall full-page capture        → § Scroll-Within-Frame
+  │     ├─ Depth from real product layers      → § Motivated Parallax
+  │     ├─ Direct the eye to a UI region       → § Anchored Callout / Spotlight
+  │     ├─ Specular pass over a UI card        → § In-Scene Shine Sweep
+  │     └─ Wipe an element in via a mask        → § Masked Reveal (mask-position)
   ├─ Charts/counters → data-in-motion.md
   └─ Emphasis on text → ../marker-highlight.md (this repo)
 

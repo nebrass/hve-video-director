@@ -2,6 +2,8 @@
 
 **Duration:** {total}s | **Canvas:** {width}×{height} ({aspect}) | **Renderer:** HyperFrames
 **Mode:** {promo | showcase | tutorial} | **Theme:** {light | dark}
+**Product surface:** {ui | none}   *(ui = real captures are the spine; none = intentional abstract/no-product film — waives the Phase-3 capture-coverage gate)*
+**Capture plan:** {N bound artifacts | none — skip Phase 2}
 
 All times are in **seconds**. Each scene below maps 1:1 to a HyperFrames sub-composition under `scenes/`. The Phase 4 root `index.html` references them via `data-composition-src`.
 
@@ -17,13 +19,14 @@ All times are in **seconds**. Each scene below maps 1:1 to a HyperFrames sub-com
 
 **Window:** {start}s → {end}s ({duration}s)
 **Scene file:** `scenes/{NN}-{slug}.html`
-**Screenshot:** `public/screenshots/scene-{NN}-{desc}.png` *(omit if pure design scene)*
-**Capture:** screenshot | screencast | terminal | terminal-clip | supplied   *(default: screenshot)*
+**Screenshot:** `public/screenshots/scene-{NN}-{desc}.png` *(REQUIRED for spine/product scenes — name the real capture this scene composites on screen; write `none — connective tissue` only for an intentional text/title/stat/CTA beat. A promo/showcase storyboard where NO scene names a screenshot or clip trips the Phase-3 capture-coverage gate unless Product surface is `none`.)*
+**Capture:** none | screenshot | screencast | terminal | terminal-clip | supplied
+*(default: `screenshot` for a product/spine scene; `none` for connective text/title/stat/CTA beats)*
 **Command:** `<exact shell command>`                          *(REQUIRED when Capture: terminal-clip — the skill executes this autonomously via `asciinema rec --command`. Use `bash -c '…'` for multi-step pipelines. Omit for Capture: terminal, which uses authored output.)*
 **Record timeout:** {seconds}                                *(terminal-clip only; default: scene duration + 2s — bounds non-terminating commands like dev servers / TUIs)*
 **Clip:** `public/clips/scene-{NN}-{slug}.mp4`                *(present when Capture yields a clip)*
 **Clip in/out:** {in}s–{out}s                                *(trim into the source; default: whole clip)*
-**Speed:** 1.0                                               *(defaultPlaybackRate; >1 only over dead air)*
+**Speed:** 1.0                                               *(allowed: 0.1–5.0; defaultPlaybackRate; >1 only over dead air)*
 **Clip audio:** none                                         *(default; set to a volume 0.0–1.0 to play the clip's own sound and duck the VO under it — Phase 5 Step 5.3a, spec §5.1/§14)*
 **Captions:** auto                                           *(auto = Whisper on the VO; `carried` = on-screen copy already shows the spoken line, tutorial-only)*
 **Chapter:** {title}                                         *(tutorial mode only — chapter/section name)*

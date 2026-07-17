@@ -68,16 +68,19 @@ Vercel's brand is *razor-sharp minimalism*. Very fast entrances, hard contrast, 
 | Stat-counter ease | `power2.out`, ~1.6s (faster than other brands) |
 | Avoid | Soft crossfades over 0.5s, swoosh transitions, anything ornamental |
 
-Vercel's voice is "deploys finish in milliseconds, ship is instant." Motion duration carries that message. Slower than 0.6s reads as off-brand.
-
-> **Marker highlight — one deliberate exception.** The shared `design-systems/vercel/DESIGN.md` lists marker highlights under *Avoid*. This project keeps exactly **one**: the ship-red (`#ff5b4f`) sweep on "This whole video." in `scenes/00-hero.html` — the single editorial emphasis beat (≤0.5s, `power2.out`, brand-colored, never ornamental). One per video; do not add a second.
+Vercel's voice is "deploys finish in milliseconds, ship is instant." Motion duration carries that message. Slower than 0.6s reads as off-brand — except deliberate camera moves (a slow push-in or scroll-within-frame over a framed screenshot), which run several seconds by design and release before the crossfade.
 
 ## 6. Video applications
 
-- **Hero scene:** `#ffffff` canvas, brand wordmark in Geist 600 at 160px on near-black `#171717`. Subtitle in Geist 400 at 40px. Both arrive in 0.4–0.5s, `expo.out`.
-- **Feature scene:** Terminal mockup (dark `#0a0a0a` pane, Geist Mono 32px), with simulated CLI output streaming in line-by-line via stagger. Caption in Geist 600 beside it.
-- **Stat scene:** Number at 200px Geist 700, tabular figures, on `#ffffff`. Counter ease `power2.out` over ~1.6s — short, sharp.
-- **CTA scene:** Install command (`npm i …`) in Geist Mono on dark elevated surface. Wordmark below at 80px, letter-by-letter assembly stagger 0.06s. Hold.
+This promo's spine is the **real blog, framed** — `templates/scene-screenshot.html` composites each
+`public/screenshots/*.png` in light browser chrome (traffic lights + `blog.nebrass.fr` URL bar) on a
+near-white radial surface with a layered elevation shadow. Per-scene:
+
+- **Establishing (`00-establishing`):** homepage hero in a browser frame; slow motivated push-in (1.0→1.05) toward the hero text, released before the crossfade.
+- **Depth (`01-depth`):** a post's syntax-highlighted code + diff; gentle push-in (1.0→1.06) toward the code block.
+- **Breadth (`02-breadth`):** the categories index; **no** camera move — a deliberate beat of stillness for rhythm.
+- **Volume (`03-scroll`):** the full-page homepage panned inside a fixed frame (scroll-within-frame — timeline-driven `translateY` on the inner wrapper, never `scrollTop`).
+- **CTA (`04-cta`):** closing text scene — `blog.nebrass.fr` in Geist 600 + a `/hve-spielberg` sign-off pill on `#ffffff`, held to the end.
 
 ## 7. Avoid
 

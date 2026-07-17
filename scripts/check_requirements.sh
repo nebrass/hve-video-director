@@ -165,13 +165,16 @@ fi
 section "Companion skills (required for Phases 3–4)"
 # ===========================================================================
 # Canonical home list — keep in lock-step with SKILL.md § Runtime Compatibility.
-SKILL_HOMES="$HOME/.claude/skills $HOME/.copilot/skills $HOME/.agents/skills .claude/skills .github/skills .agents/skills"
+SKILL_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+SKILL_HOMES="$HOME/.claude/skills|$HOME/.copilot/skills|$HOME/.agents/skills|$HOME/.pi/agent/skills|$HOME/.config/opencode/skills|$HOME/.cursor/skills|$HOME/.codex/skills|/etc/codex/skills|.claude/skills|.github/skills|.agents/skills|.pi/skills|.opencode/skills|.cursor/skills|.codex/skills|$SKILL_ROOT/.claude/skills|$SKILL_ROOT/.github/skills|$SKILL_ROOT/.agents/skills|$SKILL_ROOT/.pi/skills|$SKILL_ROOT/.opencode/skills|$SKILL_ROOT/.cursor/skills|$SKILL_ROOT/.codex/skills"
 
 check_skill() { # name  required(1/0)  install-cmd
-  local name="$1" required="$2" inst="$3" home found=
+  local name="$1" required="$2" inst="$3" home found= old_ifs="$IFS"
+  IFS='|'
   for home in $SKILL_HOMES; do
     [ -f "$home/$name/SKILL.md" ] && { found="$home"; break; }
   done
+  IFS="$old_ifs"
   if [ -n "$found" ]; then ok "$name skill ($found)"; return; fi
   if [ "$FIX" -eq 1 ] && [ -n "$inst" ] && command -v npx >/dev/null 2>&1; then
     printf '      %sinstalling %s skill…%s\n' "$DIM" "$name" "$RST"

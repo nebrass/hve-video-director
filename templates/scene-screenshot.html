@@ -1,0 +1,157 @@
+<!-- Screenshot scene archetype — THE SPINE of a product video.
+     Frames a REAL captured screenshot (public/screenshots/*.png) inside browser
+     chrome with depth, so the actual product is on screen. This is the default
+     hero/feature beat; text scenes (title-card, stat, cta) are connective tissue
+     BETWEEN these, not the substance.
+
+     WHY THIS EXISTS: the cheapest compliant scene used to be flat text on a flat
+     surface, because that was the only fully-worked template. This is the
+     copy-ready counterpart so "the real product, framed with depth" is the path
+     of least resistance instead.
+
+     DETERMINISM CONTRACT (headless-Chrome paused-timeline seek):
+       - The <img> NEVER animates its own dimensions. All motion is on a non-timed
+         WRAPPER (.shot-browser for entrance/push-in, .shot-pan for scroll).
+       - Reveal via autoAlpha (opacity+visibility together) + fromTo — never
+         tl.from(), never animate display/visibility directly. See
+         patterns/visual-patterns.md § "tl.from() stagger trap".
+       - No clipPath. No exit animation (the inter-scene crossfade owns the exit);
+         only the CLOSING scene of the whole video may hold/settle at the end.
+       - Camera moves (push-in / scroll) are OPTIONAL + MOTIVATED and must be
+         RELEASED before the 0.4s crossfade window so they never pull back
+         mid-transition. Never put a camera move on the closing scene.
+
+     SUBSTITUTE when authoring:
+       SHOT   = public/screenshots/<your-capture>.png  (a REAL Phase-2 capture)
+       HOST   = the product's real domain shown in the URL bar
+       CAP    = one supporting line, or delete .shot-caption entirely
+       Swap the canvas size for 1080×1920 / 1080×1080 / 1080×1350 if not 16:9.
+       Pull palette/surface/shadow/radius from DESIGN.md (tokens flagged below). -->
+<template id="scene-NN-screenshot-template">
+  <div data-composition-id="scene-NN-screenshot" data-width="1920" data-height="1080">
+    <div class="shot-stage">
+
+      <!-- ANIMATED WRAPPER: entrance + optional push-in live here, never on <img>.
+           Selectors below are scoped classes (not bare #id) so copying this template
+           into several scenes of one composition never collides. -->
+      <div class="shot-browser">
+        <div class="shot-bar">
+          <span class="dot dr"></span><span class="dot dy"></span><span class="dot dg"></span>
+          <div class="shot-url"><span class="shot-lock"></span><span class="shot-host">HOST — app.yourproduct.com</span></div>
+        </div>
+        <!-- VIEWPORT: overflow-hidden so a tall capture can pan inside it. -->
+        <div class="shot-view">
+          <!-- INNER WRAPPER for scroll-within-frame; not timed unless you add the pan tween. -->
+          <div class="shot-pan">
+            <img class="shot-img" src="public/screenshots/SHOT.png" alt="">
+          </div>
+        </div>
+      </div>
+
+      <!-- Connective text — optional. Delete if the product should speak for itself. -->
+      <div class="shot-caption">CAP — one supporting line about what's on screen</div>
+    </div>
+
+    <style>
+      [data-composition-id="scene-NN-screenshot"]{
+        position:absolute; inset:0;
+        display:flex; align-items:center; justify-content:center;
+        /* DESIGN.md surface. A barely-there radial gives the canvas depth so the
+           framed shot reads as a lit object, not a sticker on flat paper.
+           Dark brands: swap to e.g. radial-gradient(120% 120% at 50% 0%, #15161a, #0a0a0b). */
+        background:radial-gradient(120% 120% at 50% 0%, #ffffff 0%, #eef1f5 100%);
+        font-family:"Inter", system-ui, sans-serif;
+      }
+      [data-composition-id="scene-NN-screenshot"] .shot-stage{
+        display:flex; flex-direction:column; align-items:center; gap:40px; width:100%;
+      }
+      /* The framed browser. Multi-layer shadow + hairline = real elevation (DESIGN.md depth). */
+      [data-composition-id="scene-NN-screenshot"] .shot-browser{
+        width:72%; max-width:1480px; border-radius:14px; overflow:hidden;
+        background:#ffffff;
+        box-shadow:
+          0 0 0 1px rgba(0,0,0,.06),
+          0 2px 6px rgba(0,0,0,.05),
+          0 40px 90px rgba(0,0,0,.18);
+        visibility:hidden; opacity:0;          /* revealed via autoAlpha */
+        will-change:transform, opacity;
+      }
+      [data-composition-id="scene-NN-screenshot"] .shot-bar{
+        display:flex; align-items:center; gap:9px;
+        padding:14px 18px; background:#f3f4f6; border-bottom:1px solid rgba(0,0,0,.06);
+      }
+      [data-composition-id="scene-NN-screenshot"] .dot{width:13px; height:13px; border-radius:50%}
+      [data-composition-id="scene-NN-screenshot"] .dr{background:#ff5f56}
+      [data-composition-id="scene-NN-screenshot"] .dy{background:#ffbd2e}
+      [data-composition-id="scene-NN-screenshot"] .dg{background:#27c93f}
+      [data-composition-id="scene-NN-screenshot"] .shot-url{
+        margin-left:14px; flex:1; max-width:560px;
+        display:flex; align-items:center; gap:10px;
+        background:#ffffff; border:1px solid rgba(0,0,0,.07); border-radius:8px;
+        padding:7px 14px; color:#6b7280; font-size:18px;
+        font-family:"Geist Mono","JetBrains Mono",monospace; white-space:nowrap; overflow:hidden;
+      }
+      [data-composition-id="scene-NN-screenshot"] .shot-lock{
+        width:11px; height:9px; border:1.5px solid #9aa1ab; border-radius:2px; flex:none;
+        position:relative; margin-top:3px;
+      }
+      [data-composition-id="scene-NN-screenshot"] .shot-lock::before{
+        content:""; position:absolute; left:1.5px; top:-5px; width:6px; height:6px;
+        border:1.5px solid #9aa1ab; border-bottom:none; border-radius:3px 3px 0 0;
+      }
+      [data-composition-id="scene-NN-screenshot"] .shot-view{
+        /* A REAL fixed window. max-height caps a tall full-page capture so the card
+           never exceeds the canvas, while a viewport-sized capture fills naturally
+           (no letterbox). This IS the window the inner .shot-pan pans against for
+           scroll-within-frame. Tune to your canvas (72vh ≈ 778px at 1080 height). */
+        position:relative; width:100%; max-height:72vh; overflow:hidden; background:#ffffff;
+      }
+      [data-composition-id="scene-NN-screenshot"] .shot-pan{ display:block; }
+      [data-composition-id="scene-NN-screenshot"] .shot-img{
+        display:block; width:100%; height:auto;   /* dimensions set by CSS, NEVER tweened */
+      }
+      [data-composition-id="scene-NN-screenshot"] .shot-caption{
+        font-size:30px; font-weight:400; letter-spacing:-0.01em; color:#4b5563;
+        text-align:center; max-width:1100px; line-height:1.4;
+        visibility:hidden; opacity:0;
+      }
+    </style>
+
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js" integrity="sha384-sG0Hv1tP1lZCk9KQmrIbY/XNwi+OY84GQqhMscbnsoBFqAz8KNCil1kvfL3Hbbk2" crossorigin="anonymous"></script>
+    <script>
+      window.__timelines = window.__timelines || {};
+      const tl = gsap.timeline({ paused: true });
+      const root = '[data-composition-id="scene-NN-screenshot"]';
+
+      // Entrance: the framed product rises in. Wrapper only — the <img> is along for the ride.
+      tl.fromTo(root + ' .shot-browser',
+        { y: 48, autoAlpha: 0 },
+        { y: 0, autoAlpha: 1, duration: 0.7, ease: "expo.out" },
+        0.2);
+
+      // Connective caption settles after the product is established.
+      tl.fromTo(root + ' .shot-caption',
+        { y: 16, autoAlpha: 0 },
+        { y: 0, autoAlpha: 1, duration: 0.5, ease: "power2.out" },
+        0.9);
+
+      // ── OPTIONAL camera moves (uncomment ONE; both animate WRAPPERS only) ──────
+      //
+      // (a) MOTIVATED PUSH-IN — slow drift toward a focal UI region. transformOrigin
+      //     points at the thing you want the eye to land on (x% y% of the frame).
+      //     Start AFTER entrance settles; RELEASE before the crossfade if the scene
+      //     ends; NEVER on the closing scene.
+      // tl.fromTo(root + ' .shot-browser',
+      //   { scale: 1.0 }, { scale: 1.06, transformOrigin: "32% 28%", duration: 2.2, ease: "power1.inOut" }, 1.1);
+      //
+      // (b) SCROLL-WITHIN-FRAME — pan a TALL full-page capture up inside .shot-view.
+      //     Travel = (rendered image height − .shot-view height); measure from the
+      //     real PNG so the end lands on the footer, not past it. Timeline-driven
+      //     translateY ONLY — never scrollTop / scroll listeners / IntersectionObserver.
+      // tl.to(root + ' .shot-pan',
+      //   { y: -640 /* = viewHeight − imgHeight, negative */, duration: 3.0, ease: "power1.inOut" }, 1.1);
+
+      window.__timelines["scene-NN-screenshot"] = tl;
+    </script>
+  </div>
+</template>

@@ -1,0 +1,128 @@
+<!-- Stat / metric scene archetype — a proof point anchored to the REAL product.
+     The number animates BESIDE a real capture (a dashboard, a result screen) so
+     the metric reads as evidence, not a floating claim. A bare centered number on
+     a flat canvas is the old flat-text tell; keep the product in frame.
+
+     DETERMINISM CONTRACT:
+       - Counter via a PROXY object + onUpdate slice (seek-safe) — never a setInterval
+         or real clock. GSAP drives proxy.v from 0→TARGET and we format it each tick.
+       - Bar fill via wrapper scaleX (transform — seekable). Optional donut via SVG
+         stroke-dashoffset (also seekable) is sketched in a comment.
+       - Reveal via autoAlpha + fromTo. The <img> never animates its own dimensions.
+       - No clipPath, no exit animation.
+
+     SUBSTITUTE (NEVER invent numbers — use a real, defensible metric):
+       TARGET   = the final number (JS number, e.g. 98)
+       SUFFIX/PREFIX = "%", "k", "ms", "$" ...
+       STATLABEL = what the number measures
+       SHOT     = a real public/screenshots/*.png showing where the metric lives
+       PCT      = bar fill fraction 0..1 (often TARGET/scale)
+     NOTE: the script keys off scoped `.class` selectors (not bare #id), so the id attributes
+     below are inert; if you copy this template into two scenes of one composition, drop or
+     renumber the ids to avoid duplicate-id HTML. -->
+<template id="scene-NN-stat-template">
+  <div data-composition-id="scene-NN-stat" data-width="1920" data-height="1080">
+    <div class="stat-row">
+
+      <div class="stat-block">
+        <div class="stat-num" id="stat-num"><span class="stat-prefix">PREFIX</span><span class="stat-val">0</span><span class="stat-suffix">SUFFIX</span></div>
+        <div class="stat-label" id="stat-label">STATLABEL — what this measures</div>
+        <div class="stat-track" id="stat-track"><div class="stat-fill" id="stat-fill"></div></div>
+      </div>
+
+      <div class="stat-shot" id="stat-shot">
+        <div class="stat-frame"><img class="stat-img" src="public/screenshots/SHOT.png" alt=""></div>
+      </div>
+
+    </div>
+
+    <style>
+      [data-composition-id="scene-NN-stat"]{
+        position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+        padding:100px; box-sizing:border-box;
+        background:radial-gradient(120% 120% at 50% 0%, #ffffff 0%, #eef1f5 100%); /* DESIGN.md surface */
+        font-family:"Inter", system-ui, sans-serif; color:#171717;
+      }
+      [data-composition-id="scene-NN-stat"] .stat-row{
+        display:grid; grid-template-columns:0.9fr 1.1fr; align-items:center; gap:80px;
+        width:100%; max-width:1560px;
+      }
+      [data-composition-id="scene-NN-stat"] .stat-block{display:flex; flex-direction:column; gap:18px}
+      [data-composition-id="scene-NN-stat"] .stat-num{
+        font-size:200px; font-weight:700; letter-spacing:-0.05em; line-height:0.95;
+        color:#0a72ef;                          /* DESIGN.md accent */
+        display:flex; align-items:baseline; visibility:hidden; opacity:0;
+        font-variant-numeric:tabular-nums;      /* digits don't reflow as they count */
+      }
+      [data-composition-id="scene-NN-stat"] .stat-prefix,
+      [data-composition-id="scene-NN-stat"] .stat-suffix{font-size:96px; font-weight:600}
+      [data-composition-id="scene-NN-stat"] .stat-label{
+        font-size:34px; font-weight:400; color:#4b5563; letter-spacing:-0.01em; max-width:560px;
+        visibility:hidden; opacity:0;
+      }
+      [data-composition-id="scene-NN-stat"] .stat-track{
+        height:8px; border-radius:999px; background:rgba(0,0,0,.08); overflow:hidden; max-width:520px;
+        visibility:hidden; opacity:0;
+      }
+      [data-composition-id="scene-NN-stat"] .stat-fill{
+        height:100%; border-radius:999px; background:#0a72ef;
+        transform:scaleX(0); transform-origin:left center;   /* animated via transform — seekable */
+      }
+      [data-composition-id="scene-NN-stat"] .stat-shot{visibility:hidden; opacity:0}
+      [data-composition-id="scene-NN-stat"] .stat-frame{
+        border-radius:12px; overflow:hidden; background:#fff;
+        box-shadow:0 0 0 1px rgba(0,0,0,.06), 0 28px 70px rgba(0,0,0,.18);
+      }
+      [data-composition-id="scene-NN-stat"] .stat-img{display:block; width:100%; height:auto}
+    </style>
+
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js" integrity="sha384-sG0Hv1tP1lZCk9KQmrIbY/XNwi+OY84GQqhMscbnsoBFqAz8KNCil1kvfL3Hbbk2" crossorigin="anonymous"></script>
+    <script>
+      window.__timelines = window.__timelines || {};
+      const tl = gsap.timeline({ paused: true });
+      const root = '[data-composition-id="scene-NN-stat"]';
+
+      const TARGET = Number.NaN;  // REQUIRED: replace with a real, defensible final number
+      const PCT    = Number.NaN;  // REQUIRED: replace with the matching fill fraction 0..1
+      if (!Number.isFinite(TARGET) || !Number.isFinite(PCT) || PCT < 0 || PCT > 1) {
+        throw new Error("scene-NN-stat: replace TARGET and PCT with verified metric values");
+      }
+      const valEl  = document.querySelector(root + ' .stat-val');
+      const proxy  = { v: 0 };
+
+      // Product capture establishes first (it's the evidence the number refers to).
+      tl.fromTo(root + ' .stat-shot',
+        { x: 36, autoAlpha: 0 },
+        { x: 0, autoAlpha: 1, duration: 0.6, ease: "power3.out" },
+        0.2);
+
+      tl.fromTo(root + ' .stat-num',
+        { y: 24, autoAlpha: 0 },
+        { y: 0, autoAlpha: 1, duration: 0.4, ease: "power2.out" },
+        0.6);
+
+      // Count up — proxy + onUpdate is the seek-safe counter (visual-patterns.md).
+      tl.to(proxy, { v: TARGET, duration: 1.1, ease: "power2.out",
+        onUpdate: () => { valEl.textContent = Math.round(proxy.v); } }, 0.7);
+
+      tl.fromTo(root + ' .stat-label',
+        { y: 14, autoAlpha: 0 },
+        { y: 0, autoAlpha: 1, duration: 0.4, ease: "power2.out" },
+        1.0);
+
+      // Bar reveals, then fills via scaleX (transform — deterministic).
+      tl.to(root + ' .stat-track', { autoAlpha: 1, duration: 0.3 }, 1.0);
+      tl.fromTo(root + ' .stat-fill',
+        { scaleX: 0 }, { scaleX: PCT, duration: 1.0, ease: "power2.out" }, 1.05);
+
+      // ── OPTIONAL donut instead of a bar (also seekable via stroke-dashoffset) ──
+      //   <svg viewBox="0 0 120 120"><circle id="donut" cx="60" cy="60" r="54"
+      //        fill="none" stroke="#0a72ef" stroke-width="12"
+      //        stroke-dasharray="339.292" stroke-dashoffset="339.292"
+      //        transform="rotate(-90 60 60)"/></svg>
+      //   tl.to(root+' #donut', { strokeDashoffset: 339.292*(1-PCT), duration:1.0, ease:"power2.out" }, 1.05);
+
+      window.__timelines["scene-NN-stat"] = tl;
+    </script>
+  </div>
+</template>

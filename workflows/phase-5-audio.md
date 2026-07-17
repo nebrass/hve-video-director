@@ -77,8 +77,16 @@ could not run concurrently.
 ```bash
 # $SKILL_HOMES is the canonical home list defined in SKILL.md § Runtime Compatibility.
 # Keep this line identical to that definition; edit it there, not here.
-SKILL_HOMES="$HOME/.claude/skills $HOME/.copilot/skills $HOME/.agents/skills .claude/skills .github/skills .agents/skills"
-SKILL_DIR=$(for h in $SKILL_HOMES; do [ -d "$h/hve-spielberg" ] && echo "$h/hve-spielberg" && break; done)
+SKILL_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+SKILL_HOMES="$HOME/.claude/skills|$HOME/.copilot/skills|$HOME/.agents/skills|$HOME/.pi/agent/skills|$HOME/.config/opencode/skills|$HOME/.cursor/skills|$HOME/.codex/skills|/etc/codex/skills|.claude/skills|.github/skills|.agents/skills|.pi/skills|.opencode/skills|.cursor/skills|.codex/skills|$SKILL_ROOT/.claude/skills|$SKILL_ROOT/.github/skills|$SKILL_ROOT/.agents/skills|$SKILL_ROOT/.pi/skills|$SKILL_ROOT/.opencode/skills|$SKILL_ROOT/.cursor/skills|$SKILL_ROOT/.codex/skills"
+SKILL_DIR=$(
+  OLD_IFS=$IFS
+  IFS='|'
+  for h in $SKILL_HOMES; do
+    [ -d "$h/hve-spielberg" ] && { echo "$h/hve-spielberg"; break; }
+  done
+  IFS=$OLD_IFS
+)
 [ -n "$SKILL_DIR" ] || { echo "ERROR: hve-spielberg install dir not found — set SKILL_DIR to the skill's path manually" >&2; }
 cp "$SKILL_DIR/scripts/generate_voiceover.py" ./voiceover.py
 ```
@@ -376,22 +384,86 @@ CIN=2.0 ; COUT=8.0 ; SPEED=1.0            # `Clip in/out` + `Speed` — CIN must
                                            # scene <video>'s data-media-start or A/V desync
 CW=18.5                                    # scene data-start in index.html
 VOL=0.6                                    # `Clip audio` value
-DELAY=$(echo "$CW*1000/1" | bc)
+DURATION=$(ffprobe -v error -show_entries format=duration -of csv=p=0 \
+  voiceover-with-music.mp3)                # derive; never hard-code 30/60/90
+read -r DELAY PLAY_DURATION ATEMPO <<EOF
+$(python3 - "$CW" "$CIN" "$COUT" "$SPEED" <<'PY'
+import sys
 
-# 1. Extract+trim clip audio, loudness-normalize, scale by VOL, delay to start at CW.
+cw, cin, cout, speed = map(float, sys.argv[1:])
+if cw < 0 or cin < 0 or cout <= cin or not 0.1 <= speed <= 5.0:
+    raise SystemExit(
+        "invalid clip timing: require CW/CIN >= 0, COUT > CIN, 0.1 <= SPEED <= 5.0"
+    )
+
+# atempo filters outside 0.5–2.0 are chained so arbitrary positive speeds remain valid.
+remaining = speed
+factors = []
+while remaining > 2.0:
+    factors.append(2.0)
+    remaining /= 2.0
+while remaining < 0.5:
+    factors.append(0.5)
+    remaining /= 0.5
+factors.append(remaining)
+
+delay_ms = round(cw * 1000)
+play_duration = (cout - cin) / speed
+atempo = ",".join(f"atempo={factor:.8g}" for factor in factors)
+print(delay_ms, f"{play_duration:.6f}", atempo)
+PY
+)
+EOF
+python3 - "$DURATION" <<'PY'
+import sys
+
+duration = float(sys.argv[1])
+if duration <= 0:
+    raise SystemExit("voiceover-with-music.mp3 has no usable duration")
+PY
+
+# 1. Extract+trim clip audio, apply the storyboard Speed, cap it to the footage-derived
+#    scene duration, loudness-normalize, scale by VOL, then delay it to start at CW.
 ffmpeg -y -ss "$CIN" -to "$COUT" -i "$CLIP" \
-  -af "loudnorm=I=-18:TP=-2:LRA=11,volume=${VOL},adelay=${DELAY}|${DELAY}" \
+  -af "${ATEMPO},atrim=duration=${PLAY_DURATION},loudnorm=I=-18:TP=-2:LRA=11,volume=${VOL},adelay=${DELAY}|${DELAY}" \
   -ac 2 clip-audio-03.mp3
+
+# Fail before mixing if the generated clip-audio window exceeds the footage-derived budget.
+ACTUAL_DURATION=$(ffprobe -v error -show_entries format=duration -of csv=p=0 clip-audio-03.mp3)
+python3 - "$ACTUAL_DURATION" "$CW" "$PLAY_DURATION" <<'PY'
+import sys
+
+actual, start, budget = map(float, sys.argv[1:])
+expected_end = start + budget
+actual_end = actual  # adelay is already included in the encoded file duration
+if actual_end > expected_end + 0.1:
+    raise SystemExit(
+        f"clip audio ends at {actual_end:.3f}s, beyond scene budget {expected_end:.3f}s"
+    )
+PY
 
 # 2. Duck the VO+music under the clip (sidechain), then mix the clip on top. Keep the
 #    canonical output filename — Step 5.4 reads it unchanged.
 ffmpeg -y -i voiceover-with-music.mp3 -i clip-audio-03.mp3 \
   -filter_complex "
-    [1:a]asplit=2[clip][key];
+    [1:a]asplit=2[clip][key-raw];
+    [key-raw]apad=whole_dur=${DURATION},atrim=duration=${DURATION}[key];
     [0:a][key]sidechaincompress=threshold=0.05:ratio=8:attack=20:release=300[ducked];
     [ducked][clip]amix=inputs=2:duration=first:dropout_transition=0:normalize=0,
                   alimiter=limit=0.89[out]" \
   -map "[out]" -c:a libmp3lame -q:a 2 voiceover-with-music.tmp.mp3
+
+MIXED_DURATION=$(ffprobe -v error -show_entries format=duration -of csv=p=0 \
+  voiceover-with-music.tmp.mp3)
+python3 - "$DURATION" "$MIXED_DURATION" <<'PY'
+import sys
+
+source, mixed = map(float, sys.argv[1:])
+if abs(source - mixed) > 0.25:
+    raise SystemExit(
+        f"clip-audio mix changed soundtrack duration: source={source:.3f}s mixed={mixed:.3f}s"
+    )
+PY
 mv voiceover-with-music.tmp.mp3 voiceover-with-music.mp3
 ```
 

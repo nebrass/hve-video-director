@@ -65,6 +65,7 @@ Linear's brand is *engineered precision*. Motion is fast, deterministic, no over
 | Stagger | 0.06–0.10s (snappy) |
 | Scene-to-scene transition | Quick crossfade 0.3–0.4s, `power2.inOut` |
 | Section-boundary | Hard cut OR 0.3s crossfade. **No flourish.** |
+| Product-shot camera | Crisp 1.02→1.0 settle over ~0.5s, `power3.out` — no overshoot |
 | Avoid | `back.out`, `elastic`, shader transitions, marker-highlights, anything ornamental |
 
 The brand voice is "things work because they're well-built, not because they look impressive." Motion follows.

@@ -202,6 +202,9 @@ Use the `hyperframes` skill for the composition authoring rules — the most imp
   - `data-media-start` = the storyboard's `Clip in` (trim offset, seconds; `0` if whole).
     Omitting it plays the source from `t=0`, discards the `Clip in/out` trim, and desyncs the
     footage from Phase 5's clip-audio window (`CIN`/`COUT`, Step 5.3a).
+  - Set `defaultPlaybackRate` and `playbackRate` on the `<video>` to the storyboard `Speed`;
+    reject values outside **0.1–5.0**, which HyperFrames clamps internally. Scene duration,
+    footage, and clip-own audio must all use the same speed.
 - A rigid real-time clip (e.g. a live command run) sets its own budget: keep it at
   `Speed: 1.0` and size the scene to the real length; speed-ramp **only** explicitly
   marked dead air.
@@ -211,7 +214,7 @@ Use the `hyperframes` skill for the composition authoring rules — the most imp
   scene MUST use the device-frame wrapper — bare-edge footage is not allowed in
   promo. Verify by eye in `npx hyperframes inspect` before advancing. (There is no
   programmatic gate; see spec §5.5/§14.)
-- **Legibility check (orchestrator-enforced, spec §7.2a):** narrative-critical UI text in footage must read ≥24px effective in the rendered frame. If raw capture is below that, add a footage-time punch-in on the `.clip-frame` wrapper (see `patterns/visual-patterns.md` § Footage Legibility Punch-In). Verify by eye in `npx hyperframes inspect . --at <focal-t>`; there is no programmatic gate.
+- **Legibility check (orchestrator-enforced, spec §7.2a):** narrative-critical UI text in footage must read ≥24px effective in the rendered frame. If raw capture is below that, add a footage-time punch-in on the `.clip-frame` wrapper (see `patterns/visual-patterns.md` § Camera Moves on Stills — the "When footage text is too small" subsection). Verify by eye in `npx hyperframes inspect . --at <focal-t>`; there is no programmatic gate.
 - **Segment cap (spec §7.2b, orchestrator-enforced):** no continuous instructional run exceeds ~90s without an authored recap beat. Insert a `scenes/NN-recap.html` (from `templates/scene-recap.html`) listing the steps just covered, then resume. Self-police; no programmatic gate.
 
 ## Step 4.5: Wire Transitions
@@ -258,6 +261,8 @@ npx hyperframes inspect . --at 2.5,7,12,18,24,30
 ```
 
 Then **Read each `.hyperframes/inspect/*.png`** and confirm, scene by scene, that the frame shows what the storyboard calls for — correct screenshot, correct clip footage, correct copy. This re-uses the headless-Chrome frames `inspect` already writes (no `ffmpeg`, no rendered MP4 needed — the render doesn't exist until Phase 5). Do not advance until every scene's hero frame matches its storyboard intent.
+
+**Capture-coverage backstop:** if `product_surface: ui`, confirm at least one hero frame shows a real on-screen capture (the product framed) — this is the visual confirmation of the Phase-3 capture-coverage gate (`SKILL.md` § Entry Modes → `jump`). A promo/showcase whose hero frames are all text/CTA means the spine never made it on screen; return to Phase 3.
 
 Ask:
 

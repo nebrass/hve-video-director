@@ -12,12 +12,15 @@
                 seconds; 0 if untrimmed). Without data-media-start the runtime
                 plays from source t=0 and ignores the trim — and desyncs from
                 Phase 5's clip-audio extraction (CIN).
+       SPEED  = the storyboard's `Speed` (0.1–5.0; normally 1.0). HyperFrames reads
+                defaultPlaybackRate while footage-locking, so set it explicitly.
      The runtime only seeks videos that carry data-start: a bare <video> is
      auto-discovered for display but never time-synced, so it's safe ONLY as
      the single clip in a composition (and even then it never advances past
      frame 0). With 2+ clip scenes, bare videos cross-route — one scene plays
      another's footage, another plays black. Animate the wrapper, NEVER the
-     <video> dimensions. Clip-own audio is OFF in v1 (muted). -->
+     <video> dimensions. The element stays muted; opt-in clip-own audio is
+     mixed separately in Phase 5. -->
 <template id="scene-NN-clip-template">
   <div data-composition-id="scene-NN-clip" data-width="1920" data-height="1080">
     <div class="clip-frame">
@@ -37,6 +40,13 @@
     <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js" integrity="sha384-sG0Hv1tP1lZCk9KQmrIbY/XNwi+OY84GQqhMscbnsoBFqAz8KNCil1kvfL3Hbbk2" crossorigin="anonymous"></script>
     <script>
       window.__timelines = window.__timelines || {};
+      const video = document.getElementById("vid-NN");
+      const SPEED = Number.NaN; // REQUIRED: replace with storyboard Speed (normally 1.0)
+      if (!Number.isFinite(SPEED) || SPEED < 0.1 || SPEED > 5.0) {
+        throw new Error("scene-NN-clip: SPEED must be between 0.1 and 5.0");
+      }
+      video.defaultPlaybackRate = SPEED;
+      video.playbackRate = SPEED;
       const tl = gsap.timeline({ paused: true });
       // Entrance: animate the WRAPPER only (autoAlpha + fromTo per the stagger-trap rule).
       tl.fromTo('[data-composition-id="scene-NN-clip"] .clip-frame',

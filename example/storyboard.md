@@ -1,137 +1,119 @@
-# Storyboard — hve-spielberg promo
+# Storyboard — blog.nebrass.fr promo
 
-**Duration:** 60s | **Canvas:** 1920×1080 (16:9) | **Renderer:** HyperFrames
+**Duration:** ~53s | **Canvas:** 1920×1080 (16:9) | **Renderer:** HyperFrames
 **Mode:** promo | **Theme:** light (Vercel-style)
+**Product surface:** ui   *(real captures are the spine; built by hve-spielberg, signs off with the tool)*
+**Capture plan:** 4 bound screenshots
 
-5-scene end-to-end-pipeline emphasis. All times in seconds. Each scene maps 1:1 to a HyperFrames sub-composition under `scenes/`.
+5 scenes. The **real blog is the spine**: scenes 0–3 each composite a live Phase-2 capture in
+browser chrome with a distinct, motivated camera move; scene 4 is the closing text CTA
+(connective tissue). All times in seconds. Each scene maps 1:1 to a HyperFrames sub-composition
+under `scenes/`.
 
 VO timing discipline (per `workflows/phase-5-audio.md`):
-- VO starts ≥1.0s after scene start (entry buffer for visuals to land)
-- VO ends ≥0.5s before scene end (tail buffer for breathing)
-- Adjacent scenes OVERLAP during the 0.4s crossfade window (data-duration extends 0.4s past nominal end, next data-start moves 0.4s earlier)
-- The VO end-times below are **nominal estimates** mirrored from `voiceover.py`'s per-section budget; rendered ElevenLabs durations vary ±0.5s. Verify with `npx hyperframes transcribe voiceover.mp3` and adjust if any section overruns its scene window.
+- VO starts ≥1.0s after scene start; ends ≥0.5s before scene end.
+- Adjacent scenes OVERLAP during the 0.4s crossfade (data-duration extends 0.4s past nominal end; next data-start moves 0.4s earlier).
+- VO end-times below are nominal; verify with `npx hyperframes transcribe voiceover.mp3`.
+- **Durations are deliberately varied** (8.4 / 12.4 / 10.4 / 12.4 / 11s) so the product scenes don't read as an even slideshow.
 
 ---
 
-### Scene 0: Hook (meta-conceit)
+### Scene 0: Establishing — the blog itself
 
-**Window:** 0s → 6.4s (incl. crossfade overlap)
-**Scene file:** `scenes/00-hero.html`
+**Window:** 0s → 8.4s (incl. crossfade overlap)
+**Scene file:** `scenes/00-establishing.html`  *(from `templates/scene-screenshot.html`)*
+**Screenshot:** `public/screenshots/01-home-hero-light.png`
+**Capture:** screenshot
+**Camera:** slow motivated push-in (1.0→1.05) on the `.shot-browser` wrapper, transformOrigin toward the hero text; released before the crossfade.
 
 **Visual:**
-- Large headline in Geist 600 at 180px: "One slash command."
-- Subtitle in Geist 400 at 56px below: marker-highlighted "This whole video." + " Made in Claude Code."
-- Marker-sweep highlight on "This whole video." — Vercel ship-red `#ff5b4f` (`patterns/marker-highlight.md` § highlight mode)
-- Canvas `#ffffff`, near-black text `#171717`
+- The homepage hero in a light browser frame (traffic lights + `blog.nebrass.fr` in the URL bar), soft elevation shadow on the Vercel near-white surface.
+- Optional one-line caption beneath: "blog.nebrass.fr".
 
-**Voiceover (1.0s → ~5.0s):**
-> "One slash command. This whole video. Made in Claude Code."
+**Voiceover (1.0s → ~6.8s):**
+> "This is Nebrass's blog — software engineering, the cloud, and Java, written by someone who actually ships."
 
-**Animation:**
-- Headline `tl.fromTo('#hl', {y:60, autoAlpha:0}, {y:0, autoAlpha:1, duration:0.7, ease:'expo.out'}, 0.3)`
-- Subtitle `tl.fromTo('#sub', {y:24, autoAlpha:0}, {y:0, autoAlpha:1, duration:0.5, ease:'power2.out'}, 1.1)`
-- Marker sweep on "This whole video.": `tl.to('#mh-this', { scaleX: 1, duration: 0.5, ease: 'power2.out' }, 1.8)`
+**Animation:** `.shot-browser` `fromTo({y:48, autoAlpha:0} → {y:0, autoAlpha:1}, 0.7s, expo.out)` at 0.2s; caption at 0.9s; push-in 1.1→ (released ~7.4s).
 
-**Transition to next:** crossfade 0.4s at 6s (incoming-only fade-in on scene 1)
+**Transition to next:** crossfade 0.4s at 8s.
 
 ---
 
-### Scene 1: How (terminal mockup — visual proof)
+### Scene 1: Depth — every post goes deep
 
-**Window:** 6s → 16.4s (incl. crossfade overlaps both ends)
-**Scene file:** `scenes/01-how.html`
+**Window:** 8s → 20.4s
+**Scene file:** `scenes/01-depth.html`  *(from `templates/scene-screenshot.html`)*
+**Screenshot:** `public/screenshots/04-post-code-light.png`
+**Capture:** screenshot
+**Camera:** motivated push-in toward the code/diff block (transformOrigin on the highlighted code), then hold; released before the crossfade.
 
 **Visual:**
-- A simulated terminal pane (dark `#0a0a0a` chrome on white canvas)
-- Title bar: "claude code"
-- Prompt line `$ /hve-spielberg` (no argument — matches the canonical CLI)
-- 4 checkmark lines stream in with stagger:
-  1. ✓ Interviewed about your product
-  2. ✓ Picked the Vercel design system
-  3. ✓ Captured your live app
-  4. ✓ Rendered `final.mp4`
-- Closing line: "Done in 14m 22s"
+- A real post reading view with syntax-highlighted code + red/green diff blocks ("Bug #1: a misplaced ffmpeg flag"), framed in browser chrome (`blog.nebrass.fr/playing-with-puppeteer…`).
 
-**Voiceover (7.4s → ~15.0s):**
-> "Inside Claude Code. Slash Aitch Vee Ee Spielberg. It interviews you, picks a brand, captures your app, renders the video."
+**Voiceover (9.0s → ~18.5s):**
+> "Every post goes deep. Real bugs, real fixes — like the two compounding bugs that were slowing Puppeteer's screencasts, traced and merged upstream."
 
-**Animation:**
-- Terminal panel `tl.fromTo('#term', {y:40, autoAlpha:0}, {y:0, autoAlpha:1, duration:0.6, ease:'power3.out'}, 0.2)`
-- Prompt line at 0.7s; 4 checkmarks stagger 0.55s apart starting at 1.3s
-- "Done in 14m 22s" at 3.7s
+**Animation:** wrapper entrance at 0.2s; push-in toward the code at ~1.2s (transformOrigin ~"30% 62%"), released ~11.4s.
 
-**Transition to next:** crossfade 0.4s at 16s
+**Transition to next:** crossfade 0.4s at 20s.
 
 ---
 
-### Scene 2: Pipeline (the 6 phases)
+### Scene 2: Breadth — dozens of topics
 
-**Window:** 16s → 32.4s
-**Scene file:** `scenes/02-pipeline.html`
+**Window:** 20s → 30.4s
+**Scene file:** `scenes/02-breadth.html`  *(from `templates/scene-screenshot.html`)*
+**Screenshot:** `public/screenshots/05-categories-light.png`
+**Capture:** screenshot
+**Camera:** none — a clean settle (rhythm variety: not every scene moves). Static frame after entrance.
 
 **Visual:**
-- Top headline in Geist 600 at 80px: "Six phases. In order."
-- 6 phase chips in a 3×2 grid (`#ffffff` cards, Vercel shadow-as-border), numbered **1–6** (not 0–5; 1-based for viewer-facing content):
-  - 1. **Discover the product** — using design thinking
-  - 2. **Write the narrative** — promo or showcase, scene by scene
-  - 3. **Capture the live app** — via Chrome DevTools, every viewport
-  - 4. **Design the scenes** — brand DNA applied to HTML
-  - 5. **Compose the timeline** — GSAP tweens, sub-second precision
-  - 6. **Render the video** — headless Chrome, deterministic MP4
+- The categories index (tag cloud with real counts: Kubernetes, Security, Azure, Java, AI/ML…), framed in browser chrome (`blog.nebrass.fr/categories`).
 
-**Voiceover (17.4s → ~31.5s, ~14s):**
-> "Six phases. Discover with design thinking. Storyboard the narrative. Capture via Chrome DevTools. Design with brand DNA. Compose with GSAP at sub-second precision. Render to deterministic MP4."
+**Voiceover (21.0s → ~28.8s):**
+> "Kubernetes, security, Azure, machine learning — dozens of topics, all in one place."
 
-**Animation:**
-- Headline `fromTo({y:30, autoAlpha:0} → {y:0, autoAlpha:1}, 0.5s, expo.out)` at 0.3s
-- 6 chips stagger in from `{y:30, autoAlpha:0}` at 1.0s, 0.18s stagger
+**Animation:** `.shot-browser` `fromTo({y:48, autoAlpha:0} → {y:0, autoAlpha:1}, 0.7s, expo.out)` at 0.2s. No camera move (deliberate beat of stillness).
 
-**Transition to next:** crossfade 0.4s at 32s
+**Transition to next:** crossfade 0.4s at 30s.
 
 ---
 
-### Scene 3: Proof (the 3 tools that made this video)
+### Scene 3: Volume — years of writing (scroll-within-frame)
 
-**Window:** 32s → 47.4s
-**Scene file:** `scenes/03-features.html`
-
-**Visual:** 3 horizontal bands stacked vertically (Geist; develop-blue `#0a72ef` accent words):
-- **01. Vercel design system.** *Geist typography. Black on white. Shadow-as-border. The brand DNA, vendored — not approximated.*
-- **02. ElevenLabs · Whisper · Freesound.** *Voice generated. Timing verified. Score licensed CC-BY. The audio pipeline, end to end.*
-- **03. Headless Chrome render.** *Fifteen minutes from prompt to MP4. Deterministic. Re-runnable. Yours to edit.*
-
-**Voiceover (33.4s → ~46.0s):**
-> "This video proves the loop. Vercel design system. ElevenLabs voiceover. Whisper-verified timing. Freesound score. Headless Chrome render. Fifteen minutes, not three weeks."
-
-**Animation:**
-- 3 bands `fromTo({x:-30, autoAlpha:0} → {x:0, autoAlpha:1}, 0.5s, power3.out, stagger:0.55)` at 0.4s
-
-**Transition to next:** crossfade 0.4s at 47s
-
----
-
-### Scene 4: CTA (install + URL)
-
-**Window:** 47s → 60s (held final frame)
-**Scene file:** `scenes/04-cta.html`
+**Window:** 30s → 42.4s
+**Scene file:** `scenes/03-scroll.html`  *(from `templates/scene-screenshot.html`, scroll-within-frame variant)*
+**Screenshot:** `public/screenshots/01-home-full-light.png`  *(full-page, 3840×15366)*
+**Capture:** screenshot
+**Camera:** scroll-within-frame — timeline-driven `translateY` on the inner `.shot-pan` wrapper, panning the tall homepage down the post list; ends on a lower post, released before the crossfade. (NOT scrollTop/listeners.)
 
 **Visual:**
-- Install command pill on dark `#0a0a0a`: `/hve-spielberg` (no required argument — matches canonical CLI)
-- Hairline rule below
-- Brand wordmark "hve-spielberg" in Geist 600 at 96px, letter-by-letter stagger
-- URL row in Geist Mono 32px: `github.com/` (muted) + `nebrass/hve-spielberg` (primary)
-- Meta line in Geist 400 at 24px — "MIT · open source · your turn to ship something good"
-- Held final 2s (no exit animation; this is the closing scene)
+- The full homepage in a fixed browser frame; the long post list scrolls past inside the viewport — showing there's a lot to read.
 
-**Voiceover (48.4s → ~58.5s):**
-> "Slash Aitch Vee Ee Spielberg, in Claude Code. Free, open source on GitHub at nebrass slash hve dash spielberg. Your turn to ship something good."
+**Voiceover (31.0s → ~40.5s):**
+> "Years of write-ups — free to read, and always something new."
 
-**Animation:**
-- Install pill `fromTo({y:40, autoAlpha:0} → {y:0, autoAlpha:1}, 0.6s, expo.out)` at 0.3s
-- Hairline rule width 0→540 over 0.7s at 0.9s
-- Wordmark letters stagger in from `{y:20, autoAlpha:0}` at 1.1s (0.06s stagger)
-- URL row at 2.2s
-- Meta line at 2.9s
-- Held from ~3.4s through scene end
+**Animation:** wrapper entrance at 0.2s; `.shot-pan` `to({y: −(imgRenderedHeight − viewHeight)*fraction})` over ~7s `power1.inOut` from ~1.2s; released ~41.4s.
 
-**Transition to next:** *none — closing scene, ends on held final frame*
+**Transition to next:** crossfade 0.4s at 42s.
+
+---
+
+### Scene 4: CTA — where to find it (+ made-with sign-off)
+
+**Window:** 42s → 53s (held final frame)
+**Scene file:** `scenes/04-cta.html`  *(inline text skeleton — connective tissue / closing)*
+**Screenshot:** `none — connective tissue`
+**Capture:** none
+
+**Visual:**
+- URL on a clean canvas: `blog.nebrass.fr` (Geist, large), with a hairline rule.
+- Sign-off line: "made with `/hve-spielberg`" (the dogfood hook survives).
+- Held final 2s (no exit; closing scene).
+
+**Voiceover (43.0s → ~51.0s):**
+> "Find it at blog dot nebrass dot eff arr. And this whole video? Made with one command — slash Aitch Vee Ee Spielberg."
+
+**Animation:** URL `fromTo({y:40, autoAlpha:0} → {y:0, autoAlpha:1}, 0.6s, expo.out)` at 0.3s; hairline width 0→540 at 0.9s; sign-off line at 1.6s; held from ~2.2s.
+
+**Transition to next:** *none — closing scene, held final frame.*

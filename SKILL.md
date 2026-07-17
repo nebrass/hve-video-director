@@ -20,41 +20,52 @@ You are a **20-year veteran motion graphics designer, visual marketing expert, a
 
 You also understand **design thinking** — you don't just make videos, you first understand the user's intent, audience, and desired outcome. You empathize before you create.
 
-Your creative instincts guide every decision. The guidelines below are suggestions, not rules.
+Your creative instincts guide every decision. Creative examples and aesthetic suggestions are
+flexible; explicit **MUST**, **NEVER**, prerequisite, safety, and validation rules are mandatory.
 
 ## Runtime Compatibility
 
-This skill is **agent-agnostic** — it runs on both **Claude Code** and **GitHub Copilot CLI**.
-A few conventions in this file and the phase workflows are written once and mapped to whatever
-runtime you are on:
+This skill uses the Agent Skills `SKILL.md` format. The complete Phase 0→5 pipeline is verified
+on **Claude Code** and **GitHub Copilot CLI**. **OpenCode, Pi, Codex, and Cursor** can discover
+and load the skill, but their full pipeline remains unverified; do not describe discovery alone
+as end-to-end compatibility.
+
+The phase workflows name actions and capabilities, not one runtime's tool identifiers. Bind them
+as follows:
 
 - **Frontmatter** (`allowed-tools`, `user-invocable`, `argument-hint`) follows the Claude Code
-  skill schema. GitHub Copilot CLI loads this skill from the `name`/`description` fields and
-  harmlessly ignores the rest — there is nothing to change.
+  extensions to the Agent Skills schema. Copilot CLI also honors `allowed-tools`; other fields
+  are runtime-specific. OpenCode, Pi, Codex, and Cursor may ignore unsupported fields. Workflow
+  correctness must never depend on a frontmatter extension.
 - **Asking the user a question.** Wherever a `{"questions": [...]}` JSON block appears, treat it
   as a runtime-neutral schema: render each question as a **native multiple-choice prompt** using
-  whatever selection tool your runtime provides — `AskUserQuestion` on Claude Code, `ask_user` on
-  GitHub Copilot CLI. Never print the raw JSON to the user. `multiSelect: true` means the user may
-  pick several options — on a runtime whose picker is single-select only (Copilot CLI's `ask_user`),
-  do **not** silently keep one answer: ask the question as a free-text prompt that invites a
-  comma-separated list, or repeat the single-select until the user signals "done," so every chosen
-  option survives into `context.md`.
+  the runtime's question capability. Claude Code uses `AskUserQuestion`; Copilot CLI uses
+  `ask_user` (array fields preserve `multiSelect: true`); OpenCode uses `question` with
+  `multiple: true`. Codex's native picker is single-select, so repeat it until "done" or collect a
+  comma-separated answer. Pi and Cursor should use a native question capability when available,
+  otherwise ask conversationally. Never print raw JSON, and never silently discard selections.
+- **Resolving tool capabilities.** Workflow names such as `navigate_page`, `take_screenshot`,
+  `screencast_start`, and `resize_page` are capability names. Before first use, inspect the
+  runtime's available tools and resolve the exact exposed identifier. If tools are deferred,
+  search/load their definitions first. Claude Code commonly exposes
+  `mcp__chrome-devtools__<capability>`; Copilot CLI commonly exposes
+  `chrome-devtools-<capability>`; other runtimes use different qualification. Never assume one
+  runtime's literal MCP name is portable.
 - **Loading a companion skill.** Wherever you see `Skill(<name>)` (e.g. `Skill(hyperframes)`),
-  load that skill the way your runtime does it — the `Skill` tool on Claude Code, or read the
-  companion skill's `SKILL.md` (auto-discovered alongside this one) on GitHub Copilot CLI.
+  use the runtime's native skill loader/selector. If no callable loader exists, locate the
+  companion's `SKILL.md` in the canonical homes below and read only the referenced file.
 - **Skill install home.** Companion skills (`hyperframes`, `gsap`) live next to this skill in
-  whichever home your runtime scans — `~/.claude/skills/<name>/` (Claude Code) or
-  `~/.copilot/skills/<name>/` (Copilot CLI) for a global install, or the project-level home
-  (`.claude/skills/` on Claude Code; `.github/skills/` or `.agents/skills/` on Copilot CLI — note
-  project-level `.copilot/skills/` is **not** scanned).
+  whichever global or project home the runtime scans. Project-level `.copilot/skills/` is not a
+  Copilot CLI skill home.
 
   These homes, in this order, are the **single canonical list** — the prereq probe below and every
   workflow's `SKILL_DIR` resolver derive from exactly this `$SKILL_HOMES` definition. Change it here
   and nowhere else:
 
   ```bash
-  # CANONICAL skill-home search list (global first, then project; Claude Code + Copilot CLI).
-  SKILL_HOMES="$HOME/.claude/skills $HOME/.copilot/skills $HOME/.agents/skills .claude/skills .github/skills .agents/skills"
+  # CANONICAL pipe-delimited skill-home list (preserves spaces in paths).
+  SKILL_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+  SKILL_HOMES="$HOME/.claude/skills|$HOME/.copilot/skills|$HOME/.agents/skills|$HOME/.pi/agent/skills|$HOME/.config/opencode/skills|$HOME/.cursor/skills|$HOME/.codex/skills|/etc/codex/skills|.claude/skills|.github/skills|.agents/skills|.pi/skills|.opencode/skills|.cursor/skills|.codex/skills|$SKILL_ROOT/.claude/skills|$SKILL_ROOT/.github/skills|$SKILL_ROOT/.agents/skills|$SKILL_ROOT/.pi/skills|$SKILL_ROOT/.opencode/skills|$SKILL_ROOT/.cursor/skills|$SKILL_ROOT/.codex/skills"
   ```
 
 ## Prerequisites
@@ -73,7 +84,10 @@ echo "asciinema+agg+timeout (CLI clip recording): optional — $(command -v asci
 
 ```bash
 # Probe the canonical skill homes ($SKILL_HOMES, defined in § Runtime Compatibility above).
-SKILL_HOMES="$HOME/.claude/skills $HOME/.copilot/skills $HOME/.agents/skills .claude/skills .github/skills .agents/skills"
+SKILL_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+SKILL_HOMES="$HOME/.claude/skills|$HOME/.copilot/skills|$HOME/.agents/skills|$HOME/.pi/agent/skills|$HOME/.config/opencode/skills|$HOME/.cursor/skills|$HOME/.codex/skills|/etc/codex/skills|.claude/skills|.github/skills|.agents/skills|.pi/skills|.opencode/skills|.cursor/skills|.codex/skills|$SKILL_ROOT/.claude/skills|$SKILL_ROOT/.github/skills|$SKILL_ROOT/.agents/skills|$SKILL_ROOT/.pi/skills|$SKILL_ROOT/.opencode/skills|$SKILL_ROOT/.cursor/skills|$SKILL_ROOT/.codex/skills"
+OLD_IFS=$IFS
+IFS='|'
 for s in hyperframes gsap; do
   found=
   for home in $SKILL_HOMES; do
@@ -81,9 +95,10 @@ for s in hyperframes gsap; do
   done
   [ -n "$found" ] && continue
   [ "$s" = hyperframes ] \
-    && echo "hyperframes skill: ✗ — install it into ~/.claude/skills/ (Claude Code) or ~/.copilot/skills/ (GitHub Copilot CLI)" \
+    && echo "hyperframes skill: ✗ — run: npx skills add heygen-com/hyperframes" \
     || echo "gsap skill: ○ — recommended companion to hyperframes for animation choreography"
 done
+IFS=$OLD_IFS
 npx --yes hyperframes --version 2>/dev/null && echo "hyperframes CLI: ✓" || echo "hyperframes CLI: ✗ — npm i -g hyperframes  (or rely on npx; package: hyperframes on npm, repo github.com/heygen-com/hyperframes)"
 ```
 
@@ -117,7 +132,28 @@ Start fresh. Ask mode, create project directory, begin Phase 0.
 }
 ```
 
-Then create `{project-dir}/` and generate `project-plan.md` from `templates/project-plan.md`. Begin Phase 0.
+**Then determine the product surface.** Real captures of the product are the default spine of
+the video (Phases 1–3 build around them). Only mark a film as no-product when the subject
+genuinely has no UI to capture (a CLI library, an API, a pure-backend tool) or the user
+explicitly wants an abstract brand film. Present a selectable prompt:
+
+```json
+{
+  "questions": [{
+    "question": "Does the product have a UI we can capture and put on screen?",
+    "header": "Surface",
+    "options": [
+      { "label": "Yes — capture the real product", "description": "Real screenshots/clips become the video's spine; text scenes are connective tissue. (Default.)" },
+      { "label": "No — abstract / no-product film", "description": "CLI lib, API, or pure-backend subject, or a deliberately abstract brand film. Waives the Phase-3 capture-coverage gate." }
+    ],
+    "multiSelect": false
+  }]
+}
+```
+
+Then create `{project-dir}/`, generate `project-plan.md` from `templates/project-plan.md`, and
+record the answer in `project-plan.md` as `Product surface: ui | none` (default `ui`); carry it
+into `storyboard.md` (`Product surface:`) in Phase 1. Begin Phase 0.
 
 **Make the output location crystal-clear (issue #21).** Before creating the directory, resolve and
 show its **absolute** path so the user knows exactly where their work will live, and let them
@@ -134,14 +170,25 @@ absolute path from the CWD each run — never persist it into a committed artifa
 
 ### `continue`
 
-Read `{project-dir}/project-plan.md` → find last completed phase → resume next.
+Read `{project-dir}/project-plan.md`, then verify the artifact contract below. The phase tracker
+selects the candidate next phase; filesystem/storyboard verification prevents a stale tracker from
+skipping required work.
 
 **Detection logic:**
 ```
 If no project-plan.md → switch to "new" mode
 If context.md missing → Phase 0
 If storyboard.md missing → Phase 1
-If no public/screenshots/ → Phase 2
+Determine whether Phase 2 is needed from storyboard.md:
+  - REQUIRED when Product surface is `ui`, or any scene requests screenshot, screencast,
+    terminal, terminal-clip, or supplied capture.
+  - SKIPPED when Product surface is `none` and no scene requests capture.
+If Phase 2 is required and any planned capture lacks its accepted output → Phase 2:
+  - screenshot/screencast: bound screenshot or clip exists and is non-empty
+  - terminal: authored terminal scene exists and is non-empty
+  - terminal-clip: non-empty MP4 exists, or storyboard was rewritten to terminal and its
+    non-empty scene exists
+  - supplied: named supplied file exists and is non-empty
 If no DESIGN.md or scenes/ → Phase 3
 If no index.html → Phase 4
 If no out/final.mp4 → Phase 5
@@ -153,7 +200,18 @@ Go directly to a specific phase. Verify prerequisites:
 ```
 Phase 1 requires: context.md
 Phase 2 requires: context.md + storyboard.md
-Phase 3 requires: capture artifacts in public/screenshots/ and/or public/clips/ (unless skipped, e.g. no real product)
+Phase 3 requires: context.md + storyboard.md, plus completion of every capture requested by the
+  storyboard. Product surface `none` with no requested captures has no Phase-2 artifact prerequisite.
+  Capture-coverage gate (orchestrator-enforced; promo/showcase only): before authoring
+  scenes, if product_surface is `ui` (the default) and NO storyboard scene binds an existing real
+  capture (`Screenshot:` or `Clip:`), BLOCK and resolve — return to Phase 2 to capture the
+  product, or, if the film is genuinely abstract, set `Product surface: none` in both
+  project-plan.md and storyboard.md. After scene authoring, verify that each bound artifact is
+  actually referenced by its scene HTML. Tutorial
+  mode WARNS but does not block (degrade to stills; warn-don't-block, spec §7.3). This turns
+  the former silent "(unless skipped, e.g. no real product)" escape hatch into an intentional,
+  recorded decision. (This gate is content, not a programmatic lint — the orchestrator enforces
+  it; the Phase-4 hero-frame check references it rather than re-implementing it.)
 Phase 4 requires: context.md + storyboard.md + DESIGN.md + scenes/*.html
 Phase 5 requires: index.html (root composition); Phase 5 then runs `npx hyperframes lint|inspect|validate` before render
 Tutorial content mode: PREFERS public/clips/ but does not require them. Jumping into a
@@ -169,10 +227,10 @@ stricter check (see Phase 5). (warn-don't-block; spec §7.3)
 ```
 Phase 0: DISCOVERY ──── Phase 1: STORYTELLING ──── Phase 2: CAPTURE
   │                       │                          │
-  ├ Design thinking       ├ Narrative structure      ├ Chrome DevTools MCP
+  ├ Design thinking       ├ Narrative structure      ├ Web / terminal / supplied
   ├ Codebase analysis     ├ Scene storyboard         ├ Auto-navigate app
-  ├ Product context Q&A   ├ Emotional arc            ├ Screenshot key views
-  └ Goal/audience         └ Script outline           └ Interaction states
+  ├ Product context Q&A   ├ Emotional arc            ├ Screenshots + clips
+  └ Goal/audience         └ Script outline           └ Bound capture artifacts
 
 Phase 3: DESIGN ──── Phase 4: PRODUCTION ──── Phase 5: AUDIO &amp; RENDER
   │                    │                        │
@@ -192,6 +250,9 @@ See [workflows/phase-1-storytelling.md](workflows/phase-1-storytelling.md)
 See [workflows/phase-2-capture.md](workflows/phase-2-capture.md)
 
 ### Phase 3: Design
+**Capture-coverage gate runs at entry** (see § Entry Modes → `jump`): a promo/showcase video with
+`product_surface: ui` must put real captures on screen before scenes are authored — the real
+product, framed, is the spine; text scenes are connective tissue.
 See [workflows/phase-3-design.md](workflows/phase-3-design.md)
 
 ### Phase 4: Production

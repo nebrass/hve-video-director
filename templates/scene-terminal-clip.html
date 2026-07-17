@@ -9,6 +9,8 @@
                 ends at the nominal clip length goes visibility:hidden during
                 the crossfade and the frame blanks.
        MSTART = the storyboard's `Clip in` (trim offset, seconds; 0 if whole).
+       SPEED  = the storyboard's `Speed` (0.1–5.0; normally 1.0). HyperFrames reads
+                defaultPlaybackRate while footage-locking, so set it explicitly.
      A bare <video> (no data-start) is auto-discovered for display but never
      time-synced, so it's safe ONLY as the single clip in a composition (and
      even then it never advances past frame 0); with 2+ clip scenes, bare
@@ -49,6 +51,13 @@
     <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js" integrity="sha384-sG0Hv1tP1lZCk9KQmrIbY/XNwi+OY84GQqhMscbnsoBFqAz8KNCil1kvfL3Hbbk2" crossorigin="anonymous"></script>
     <script>
       window.__timelines = window.__timelines || {};
+      const video = document.getElementById("vid-NN");
+      const SPEED = Number.NaN; // REQUIRED: replace with storyboard Speed (normally 1.0)
+      if (!Number.isFinite(SPEED) || SPEED < 0.1 || SPEED > 5.0) {
+        throw new Error("scene-NN-terminal-clip: SPEED must be between 0.1 and 5.0");
+      }
+      video.defaultPlaybackRate = SPEED;
+      video.playbackRate = SPEED;
       const tl = gsap.timeline({ paused: true });
       // Entrance: animate the WRAPPER only (autoAlpha + fromTo per the stagger-trap rule).
       tl.fromTo('[data-composition-id="scene-NN-terminal-clip"] .term-frame',

@@ -62,6 +62,10 @@ Three ways to lock in the visual identity. Pick the most specific one that fits 
 }
 ```
 
+If `Product surface: none`, omit **Derive from screenshots** because Phase 2 may be skipped;
+offer only the curated design-system and HyperFrames named-style paths. Do not select a
+screenshot-derived identity when no screenshot capture is planned.
+
 ### If "curated design system" was picked
 
 Ask which one:
@@ -139,6 +143,14 @@ No follow-up. Phase 3 will run the full extraction workflow.
 ```
 
 ## Step 1.4: Narrative Structure
+
+**The real product on screen is the spine.** In every mode below, the backbone of the video
+is real captures of the product (Phase-2 screenshots/clips) framed with depth; the text / stat
+/ CTA beats are *connective tissue between product beats*, not the substance. Build the
+structure so the product carries the story — but do **not** swing to the opposite failure mode
+of a uniform product-card slideshow: keep at least one unconventional beat and **vary scene
+durations** (equal-length cards read as a slideshow — see `patterns/anti-slop.md`). The one
+exception is a no-product / abstract film (`product_surface: none`), where text carries it.
 
 Based on mode:
 
@@ -224,8 +236,9 @@ Generate `storyboard.md` from `templates/storyboard.md`.
 
 ### Capture type per scene (optional)
 
-Each scene defaults to a still **screenshot**. A scene may instead be a **clip**
-(real motion footage) by setting `Capture:` to `screencast` (web app, Phase 2),
+Each product/spine scene defaults to a still **screenshot**. Connective title/text/CTA scenes
+use `Capture: none`. A scene may instead be a **clip** (real motion footage) by setting
+`Capture:` to `screencast` (web app, Phase 2),
 `terminal` (CLI tool — an authored animated terminal from real command output),
 `terminal-clip` (CLI tool — a **real** recording: Phase 2 runs the command
 autonomously via asciinema + agg; requires a `Command:` field with the exact
@@ -239,15 +252,26 @@ A clip scene's on-screen duration is the footage length (see Phase 4), so plan
 the scene's slot around the real clip length. Clips are available in **all**
 content modes; in `promo` they must be device-framed accents (Phase 4).
 
-## Step 1.7: Which App Views to Capture
+## Step 1.7: Capture Plan
 
-Based on the storyboard, list the specific app URLs/routes/views that need to be captured in Phase 2. For each scene that shows the app, define:
+Based on the storyboard, list every artifact Phase 2 must produce. **Bind each capture to a
+scene:** every item must map to a storyboard scene that uses it (`Screenshot:` / `Clip:`), and
+every spine scene must name its artifact. Captures planned but never placed on screen are exactly
+the leak that ships a flat, text-only video.
+
+For web screenshot/screencast scenes, define:
 - URL or route to navigate to
 - Specific element/state to capture (e.g., "dashboard with sample data", "modal open")
 - Device viewport — match the chosen canvas: desktop 1920×1080 for 16:9; mobile 390×844 for 9:16; square viewport 1080×1080 for 1:1; mobile 390×488 (or desktop crop) for 4:5
 
+For terminal scenes, define the exact command and whether the accepted output is an authored
+terminal scene or a `terminal-clip`. For supplied footage, define the exact destination path.
+When `Product surface: none` and no scene requests any capture, explicitly record
+`Capture plan: none — skip Phase 2` rather than inventing an app URL.
+
 ## Checkpoint
 
-> "Storyboard complete. [N] scenes, [duration]s total, [M] app views to capture.
+> "Storyboard complete. [N] scenes, [duration]s total, [M] capture artifacts planned.
 >
-> Ready to move to Phase 2: Capture?"
+> [If M > 0: Ready to move to Phase 2: Capture?]
+> [If M = 0 and Product surface is none: Capture is intentionally skipped; ready for Phase 3: Design?]"

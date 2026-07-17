@@ -66,9 +66,13 @@ Vercel's brand is *razor-sharp minimalism*. Very fast entrances, hard contrast, 
 | Scene-to-scene transition | **`flash-through-white` catalog block** (0.3–0.4s) — the iconic Vercel motion |
 | Section-boundary | Hard cut OR flash-through-white |
 | Stat-counter ease | `power2.out`, ~1.6s (faster than other brands) |
+| Product-shot camera | Default none; for a real-product spine, restrained 1.0→1.04 push-ins or timeline-driven scrolls are allowed when they clarify a specific UI detail |
 | Avoid | Soft crossfades over 0.5s, swoosh transitions, marker highlights, anything ornamental |
 
-Vercel's voice is "deploys finish in milliseconds, ship is instant." Motion duration carries that message. Slower than 0.6s reads as off-brand.
+Vercel's voice is "deploys finish in milliseconds, ship is instant." Entrance motion slower than
+0.6s reads as off-brand. A motivated product-shot camera move may run longer because it is
+revealing UI content, not delaying the interface; keep it restrained and release it before the
+crossfade.
 
 ## 6. Video applications
 

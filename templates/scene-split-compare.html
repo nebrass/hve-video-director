@@ -1,0 +1,93 @@
+<!-- Split / before-after compare scene archetype.
+     Two real captures side by side (pain → relief, old → new, A vs B). The
+     contrast IS the message, so both panes hold REAL product, not text.
+
+     DETERMINISM CONTRACT:
+       - Each <img> sits in a non-timed wrapper; reveal the WRAPPERS via autoAlpha
+         + fromTo with a small stagger. Never tl.from(); never animate <img> dims.
+       - The reveal is an OPACITY reveal. NEVER a clipPath geometry wipe (anti-aliased
+         black slivers — see patterns/metallic-swoosh.md). If you want a wipe, animate
+         mask-position over a STATIC mask-image (same safe class as background-position).
+       - Static center divider. No exit animation (crossfade owns the exit).
+
+     SUBSTITUTE: SHOT_A / SHOT_B = real public/screenshots/*.png; LABEL_A / LABEL_B;
+     swap canvas size + tokens from DESIGN.md.
+     NOTE: the script keys off scoped `.class` selectors (not bare #id), so the id attributes
+     below are inert; if you copy this template into two scenes of one composition, drop or
+     renumber the ids to avoid duplicate-id HTML. -->
+<template id="scene-NN-split-template">
+  <div data-composition-id="scene-NN-split" data-width="1920" data-height="1080">
+    <h2 class="split-head" id="split-head">HEAD — the contrast in a few words</h2>
+
+    <div class="split-row">
+      <div class="split-pane" id="pane-a">
+        <div class="split-tag tag-a">LABEL_A — before</div>
+        <div class="split-frame"><img class="split-img" src="public/screenshots/SHOT_A.png" alt=""></div>
+      </div>
+
+      <div class="split-divider" id="split-divider"></div>
+
+      <div class="split-pane" id="pane-b">
+        <div class="split-tag tag-b">LABEL_B — after</div>
+        <div class="split-frame"><img class="split-img" src="public/screenshots/SHOT_B.png" alt=""></div>
+      </div>
+    </div>
+
+    <style>
+      [data-composition-id="scene-NN-split"]{
+        position:absolute; inset:0;
+        display:flex; flex-direction:column; align-items:center; justify-content:center;
+        gap:54px; padding:90px; box-sizing:border-box;
+        background:radial-gradient(120% 120% at 50% 0%, #ffffff 0%, #eef1f5 100%); /* DESIGN.md surface */
+        font-family:"Inter", system-ui, sans-serif; color:#171717;
+      }
+      [data-composition-id="scene-NN-split"] .split-head{
+        font-size:64px; font-weight:600; letter-spacing:-0.03em; margin:0; text-align:center;
+        visibility:hidden; opacity:0;
+      }
+      [data-composition-id="scene-NN-split"] .split-row{
+        display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:40px;
+        width:100%; max-width:1640px;
+      }
+      [data-composition-id="scene-NN-split"] .split-pane{
+        display:flex; flex-direction:column; gap:18px; visibility:hidden; opacity:0;
+      }
+      [data-composition-id="scene-NN-split"] .split-tag{
+        font-family:"Geist Mono","JetBrains Mono",monospace; font-size:20px; font-weight:500;
+        letter-spacing:0.02em; text-transform:uppercase;
+      }
+      [data-composition-id="scene-NN-split"] .tag-a{color:#9aa1ab}      /* muted = the "before" */
+      [data-composition-id="scene-NN-split"] .tag-b{color:#0a72ef}      /* accent = the "after" (DESIGN.md accent) */
+      [data-composition-id="scene-NN-split"] .split-frame{
+        border-radius:12px; overflow:hidden; background:#fff;
+        box-shadow:0 0 0 1px rgba(0,0,0,.06), 0 24px 60px rgba(0,0,0,.16);
+      }
+      [data-composition-id="scene-NN-split"] .split-img{ display:block; width:100%; height:auto; }
+      [data-composition-id="scene-NN-split"] .split-divider{
+        width:2px; align-self:stretch; min-height:300px;
+        background:linear-gradient(180deg, transparent, rgba(0,0,0,.12) 18%, rgba(0,0,0,.12) 82%, transparent);
+      }
+    </style>
+
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js" integrity="sha384-sG0Hv1tP1lZCk9KQmrIbY/XNwi+OY84GQqhMscbnsoBFqAz8KNCil1kvfL3Hbbk2" crossorigin="anonymous"></script>
+    <script>
+      window.__timelines = window.__timelines || {};
+      const tl = gsap.timeline({ paused: true });
+      const root = '[data-composition-id="scene-NN-split"]';
+
+      tl.fromTo(root + ' .split-head',
+        { y: 28, autoAlpha: 0 },
+        { y: 0, autoAlpha: 1, duration: 0.5, ease: "expo.out" },
+        0.2);
+
+      // Two panes reveal with a beat of stagger so the eye reads A then B.
+      // fromTo + autoAlpha (not from) so the second pane never re-hides the first.
+      tl.fromTo(root + ' .split-pane',
+        { y: 30, autoAlpha: 0 },
+        { y: 0, autoAlpha: 1, duration: 0.55, ease: "power3.out", stagger: 0.45 },
+        0.7);
+
+      window.__timelines["scene-NN-split"] = tl;
+    </script>
+  </div>
+</template>

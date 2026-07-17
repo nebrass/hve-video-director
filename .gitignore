@@ -40,3 +40,6 @@ test/
 # Recorded clip footage is never committed (externalize as a release asset)
 public/clips/
 *.webm
+
+# Graphify knowledge-graph tool output (local, machine-specific absolute paths)
+graphify-out/
