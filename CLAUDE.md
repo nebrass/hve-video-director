@@ -42,6 +42,8 @@ SKILL.md (orchestrator)
 - `npx hyperframes` CLI for `init`, `add` (pull catalog blocks, Phase 4), `lint`, `preview`, `inspect`, `validate`, `render`, `doctor` (render-environment diagnostics, Phase 5), `transcribe` (preferred voiceover-timing verifier in Phase 5; falls back to standalone Whisper if unavailable), and `tts` (used in Phase 5 as the no-API-key fallback when `ELEVENLABS_API_KEY` is unset)
 - `mcp__chrome-devtools__screencast_*` + `resize_page` for Phase-2 web-clip capture (experimental, feature-detected — needs `--experimentalScreencast=true`; falls back to screenshots), and optional `asciinema`+`agg` for CLI clip recording (otherwise the authored-terminal path)
 - `scripts/generate_voiceover.py` → ElevenLabs API + optional Whisper transcription (Phase 5)
+- `scripts/caption_gen.py` → converts `transcript.json`/`voiceover.json` into `voiceover.srt` + `voiceover.vtt` caption sidecars (Phase 5, all modes; pure stdlib). ASR draft subtitles, not WCAG closed captions
+- `scripts/stitch_clip.py` → normalizes/stitches raw captures into the Phase-2 clip contract (CFR30, H.264 high/yuv420p, `+faststart`) via the ffmpeg concat filter (pure stdlib). Native `capture-screen` is intentionally not shipped (no portable backend)
 - `scripts/search_music.py` → Freesound API for CC music (Phase 5)
 - `scripts/check_requirements.sh` → verifies the toolchain (node/python/ffmpeg/chrome-headless-shell/hyperframes CLI + companion skills + env vars); `--fix` auto-installs user-scoped deps and prints (never runs) sudo/system commands. Its `SKILL_HOMES` line must stay in lock-step with the canonical list in `SKILL.md` (same parity rule as the Phase 3/5 resolvers).
 
@@ -49,11 +51,17 @@ SKILL.md (orchestrator)
 
 ## Working with the skill scripts
 
-The Python scripts run inside generated video projects, not from this repo. They self-install `requests` via pip on first run.
+The Python scripts run inside generated video projects, not from this repo. `generate_voiceover.py` and `search_music.py` self-install `requests` via pip on first run; `caption_gen.py` and `stitch_clip.py` are pure standard library (the latter shells out to `ffmpeg`/`ffprobe`).
 
 ```bash
 # Voiceover generation (from inside a generated project)
 ELEVENLABS_API_KEY=... python3 scripts/generate_voiceover.py
+
+# Caption sidecars (from inside a generated project, after a transcript exists)
+python3 scripts/caption_gen.py                 # writes voiceover.srt + voiceover.vtt
+
+# Normalize / stitch a capture into the Phase-2 clip contract
+python3 scripts/stitch_clip.py raw.mp4 -o public/clips/scene-02-dashboard.mp4
 
 # Music search (from inside a generated project) — query is a required argument
 FREESOUND_API_KEY=... python3 scripts/search_music.py "cinematic corporate uplifting"

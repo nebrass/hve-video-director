@@ -274,7 +274,11 @@ hve-spielberg/
 │   ├── apple/DESIGN.md
 │   └── …                          # notion, vercel, airbnb, github, cal, arc, bento
 ├── scripts/
-│   └── generate_voiceover.py      # ElevenLabs TTS + transcript verification + auto-pad
+│   ├── generate_voiceover.py      # ElevenLabs TTS + transcript verification + auto-pad
+│   ├── caption_gen.py             # transcript.json → voiceover.srt/.vtt caption sidecars
+│   ├── stitch_clip.py             # normalize/stitch captures to the CFR30 clip contract
+│   ├── search_music.py            # Freesound CC music search
+│   └── check_requirements.sh      # toolchain preflight (--fix auto-installs user deps)
 ├── example/                       # The skill's own promo, built by the skill itself
 │   ├── (out/final.mp4)           # 60s rendered demo (1920×1080, 3.4 MB) — not committed; regenerable build artifact (demo on YouTube)
 │   ├── voiceover.py               # Project-local script with the actual VO timing config
