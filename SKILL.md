@@ -119,6 +119,19 @@ Start fresh. Ask mode, create project directory, begin Phase 0.
 
 Then create `{project-dir}/` and generate `project-plan.md` from `templates/project-plan.md`. Begin Phase 0.
 
+**Make the output location crystal-clear (issue #21).** Before creating the directory, resolve and
+show its **absolute** path so the user knows exactly where their work will live, and let them
+confirm, rename, or cancel via a native prompt (create / change location / cancel):
+
+```bash
+# Resolve to an absolute path even though {project-dir} doesn't exist yet (parent must exist).
+PROJECT_DIR="$(cd "$(dirname "{project-dir}")" && pwd)/$(basename "{project-dir}")"
+echo "Project will be created at: $PROJECT_DIR"
+```
+
+After `mkdir`, confirm with `Created project at: $PROJECT_DIR`. Recompute this machine-specific
+absolute path from the CWD each run — never persist it into a committed artifact.
+
 ### `continue`
 
 Read `{project-dir}/project-plan.md` → find last completed phase → resume next.

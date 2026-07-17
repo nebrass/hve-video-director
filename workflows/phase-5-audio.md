@@ -480,8 +480,34 @@ Known issues:
 
 ## Checkpoint
 
-> "Video rendered! Final deliverable: `out/final.mp4`
+Surface the **absolute** output path (issue #21) so the user never has to hunt for the file:
+
+```bash
+FINAL="$(cd "$(dirname out/final.mp4)" && pwd)/final.mp4"   # absolute path to the render
+PROJECT_DIR="$(pwd)"                                        # absolute path to the project folder
+echo "Final video:    $FINAL"
+echo "Project folder: $PROJECT_DIR"
+```
+
+> "Video rendered! 🎬
+>
+> Final video: `<absolute path to out/final.mp4>`
+> Project folder: `<absolute path to the project dir>`
 >
 > Duration: [X]s | Resolution: [W]×[H] ([aspect]) | Audio: voiceover + music
 >
 > Watch it and let me know if you'd like any adjustments."
+
+**Offer to open the result — consent-gated, never auto-launch.** Ask (native prompt) whether to open
+the project folder or the file; only after the user says yes, run the matching launcher **directly**
+(argv only — no `eval`, no `sh -c`, no shell interpolation of the path):
+
+| Platform | Open folder | Open in VS Code |
+|---|---|---|
+| macOS | `open "<project-dir>"` | `code "<project-dir>"` |
+| Windows | `explorer "<project-dir>"` | `code "<project-dir>"` |
+| Linux | `xdg-open "<project-dir>"` | `code "<project-dir>"` |
+| WSL | `wslview "<project-dir>"` (or `explorer.exe .`) | `code "<project-dir>"` |
+
+Recompute these machine-specific absolute paths from the CWD each run — never persist them into a
+committed artifact.
