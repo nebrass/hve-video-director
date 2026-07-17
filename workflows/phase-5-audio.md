@@ -169,6 +169,24 @@ Orchestrator enforcement before render (tutorial mode) — do not advance until 
    (the `references/captions.md` `[caption-lint]` self-check logs warnings otherwise).
 There is no programmatic gate; a true build-time rule would be upstream `hyperframes` lint work (spec §14).
 
+### Caption sidecars — draft subtitles (all modes)
+
+Separate from the burned-in tutorial captions above: emit **toggleable** subtitle sidecars next to
+the render so the voiceover is readable in any player and friendly to screen readers / scrubbers.
+Run this in **every** mode (promo / showcase / tutorial) once `transcript.json` exists.
+`scripts/caption_gen.py` groups the word timings into readable cues and writes `voiceover.srt` +
+`voiceover.vtt` (the names `.gitignore` already reserves):
+
+```bash
+# Reuse $SKILL_DIR resolved in § Generate with ElevenLabs (re-resolve it the same way in a fresh shell).
+python3 "$SKILL_DIR/scripts/caption_gen.py"   # auto-detects transcript.json, then voiceover.json
+```
+
+These are **ASR draft subtitles** of the spoken track — not yet WCAG 2.1 closed captions, which also
+transcribe meaningful non-speech audio (music/sfx cues, speaker IDs) and require a human review pass
+over the ASR output. Ship them as a reviewable starting point; the burned-in tutorial captions
+(above) remain the in-frame accessibility layer.
+
 ### Pad voiceover to VIDEO_DURATION
 
 The voiceover audio must match the composition's total duration exactly. If it's shorter, HyperFrames render finds no audio for trailing frames and may truncate. Pad with `apad`. Use the same `VIDEO_DURATION` the composition uses (from `project-plan.md`); the literal `60` below is just an example for a 60s spot — replace it with your project's duration:
@@ -458,6 +476,7 @@ Known issues:
 - `background-music.mp3` — Selected Freesound track (if Step 5.2 ran)
 - `voiceover-with-music.mp3` — Voiceover + music mix; **the file `index.html`'s `<audio src>` references — render is silent without it**
 - `transcript.json` — Word-level timing from `npx hyperframes transcribe` (default), OR `voiceover.json` if you used the standalone-whisper fallback (`--output_format json`)
+- `voiceover.srt` / `voiceover.vtt` — Toggleable caption sidecars (ASR draft subtitles; see § Caption sidecars — draft subtitles)
 
 ## Checkpoint
 
