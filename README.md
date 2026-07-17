@@ -82,7 +82,7 @@ less check_requirements.sh && bash check_requirements.sh        # add --fix to a
 
 | Tool | Required | Installation |
 |------|----------|-------------|
-| Node.js 18+ | Yes | [nodejs.org](https://nodejs.org) |
+| Node.js 22.12+ | Yes | [nodejs.org](https://nodejs.org) |
 | Python 3.10+ | Yes | [python.org](https://python.org) |
 | ffmpeg | Yes | `brew install ffmpeg` / `apt install ffmpeg` |
 | `chrome-headless-shell` | Yes | Used by `npx hyperframes render` for frame capture. System Chrome causes 120s render hangs. Install once: `npx puppeteer browsers install chrome-headless-shell` (one-time, ~170MB, cached). Verify with `npx hyperframes doctor`. |

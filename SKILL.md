@@ -62,7 +62,7 @@ runtime you are on:
 Check required tools and skills:
 
 ```bash
-node --version        # ✓ 18+
+node --version        # ✓ 22.12+ (hyperframes needs ≥22; chrome-devtools-mcp needs ^20.19 || ^22.12 || >=23)
 python3 --version     # ✓ 3.10+
 ffmpeg -version       # ✓ for audio/video processing
 echo "ELEVENLABS_API_KEY: $([ -n \"$ELEVENLABS_API_KEY\" ] && echo '✓ set (high-quality TTS)' || echo '○ not set — Phase 5 will fall back to npx hyperframes tts (Kokoro-82M, local, lower quality)')"

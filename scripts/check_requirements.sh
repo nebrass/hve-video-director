@@ -95,13 +95,13 @@ printf '%shve-spielberg requirements check%s  (%s%s%s)\n' \
 section "Required"
 # ===========================================================================
 
-# --- Node.js >= 18 ---------------------------------------------------------
+# --- Node.js >= 22.12 ------------------------------------------------------
 if command -v node >/dev/null 2>&1; then
   NODE_V="$(node --version 2>/dev/null | sed 's/^v//')"
-  if ver_ge "$NODE_V" 18; then ok "Node.js $NODE_V"
-  else bad "Node.js $NODE_V — need >= 18"; hint "upgrade via nodejs.org or nvm"; REQUIRED_FAIL=1; fi
+  if ver_ge "$NODE_V" 22 12; then ok "Node.js $NODE_V"
+  else bad "Node.js $NODE_V — need >= 22.12 (hyperframes needs >= 22; chrome-devtools-mcp needs ^20.19 || ^22.12 || >=23)"; hint "upgrade via nodejs.org or nvm"; REQUIRED_FAIL=1; fi
 else
-  bad "Node.js — not found"; hint "install from https://nodejs.org (>= 18)"; REQUIRED_FAIL=1
+  bad "Node.js — not found"; hint "install from https://nodejs.org (>= 22.12)"; REQUIRED_FAIL=1
 fi
 
 # --- npx (ships with Node/npm; load-bearing for hyperframes + skills) -------
