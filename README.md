@@ -70,7 +70,19 @@ Each phase has a user-approval checkpoint before proceeding to the next.
 
 ## Prerequisites
 
-> **Quick check:** run `./scripts/check_requirements.sh` to verify everything below in one shot. Add `--fix` to auto-install the user-scoped pieces (companion skills, `chrome-headless-shell`, Whisper); system packages and API keys are printed for you to set up.
+> **Quick check:** run `./scripts/check_requirements.sh`. The default report, `--json`, and
+> `--plan` never install or download anything. `--plan` prints exact actions; use
+> `--fix=<id,id>` only after choosing safe user-scoped fixes. Bare `--fix` retains the
+> all-safe behavior. System/sudo commands and environment-variable exports are always printed,
+> never run.
+
+| Checker flag | Purpose |
+|---|---|
+| *(none)* | Human readiness report with required exit status |
+| `--json` | JSON-only report with stable check IDs, tiers, states, affected phases, and fixes |
+| `--plan` | Side-effect-free human plan for every non-ready check |
+| `--fix=<id,id>` | Run only selected safe fixes (`chrome-shell`, `hyperframes-skill`, `whisper`) |
+| `--fix` | Run all currently missing safe fixes; never system/sudo/environment actions |
 
 **No local checkout?** The doctor is self-contained — run it straight from GitHub:
 
@@ -78,15 +90,18 @@ Each phase has a user-approval checkpoint before proceeding to the next.
 # report only
 curl -fsSL https://raw.githubusercontent.com/nebrass/hve-spielberg/main/scripts/check_requirements.sh | bash
 
-# auto-install the user-scoped deps (--fix is forwarded via `bash -s --`)
-curl -fsSL https://raw.githubusercontent.com/nebrass/hve-spielberg/main/scripts/check_requirements.sh | bash -s -- --fix
+# inspect the exact plan without making changes
+curl -fsSL https://raw.githubusercontent.com/nebrass/hve-spielberg/main/scripts/check_requirements.sh | bash -s -- --plan
+
+# apply only explicitly selected safe fixes
+curl -fsSL https://raw.githubusercontent.com/nebrass/hve-spielberg/main/scripts/check_requirements.sh | bash -s -- --fix=chrome-shell,hyperframes-skill
 ```
 
 Prefer to read the script before running it (recommended for any `curl … | bash`)? Download, inspect, then execute:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/nebrass/hve-spielberg/main/scripts/check_requirements.sh -o check_requirements.sh
-less check_requirements.sh && bash check_requirements.sh        # add --fix to auto-install
+less check_requirements.sh && bash check_requirements.sh --plan
 ```
 
 | Tool | Required | Installation |
@@ -94,6 +109,8 @@ less check_requirements.sh && bash check_requirements.sh        # add --fix to a
 | Node.js 22.12+ | Yes | [nodejs.org](https://nodejs.org) |
 | Python 3.10+ | Yes | [python.org](https://python.org) |
 | ffmpeg | Yes | `brew install ffmpeg` / `apt install ffmpeg` |
+| HyperFrames CLI | Yes | `npm install --global hyperframes` (the checker never fetches it during report modes) |
+| `hyperframes` companion skill | Phases 3–4 | `npx skills add heygen-com/hyperframes` |
 | `chrome-headless-shell` | Yes | Used by `npx hyperframes render` for frame capture. System Chrome causes 120s render hangs. Install once: `npx puppeteer browsers install chrome-headless-shell` (one-time, ~170MB, cached). Verify with `npx hyperframes doctor`. |
 | Chrome DevTools MCP | For web capture | Required only when the storyboard requests web screenshots/screencasts. Configure it in the active agent; capability names are resolved per runtime. |
 | `ELEVENLABS_API_KEY` | Recommended | [elevenlabs.io](https://elevenlabs.io) — higher-quality TTS. If unset, Phase 5 falls back to `npx hyperframes tts` (local Kokoro-82M, no key, lower quality). |
@@ -237,7 +254,13 @@ existing skill directories for `SKILL.md` changes; other agents may require a re
    `/skill:hve-spielberg`; Codex uses `/skills` or `$hve-spielberg`; OpenCode loads the skill
    by intent. Append arguments in the same prompt (for example, `--mode continue`).
 
-3. **Follow the prompts.** Phase 0 → 5 is interactive; each phase has a user-approval checkpoint before advancing. The discovery questions include:
+3. **Complete guided setup on the first `new` run.** Before creating `project-plan.md`, Phase -1
+   reads the checker's JSON report, explains what is ready/degraded/blocked and which phases are
+   affected, asks consent for only available safe fix IDs, re-checks, and blocks only on required
+   gaps. Manual system/sudo/environment actions remain yours to run. `continue` and `jump` skip
+   this onboarding.
+
+4. **Follow the prompts.** Phase 0 → 5 is interactive; each phase has a user-approval checkpoint before advancing. The discovery questions include:
    - **Mode**: Promo, Showcase, or Tutorial
    - **Duration + theme + aspect ratio**: 30s/60s/90s, light/dark, 16:9/9:16/1:1/4:5
    - **Visual identity strategy**: pick a [vendored brand](design-systems/) (fastest), pick a HyperFrames named style (medium), or derive from screenshots (most adaptive)
@@ -247,7 +270,7 @@ existing skill directories for `SKILL.md` changes; other agents may require a re
    - **Composition preview** after Phase 4 root index.html
    - **Music search** after Phase 5 voiceover
 
-4. **Get your video:**
+5. **Get your video:**
    ```
    out/final.mp4  — chosen aspect (16:9 / 9:16 / 1:1 / 4:5), voiceover + music, H.264 + AAC
    ```
@@ -256,7 +279,7 @@ existing skill directories for `SKILL.md` changes; other agents may require a re
 
 | Mode | Command | When |
 |------|---------|------|
-| `new` (default) | `hve-spielberg` | Start a fresh video from scratch |
+| `new` (default) | `hve-spielberg` | Run guided Phase -1 setup, then start a fresh video |
 | `continue` | `hve-spielberg --mode continue` | Resume where you left off |
 | `jump` | `hve-spielberg --mode jump --phase 3` | Jump to a specific phase (1–5) |
 
@@ -344,10 +367,10 @@ hve-spielberg/
 │   ├── capture_screen.py          # native screen/region capture orchestrator (silent)
 │   ├── stitch_clip.py             # normalize/stitch captures to the CFR30 clip contract
 │   ├── search_music.py            # Freesound CC music search
-│   └── check_requirements.sh      # toolchain preflight (--fix auto-installs user deps)
+│   └── check_requirements.sh      # JSON/plan preflight + consent-scoped safe fixes
 ├── test/
 │   ├── run.sh                     # stdlib unit/integration test entrypoint
-│   └── unit/test_capture_screen.py
+│   └── unit/                       # capture, requirements-checker, and onboarding tests
 ├── example/                       # The skill's own promo, built by the skill itself
 │   ├── (out/final.mp4)           # 60s rendered demo (1920×1080, 3.4 MB) — not committed; regenerable build artifact (demo on YouTube)
 │   ├── voiceover.py               # Project-local script with the actual VO timing config

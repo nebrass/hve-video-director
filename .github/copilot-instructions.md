@@ -47,6 +47,11 @@ SKILL.md (orchestrator)
 - `scripts/capture_screen.py` → fixed-duration, silent native desktop/region capture orchestrator (pure stdlib): macOS `screencapture`, Windows `gdigrab`, X11 `x11grab`, or feature-detected Wayland `wf-recorder`; WSL/unavailable Wayland return explicit handoffs. It trims via sibling `stitch_clip.py`, validates duration/frame count within one frame, and uses `<clip>.capture.pending` + fingerprinted `<clip>.capture.json` state so failed retakes preserve prior valid media but cannot count as complete.
 - `scripts/stitch_clip.py` → canonical raw-capture normalizer/stitcher for CFR30 H.264 High/yuv420p, even dimensions, no audio, and `+faststart` (pure stdlib wrapper for ffmpeg/ffprobe)
 - `scripts/search_music.py` → Freesound API for CC music (Phase 5)
+- `scripts/check_requirements.sh` → structured toolchain preflight. Default, `--json`, and
+  `--plan` are side-effect-free and never use online `npx` probes. Scoped
+  `--fix=<id,id>` runs only selected safe user-scoped fixes; bare `--fix` means all safe fixes.
+  It never runs system/sudo commands or sets environment variables. Phase -1 consumes its JSON
+  only for a direct/default first `new` run; explicit `continue` and `jump` skip onboarding.
 
 `templates/` files are copied into generated projects. `patterns/` files are referenced for visual techniques. `patterns/INDEX.md` is the wayfinding map between local patterns and the deeper `hyperframes` skill references — read it before adding new pattern files. `patterns/metallic-swoosh.md` documents *why* clipPath transitions are banned (black-sliver artifacts).
 
@@ -99,7 +104,8 @@ Anti-slop content rules (see `patterns/anti-slop.md`) also matter: no default Ta
 
 - **Add a voice** → update both the `## ElevenLabs Voice IDs` table in `SKILL.md` and the `## Voices` table in `README.md` (the two tables must stay in sync).
 - **Change phase logic** → edit the relevant `workflows/phase-N-*.md`; update the prerequisite list in `SKILL.md` if a new required file is introduced.
-- **Adjust prerequisite checks** → the `## Prerequisites` block in `SKILL.md` (runs at skill entry).
+- **Adjust prerequisite checks** → update `scripts/check_requirements.sh` and its stdlib tests;
+  keep the first-run Phase -1 interpretation in `SKILL.md` aligned with the JSON schema.
 - **Bump skill metadata** → frontmatter at top of `SKILL.md` (especially `allowed-tools` if a new MCP tool is needed).
 - **Add a pattern file** → also register it in `patterns/INDEX.md` so phase workflows can find it.
 

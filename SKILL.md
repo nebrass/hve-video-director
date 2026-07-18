@@ -72,17 +72,16 @@ as follows:
 
 ## Prerequisites
 
-Check required tools and skills:
+The structured requirements checker is the single source of truth for setup state. Resolve the
+entry mode before running it: direct/default `new` mode uses the guided Phase -1 below;
+`continue` and `jump` skip Phase -1 and keep their existing artifact/prerequisite checks.
 
-```bash
-node --version        # ✓ 22.12+ (hyperframes needs ≥22; chrome-devtools-mcp needs ^20.19 || ^22.12 || >=23)
-python3 --version     # ✓ 3.10+
-ffmpeg -version       # ✓ for audio/video processing
-echo "ELEVENLABS_API_KEY: $([ -n \"$ELEVENLABS_API_KEY\" ] && echo '✓ set (high-quality TTS)' || echo '○ not set — Phase 5 will fall back to npx hyperframes tts (Kokoro-82M, local, lower quality)')"
-echo "FREESOUND_API_KEY: $([ -n \"$FREESOUND_API_KEY\" ] && echo '✓ set (music search)' || echo '○ not set (music search disabled, user-provided only)')"
-echo "screencast (web clips): optional — needs the chrome-devtools MCP started with --experimentalScreencast=true; falls back to screenshots if unavailable"
-echo "asciinema+agg+timeout (CLI clip recording): optional — $(command -v asciinema >/dev/null && command -v agg >/dev/null && command -v timeout >/dev/null && echo '✓ available (real terminal-clip path enabled — see patterns/cli-terminal-capture.md)' || echo '○ incomplete (CLI scenes use the authored-terminal path; install — see patterns/cli-terminal-capture.md § Install; macOS: brew install asciinema agg coreutils)')"
-```
+Default, `--json`, and `--plan` are side-effect-free. Only an explicitly consented
+`--fix=<id,id>` may install safe user-scoped dependencies. Never run commands whose checker
+`fixability.kind` is manual/system/environment; print those exact commands for the user instead.
+
+To locate the checker when the runtime does not expose the loaded skill's root, probe the
+canonical homes without creating or downloading anything:
 
 ```bash
 # Probe the canonical skill homes ($SKILL_HOMES, defined in § Runtime Compatibility above).
@@ -90,23 +89,12 @@ SKILL_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
 SKILL_HOMES="$HOME/.claude/skills|$HOME/.copilot/skills|$HOME/.agents/skills|$HOME/.pi/agent/skills|$HOME/.config/opencode/skills|$HOME/.cursor/skills|$HOME/.codex/skills|/etc/codex/skills|.claude/skills|.github/skills|.agents/skills|.pi/skills|.opencode/skills|.cursor/skills|.codex/skills|$SKILL_ROOT/.claude/skills|$SKILL_ROOT/.github/skills|$SKILL_ROOT/.agents/skills|$SKILL_ROOT/.pi/skills|$SKILL_ROOT/.opencode/skills|$SKILL_ROOT/.cursor/skills|$SKILL_ROOT/.codex/skills"
 OLD_IFS=$IFS
 IFS='|'
-for s in hyperframes gsap; do
-  found=
-  for home in $SKILL_HOMES; do
-    [ -f "$home/$s/SKILL.md" ] && { echo "$s skill: ✓ ($home)"; found=1; break; }
-  done
-  [ -n "$found" ] && continue
-  [ "$s" = hyperframes ] \
-    && echo "hyperframes skill: ✗ — run: npx skills add heygen-com/hyperframes" \
-    || echo "gsap skill: ○ — recommended companion to hyperframes for animation choreography"
+SKILL_DIR=
+for home in $SKILL_HOMES; do
+  [ -f "$home/hve-spielberg/scripts/check_requirements.sh" ] \
+    && { SKILL_DIR="$home/hve-spielberg"; break; }
 done
 IFS=$OLD_IFS
-npx --yes hyperframes --version 2>/dev/null && echo "hyperframes CLI: ✓" || echo "hyperframes CLI: ✗ — npm i -g hyperframes  (or rely on npx; package: hyperframes on npm, repo github.com/heygen-com/hyperframes)"
-```
-
-Whisper is recommended but optional:
-```bash
-whisper --help 2>/dev/null && echo "whisper: ✓" || echo "whisper: ○ — pip install openai-whisper (recommended for VO timing verification)"
 ```
 
 ---
@@ -115,7 +103,84 @@ whisper --help 2>/dev/null && echo "whisper: ✓" || echo "whisper: ○ — pip 
 
 ### `new` (default)
 
-Start fresh. Ask mode, create project directory, begin Phase 0.
+Start fresh. Complete the guided first-run setup, ask mode, create the project directory, then
+begin Phase 0.
+
+### Phase -1: Guided first-run setup
+
+Run Phase -1 for direct/default `new` mode only when there is no `project-plan.md`. Skip it for explicit `continue` and `jump` invocations; do not create the project directory or
+`project-plan.md` until this setup has completed.
+
+1. Resolve the installed skill root (`$SKILL_DIR`) from the runtime's loaded skill path, falling
+   back to the canonical-home probe in § Prerequisites. Run the checker in structured,
+   side-effect-free mode:
+
+   ```bash
+   bash "$SKILL_DIR/scripts/check_requirements.sh" --json
+   ```
+
+2. Parse the JSON and explain it conversationally rather than dumping it:
+   - `ready` means the capability is available.
+   - `degraded` means a recommended/optional path is unavailable; name the affected phases and
+     the documented fallback.
+   - `blocked` means a required dependency is missing; name every affected phase.
+   - For each non-ready check, show the exact `fixability.command`. Manual sudo, system,
+     download, and environment actions are instructions for the user — print them, never run
+     them or set environment variables.
+
+3. If any non-ready check has `fixability.kind: safe-user`, present a native multi-select prompt.
+   Include only options whose fix IDs appear in that JSON report; remove already-ready options.
+   These are the complete allowed safe IDs:
+
+   ```json
+   {
+     "questions": [{
+       "question": "Which safe, user-scoped setup fixes may I run?",
+       "header": "Setup fixes",
+       "options": [
+         { "label": "Install render browser", "description": "Fix ID: chrome-shell — downloads chrome-headless-shell to the user cache." },
+         { "label": "Install HyperFrames skill", "description": "Fix ID: hyperframes-skill — installs the companion skill in an agent skill home." },
+         { "label": "Install Whisper", "description": "Fix ID: whisper — runs pip3 install --user openai-whisper." }
+       ],
+       "multiSelect": true
+     }]
+   }
+   ```
+
+   Treat an empty selection as no consent. Validate every selected value against the safe fix IDs
+   returned by the report, join only those IDs with commas, then execute exactly one scoped
+   command:
+
+   ```bash
+   bash "$SKILL_DIR/scripts/check_requirements.sh" "--fix=$SELECTED_FIX_IDS"
+   ```
+
+   Never substitute bare `--fix` for a scoped consent response.
+
+4. After selected fixes finish — or immediately when none were selected — re-run:
+
+   ```bash
+   bash "$SKILL_DIR/scripts/check_requirements.sh" --json
+   ```
+
+   Block entry to Phase 0 only while a `required` check remains `blocked`. Recommended or
+   optional checks may remain `degraded`; explain the affected phases and fallback, then continue.
+
+5. Before Phase 0, show this compact journey and its approval checkpoints:
+
+   | Phase | Work | Approval/checkpoint before advancing |
+   |---|---|---|
+   | Phase 0 — Discovery | Understand product, audience, goal, and constraints | Approve `context.md` and the creative brief |
+   | Phase 1 — Storytelling | Build the narrative, script, and scene plan | Approve `storyboard.md` |
+   | Phase 2 — Capture | Gather bound web, terminal, supplied, or native recordings | Approve the capture set and any fallbacks |
+   | Phase 3 — Design | Define brand/motion and author scene HTML | Approve `DESIGN.md` and scene previews |
+   | Phase 4 — Production | Wire the root composition and transitions | Approve the preview after lint/inspect/validate |
+   | Phase 5 — Audio & Render | Generate narration/captions, choose music, render MP4 | Approve audio choices and the final render |
+
+   Mention that `screen-recording` capture is native where supported: macOS uses the
+   `screencapture` adapter, Windows uses FFmpeg `gdigrab`, and X11 uses FFmpeg `x11grab`.
+   Wayland is conditional on feature-detected `wf-recorder`; WSL uses an explicit Windows-host
+   recording handoff followed by normalization with `stitch_clip.py`.
 
 **First, select video type:**
 
@@ -178,7 +243,8 @@ skipping required work.
 
 **Detection logic:**
 ```
-If no project-plan.md → switch to "new" mode
+If no project-plan.md → report that there is no resumable project and switch to the normal "new"
+  prompts, but preserve the explicit-continue origin: skip Phase -1 and begin at video-type selection
 If context.md missing → Phase 0
 If storyboard.md missing → Phase 1
 Determine whether Phase 2 is needed from storyboard.md:
