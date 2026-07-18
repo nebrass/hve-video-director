@@ -29,12 +29,12 @@ codecs/params and mishandles the sparse VFR that screen/screencast captures
 produce; the filter graph normalizes each segment first, so heterogeneous
 inputs stitch cleanly.
 
-NOTE — native screen *capture* (`capture-screen`) is intentionally NOT shipped
-here. A portable capture backend is impossible: macOS (AVFoundation), Windows
-(gdigrab/ddagrab), X11 (x11grab), Wayland (portal) and WSL all differ. Use the
-documented Chrome-DevTools screencast (Phase 2) or asciinema+agg (CLI) paths to
-produce raw clips, then normalize/stitch them here. A native capture backend is
-a separate follow-up (see issue #19).
+For a fixed-duration native desktop or region recording, use the sibling
+`capture_screen.py` orchestrator. It selects a truthful platform adapter
+(macOS `screencapture`, Windows `gdigrab`, X11 `x11grab`, or feature-detected
+Wayland `wf-recorder`) and invokes this script for normalization. WSL and
+Wayland without `wf-recorder` return explicit recording handoffs instead of
+claiming an unsupported backend.
 """
 
 import argparse

@@ -34,12 +34,18 @@ __pycache__/
 # Agent session state (local runtime, not source)
 .omo/
 
-# Throwaway render/verify harness — never committed
-test/
+# Throwaway render/verify harnesses; keep only the stdlib test entrypoint/suite
+test/*
+!test/run.sh
+!test/unit/
+test/unit/__pycache__/
 
 # Recorded clip footage is never committed (externalize as a release asset)
 public/clips/
 *.webm
+*.mp4.capture.json
+*.capture.pending
+*.capture.lock
 
 # Graphify knowledge-graph tool output (local, machine-specific absolute paths)
 graphify-out/

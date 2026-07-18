@@ -185,7 +185,7 @@ Chapters are **task-ordered**: each scene is one step with a single concrete goa
 on-screen "Step N of M" (from the storyboard `Step label:`/`Chapter:` fields — see Phase 3/4).
 **Cold-open on the payoff** (spec §7.2d): scene 0 is a ~2–4s teaser of the finished end-state
 so the viewer knows what they're building toward. Tutorial mode **prefers clip scenes**
-(`Capture: screencast`/`terminal`) but does **not require** them — without capture, steps fall
+(`Capture: screencast`/`screen-recording`/`terminal-clip`) but does **not require** them — without capture, steps fall
 back to stills and the step labels + captions carry the narrative (spec §7.3). Break any
 continuous run >~90s with an authored recap beat (Phase 4) before the next step.
 
@@ -239,6 +239,9 @@ Generate `storyboard.md` from `templates/storyboard.md`.
 Each product/spine scene defaults to a still **screenshot**. Connective title/text/CTA scenes
 use `Capture: none`. A scene may instead be a **clip** (real motion footage) by setting
 `Capture:` to `screencast` (web app, Phase 2),
+`screen-recording` (native desktop or non-browser app — requires `Capture duration:`
+in seconds and an exact `Clip:` output path; optionally set `Capture region: x,y,w,h`,
+otherwise Phase 2 records the full desktop),
 `terminal` (CLI tool — an authored animated terminal from real command output),
 `terminal-clip` (CLI tool — a **real** recording: Phase 2 runs the command
 autonomously via asciinema + agg; requires a `Command:` field with the exact
@@ -265,7 +268,9 @@ For web screenshot/screencast scenes, define:
 - Device viewport — match the chosen canvas: desktop 1920×1080 for 16:9; mobile 390×844 for 9:16; square viewport 1080×1080 for 1:1; mobile 390×488 (or desktop crop) for 4:5
 
 For terminal scenes, define the exact command and whether the accepted output is an authored
-terminal scene or a `terminal-clip`. For supplied footage, define the exact destination path.
+terminal scene or a `terminal-clip`. For native `screen-recording` scenes, define the required
+positive capture duration, optional `x,y,w,h` region, and exact `Clip:` destination path. For
+supplied footage, define the exact destination path.
 When `Product surface: none` and no scene requests any capture, explicitly record
 `Capture plan: none — skip Phase 2` rather than inventing an app URL.
 

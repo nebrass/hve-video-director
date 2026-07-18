@@ -3,10 +3,12 @@ name: hve-spielberg
 description: >
   End-to-end video production pipeline with design thinking. 6-phase orchestrator:
   Discovery (design thinking + context) → Storytelling (narrative + storyboard) →
-  Capture (Chrome DevTools screenshots + screencast clips, asciinema terminal recording) → Design (HyperFrames scene templates) →
+  Capture (Chrome DevTools screenshots/screencasts, native desktop or region screen
+  recording where supported, asciinema terminal recording) → Design (HyperFrames scene templates) →
   Production (HyperFrames composition) → Audio &amp; Render (ElevenLabs + Whisper + Freesound music).
   Three content modes: promo (marketing), showcase (portfolio/demo), or tutorial (walkthrough/how-to). Triggers: "create video",
-  "promo video", "showcase video", "tutorial video", "walkthrough video", "how-to video", "product video", "demo video", "launch video".
+  "promo video", "showcase video", "tutorial video", "walkthrough video", "how-to video", "product video", "demo video",
+  "launch video", "desktop app demo", "screen recording video", "record a screen region".
 user-invocable: true
 argument-hint: "[project-dir] [--mode new|continue|jump] [--phase 0|1|2|3|4|5]"
 allowed-tools: Bash(npm:*), Bash(npx:*), Bash(ffmpeg:*), Bash(python:*), Bash(python3:*), Bash(pip:*), Bash(whisper:*), Bash(curl:*), Bash(git:*), Bash(asciinema:*), Bash(agg:*), Bash(timeout:*), Bash(ffprobe:*), Bash(script:*), Read, Write, Edit, Glob, Grep, AskUserQuestion, Skill, mcp__chrome-devtools__navigate_page, mcp__chrome-devtools__take_screenshot, mcp__chrome-devtools__take_snapshot, mcp__chrome-devtools__click, mcp__chrome-devtools__wait_for, mcp__chrome-devtools__evaluate_script, mcp__chrome-devtools__emulate, mcp__chrome-devtools__list_pages, mcp__chrome-devtools__new_page, mcp__chrome-devtools__select_page, mcp__chrome-devtools__screencast_start, mcp__chrome-devtools__screencast_stop, mcp__chrome-devtools__resize_page
@@ -181,10 +183,18 @@ If context.md missing → Phase 0
 If storyboard.md missing → Phase 1
 Determine whether Phase 2 is needed from storyboard.md:
   - REQUIRED when Product surface is `ui`, or any scene requests screenshot, screencast,
-    terminal, terminal-clip, or supplied capture.
+    screen-recording, terminal, terminal-clip, or supplied capture.
   - SKIPPED when Product surface is `none` and no scene requests capture.
 If Phase 2 is required and any planned capture lacks its accepted output → Phase 2:
-  - screenshot/screencast: bound screenshot or clip exists and is non-empty
+  - screenshot: bound screenshot exists and is non-empty
+  - screencast: exact bound Clip exists and is non-empty, or the storyboard was explicitly
+    rewritten to screenshot and its bound screenshot exists and is non-empty
+  - screen-recording: positive Capture duration is present, optional Capture region is valid
+    x,y,w,h, the exact bound Clip exists and is non-empty, `<Clip>.capture.pending` is absent,
+    `<Clip>.capture.json` is present, and
+    `python3 scripts/capture_screen.py --check --duration "<Capture duration>"`
+    `[--region "<Capture region>"] -o "<Clip>"` passes (including sidecar request match,
+    media contract, and fingerprint)
   - terminal: authored terminal scene exists and is non-empty
   - terminal-clip: non-empty MP4 exists, or storyboard was rewritten to terminal and its
     non-empty scene exists
@@ -201,7 +211,12 @@ Go directly to a specific phase. Verify prerequisites:
 Phase 1 requires: context.md
 Phase 2 requires: context.md + storyboard.md
 Phase 3 requires: context.md + storyboard.md, plus completion of every capture requested by the
-  storyboard. Product surface `none` with no requested captures has no Phase-2 artifact prerequisite.
+  storyboard. In particular, `screen-recording` requires a positive `Capture duration:`, an
+  optional valid `Capture region: x,y,w,h`, a non-empty file at the exact `Clip:` path, no
+  `<Clip>.capture.pending`, and a matching `<Clip>.capture.json` sidecar. Run
+  `capture_screen.py --check` with the storyboard duration/region/Clip; if any check fails,
+  BLOCK Phase 3 and resume Phase 2 (or return to Phase 1 to repair invalid fields).
+  Product surface `none` with no requested captures has no Phase-2 artifact prerequisite.
   Capture-coverage gate (orchestrator-enforced; promo/showcase only): before authoring
   scenes, if product_surface is `ui` (the default) and NO storyboard scene binds an existing real
   capture (`Screenshot:` or `Clip:`), BLOCK and resolve — return to Phase 2 to capture the

@@ -102,6 +102,38 @@ less check_requirements.sh && bash check_requirements.sh        # add --fix to a
 | `espeak-ng` | Optional | `brew install espeak-ng` / `apt install espeak-ng` — only needed for non-English voiceover via `hyperframes tts` fallback |
 | `--experimentalScreencast` (chrome-devtools MCP) | No | Enables `screencast` web-clip capture; without it, web scenes fall back to screenshots. |
 | `asciinema` + `agg` | No | Optional true terminal-clip recording for CLI scenes; without them, CLI scenes use the authored-terminal path. Install: `brew install asciinema agg` (macOS) · `apt install asciinema && cargo install --git https://github.com/asciinema/agg` (Debian/Ubuntu). See [`patterns/cli-terminal-capture.md`](patterns/cli-terminal-capture.md) for the full recording workflow. |
+| `wf-recorder` | Wayland native capture only | Feature-detected by `scripts/capture_screen.py`. Without it, use the desktop recorder and normalize the result with `scripts/stitch_clip.py`; generic FFmpeg PipeWire capture is not assumed. |
+
+### Native screen capture and clip normalization
+
+The pure-stdlib helpers record no audio and publish the Phase-2 clip contract: fixed requested
+duration, CFR30 H.264 High, `yuv420p`, even dimensions, and `+faststart`.
+
+```bash
+# Fixed-duration native desktop capture (macOS, Windows, X11, or detected Wayland)
+python3 scripts/capture_screen.py --duration 6 \
+  -o public/clips/scene-02-dashboard.mp4
+
+# Native region capture; source dimensions may be odd
+python3 scripts/capture_screen.py --duration 4 --region 100,80,1281,721 \
+  -o public/clips/scene-03-flow.mp4
+
+# Verify clip + completion sidecar against the storyboard duration/region
+python3 scripts/capture_screen.py --check --duration 4 --region 100,80,1281,721 \
+  -o public/clips/scene-03-flow.mp4
+
+# Normalize, trim, or stitch existing recordings
+python3 scripts/stitch_clip.py raw.mov::1.5::6 second.mkv \
+  --width 1920 --height 1080 -o public/clips/scene-04-result.mp4
+```
+
+`capture_screen.py` uses built-in `screencapture` on macOS, ffmpeg `gdigrab` on Windows,
+ffmpeg `x11grab` on X11, and `wf-recorder` only when detected on Wayland. WSL exits with a
+Windows-host recording handoff. Before each attempt it writes `<clip>.capture.pending`; success
+atomically publishes `<clip>.capture.json` with requested parameters, validated media properties,
+and a SHA-256 fingerprint before clearing pending. Existing clip/metadata are preserved on every
+failure, while retained pending prevents a failed retake from counting as complete. Raw capture is
+kept on failure (or with `--keep-raw`) and `stitch_clip.py` remains the canonical normalizer.
 
 ### Required Skills
 
@@ -309,9 +341,13 @@ hve-spielberg/
 ├── scripts/
 │   ├── generate_voiceover.py      # ElevenLabs TTS + transcript verification + auto-pad
 │   ├── caption_gen.py             # transcript.json → voiceover.srt/.vtt caption sidecars
+│   ├── capture_screen.py          # native screen/region capture orchestrator (silent)
 │   ├── stitch_clip.py             # normalize/stitch captures to the CFR30 clip contract
 │   ├── search_music.py            # Freesound CC music search
 │   └── check_requirements.sh      # toolchain preflight (--fix auto-installs user deps)
+├── test/
+│   ├── run.sh                     # stdlib unit/integration test entrypoint
+│   └── unit/test_capture_screen.py
 ├── example/                       # The skill's own promo, built by the skill itself
 │   ├── (out/final.mp4)           # 60s rendered demo (1920×1080, 3.4 MB) — not committed; regenerable build artifact (demo on YouTube)
 │   ├── voiceover.py               # Project-local script with the actual VO timing config

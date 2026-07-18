@@ -2,7 +2,7 @@
 
 ## What this repo is
 
-This repo **is an agent skill** (`hve-spielberg`) that runs on both **GitHub Copilot CLI** and **Claude Code**, not a typical application. The "source" is prompt content (markdown) plus two Python helper scripts. There is no build system, no test suite, no lint config — the skill is consumed by future agent sessions that invoke `/hve-spielberg <project-dir>` (a slash command on Claude Code; invoked by name/intent on Copilot CLI). The `SKILL.md` frontmatter follows the Claude Code skill schema; Copilot CLI loads the skill from its `name`/`description` and harmlessly ignores the Claude-only fields (`allowed-tools`, `user-invocable`, `argument-hint`). See the **Runtime Compatibility** section in `SKILL.md` for how interaction blocks (`{"questions": […]}`), companion-skill loading (`Skill(<name>)`), and skill-home paths map across runtimes — preserve that mapping when editing.
+This repo **is an agent skill** (`hve-spielberg`) that runs on both **GitHub Copilot CLI** and **Claude Code**, not a typical application. The "source" is prompt content (markdown) plus Python helper scripts. There is no build system or lint config; pure-stdlib helper tests live under `test/`. The skill is consumed by future agent sessions that invoke `/hve-spielberg <project-dir>` (a slash command on Claude Code; invoked by name/intent on Copilot CLI). The `SKILL.md` frontmatter follows the Claude Code skill schema; Copilot CLI loads the skill from its `name`/`description` and harmlessly ignores the Claude-only fields (`allowed-tools`, `user-invocable`, `argument-hint`). See the **Runtime Compatibility** section in `SKILL.md` for how interaction blocks (`{"questions": […]}`), companion-skill loading (`Skill(<name>)`), and skill-home paths map across runtimes — preserve that mapping when editing.
 
 The renderer is **HyperFrames** (HTML + GSAP, rendered via headless Chromium). React/Remotion are **not** used.
 
@@ -43,6 +43,9 @@ SKILL.md (orchestrator)
 - `npx hyperframes` CLI for `init`, `add` (pull catalog blocks, Phase 4), `lint`, `preview`, `inspect`, `validate`, `render`, `doctor` (render-environment diagnostics, Phase 5), `transcribe` (preferred voiceover-timing verifier in Phase 5; falls back to standalone Whisper if unavailable), and `tts` (used in Phase 5 as the no-API-key fallback when `ELEVENLABS_API_KEY` is unset)
 - `mcp__chrome-devtools__screencast_*` + `resize_page` for Phase-2 web-clip capture (experimental, feature-detected — needs `--experimentalScreencast=true`; falls back to screenshots), and optional `asciinema`+`agg` for CLI clip recording (otherwise the authored-terminal path)
 - `scripts/generate_voiceover.py` → ElevenLabs API + optional Whisper transcription (Phase 5)
+- `scripts/caption_gen.py` → transcript JSON to SRT/VTT caption sidecars (pure stdlib)
+- `scripts/capture_screen.py` → fixed-duration, silent native desktop/region capture orchestrator (pure stdlib): macOS `screencapture`, Windows `gdigrab`, X11 `x11grab`, or feature-detected Wayland `wf-recorder`; WSL/unavailable Wayland return explicit handoffs. It trims via sibling `stitch_clip.py`, validates duration/frame count within one frame, and uses `<clip>.capture.pending` + fingerprinted `<clip>.capture.json` state so failed retakes preserve prior valid media but cannot count as complete.
+- `scripts/stitch_clip.py` → canonical raw-capture normalizer/stitcher for CFR30 H.264 High/yuv420p, even dimensions, no audio, and `+faststart` (pure stdlib wrapper for ffmpeg/ffprobe)
 - `scripts/search_music.py` → Freesound API for CC music (Phase 5)
 
 `templates/` files are copied into generated projects. `patterns/` files are referenced for visual techniques. `patterns/INDEX.md` is the wayfinding map between local patterns and the deeper `hyperframes` skill references — read it before adding new pattern files. `patterns/metallic-swoosh.md` documents *why* clipPath transitions are banned (black-sliver artifacts).
@@ -51,11 +54,20 @@ SKILL.md (orchestrator)
 
 ## Working with the skill scripts
 
-The Python scripts run inside generated video projects, not from this repo. They self-install `requests` via pip on first run.
+The Python scripts run inside generated video projects, not from this repo. Only
+`generate_voiceover.py` and `search_music.py` self-install `requests`; capture, stitch, and caption
+helpers are pure standard library.
 
 ```bash
 # Voiceover generation (from inside a generated project)
 ELEVENLABS_API_KEY=... python3 scripts/generate_voiceover.py
+
+# Fixed-duration silent native screen/region capture
+python3 scripts/capture_screen.py --duration 6 --region 100,80,1280,720 \
+  -o public/clips/scene-02-dashboard.mp4
+
+# Normalize or stitch existing recordings
+python3 scripts/stitch_clip.py raw.mov -o public/clips/scene-02-dashboard.mp4
 
 # Music search (from inside a generated project)
 FREESOUND_API_KEY=... python3 scripts/search_music.py
@@ -63,7 +75,10 @@ FREESOUND_API_KEY=... python3 scripts/search_music.py
 
 Both `ELEVENLABS_API_KEY` and `ELEVEN_LABS_API_KEY` are accepted (back-compat).
 
-There is no test/lint/build command for this repo. Validation of skill changes happens by running `/hve-spielberg <project-dir>` end-to-end in Claude Code; the canonical reference build is `example/` (run `example/voiceover.py` then `npx hyperframes render` to reproduce its `out/final.mp4`).
+There is no build or lint command for this repo. Run `bash test/run.sh` for the stdlib helper tests;
+validation of workflow changes still happens by running `/hve-spielberg <project-dir>` end-to-end
+in Claude Code. The canonical reference build is `example/` (run `example/voiceover.py` then
+`npx hyperframes render` to reproduce its `out/final.mp4`).
 
 ## Editing rules — DON'Ts that are easy to violate
 
