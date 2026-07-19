@@ -238,6 +238,47 @@ class QuestionContractTestCase(unittest.TestCase):
         self.assertIn("python3 ./voiceover.py --assemble-only", audio)
         self.assertRegex(audio, r"(?is)kokoro.+even if.+ElevenLabs key")
 
+    def test_reviewed_caption_delivery_is_audio_bound_and_blocks_completion(self):
+        audio = (ROOT / "workflows" / "phase-5-audio.md").read_text(
+            encoding="utf-8"
+        )
+        skill = SKILL.read_text(encoding="utf-8")
+
+        review = audio.index("## Step 5.3b: Reviewed Closed-Caption Delivery")
+        render = audio.index("## Step 5.4: Final Render")
+        self.assertLess(review, render)
+        review_section = audio[review:render]
+        for term in (
+            "caption_gen.py\" draft",
+            "caption_gen.py\" approve",
+            "caption_gen.py\" finalize",
+            "caption_gen.py\" validate",
+            "captions-review.json",
+            ".hve/captions-state.json",
+            "out/final.srt",
+            "out/final.vtt",
+            "speech_review",
+            "speaker_review",
+            "sound_review",
+            "reviewed: false",
+            "reviewed: true",
+            "Approve captions",
+        ):
+            self.assertIn(term, review_section)
+        self.assertLess(
+            review_section.index("Approve captions"),
+            review_section.index("caption_gen.py\" approve"),
+        )
+        self.assertLess(
+            review_section.index("caption_gen.py\" approve"),
+            review_section.index("caption_gen.py\" finalize"),
+        )
+        self.assertIn("caption_gen.py\" validate", skill)
+        self.assertRegex(
+            audio,
+            r"(?is)caption_gen\.py\" validate.+stamp phase-5",
+        )
+
     def test_authenticated_session_capture_is_selective_and_navigation_safe(self):
         capture = (ROOT / "workflows" / "phase-2-capture.md").read_text(
             encoding="utf-8"

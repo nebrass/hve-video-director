@@ -44,7 +44,7 @@ SKILL.md (orchestrator)
 - `mcp__chrome-devtools__screencast_*` + `resize_page` for Phase-2 web-clip capture (experimental, feature-detected — needs `--experimentalScreencast=true`; falls back to screenshots), and optional `asciinema`+`agg` for CLI clip recording (otherwise the authored-terminal path)
 - `mcp__chrome-devtools__list_pages` + `select_page` for the explicit authenticated-session path. The user must first connect the MCP to running Chrome with Chrome 144+ `--autoConnect` (preferred) or the dedicated-profile `--browser-url` fallback; attached capture never navigates and follows `patterns/authenticated-browser-capture.md`.
 - `scripts/generate_voiceover.py` → ElevenLabs API + optional Whisper transcription (Phase 5)
-- `scripts/caption_gen.py` → transcript JSON to SRT/VTT caption sidecars (pure stdlib)
+- `scripts/caption_gen.py` → backward-compatible ASR drafts plus the Phase-5 reviewed-caption workflow: `draft` creates an audio-bound manifest, `approve` binds explicit user approval to the exact cues, `finalize` transactionally publishes `out/final.srt` + `out/final.vtt` + deterministic state, and `validate` rejects stale audio/manifest/state/outputs (pure stdlib + required `ffprobe`)
 - `scripts/capture_screen.py` → fixed-duration, silent native desktop/region capture orchestrator (pure stdlib): macOS `screencapture`, Windows `gdigrab`, X11 `x11grab`, or feature-detected Wayland `wf-recorder`; WSL/unavailable Wayland return explicit handoffs. It trims via sibling `stitch_clip.py`, validates duration/frame count within one frame, and uses `<clip>.capture.pending` + fingerprinted `<clip>.capture.json` state so failed retakes preserve prior valid media but cannot count as complete.
 - `scripts/stitch_clip.py` → canonical raw-capture normalizer/stitcher for CFR30 H.264 High/yuv420p, even dimensions, no audio, and `+faststart` (pure stdlib wrapper for ffmpeg/ffprobe)
 - `scripts/validate_brief.py` → exact Creative Brief parser, consent-gated legacy placeholder migration, revision-bound story/audio fingerprints, atomic `.hve/brief-state.json`, phase stamps, and stale-prerequisite checks (pure stdlib)
@@ -64,7 +64,8 @@ SKILL.md (orchestrator)
 The media scripts run inside generated video projects; `validate_brief.py` runs from the installed
 skill against a generated project via `--project-dir`. Only `generate_voiceover.py` and
 `search_music.py` self-install `requests`; capture, stitch, caption, and Creative Brief validation
-helpers are pure standard library.
+helpers are pure standard library. Caption finalization invokes the required `ffprobe` binary for
+duration validation.
 
 ```bash
 # Voiceover generation (from inside a generated project)

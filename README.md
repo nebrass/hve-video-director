@@ -40,7 +40,7 @@ hve-spielberg is an Agent Skill that orchestrates end-to-end video production:
 3. **Captures your app** automatically via Chrome DevTools, including an explicitly selected already-authenticated Chrome tab
 4. **Authors HTML scene templates** matching your brand DNA — pick from [10 curated design systems](design-systems/) (Stripe, Linear, Apple, Notion, Vercel, Airbnb, GitHub, Cal, Arc, Bento), 8 HyperFrames named styles, or derive from screenshots
 5. **Produces the video** in HyperFrames (HTML + GSAP, headless-Chromium rendered)
-6. **Adds voiceover + music** with the explicitly chosen ElevenLabs or local Kokoro-82M voice, `npx hyperframes transcribe` for timing verification, and Freesound music
+6. **Adds voiceover, music, and reviewed closed captions** with the explicitly chosen ElevenLabs or local Kokoro-82M voice, `npx hyperframes transcribe`, Freesound music, and audio-fingerprinted SRT/VTT delivery
 
 ### Three Modes
 
@@ -165,6 +165,25 @@ atomically publishes `<clip>.capture.json` with requested parameters, validated 
 and a SHA-256 fingerprint before clearing pending. Existing clip/metadata are preserved on every
 failure, while retained pending prevents a failed retake from counting as complete. Raw capture is
 kept on failure (or with `--keep-raw`) and `stitch_clip.py` remains the canonical normalizer.
+
+### Reviewed closed-caption delivery
+
+After the final soundtrack is mixed, Phase 5 creates ASR drafts plus a review manifest. The user
+corrects speech, reviews speaker identity and meaningful music/SFX, then explicitly approves the
+cue list. Finalization writes same-basename sidecars beside the video and fingerprints the audio,
+manifest, and outputs:
+
+```bash
+python3 scripts/caption_gen.py draft --audio voiceover-with-music.mp3
+# Review captions-review.json; set speech_review/speaker_review/sound_review.
+python3 scripts/caption_gen.py approve  # only after the user approves these exact cues
+python3 scripts/caption_gen.py finalize
+python3 scripts/caption_gen.py validate
+```
+
+Final delivery is `out/final.mp4` + `out/final.srt` + `out/final.vtt`. Any soundtrack, manifest,
+state, or sidecar edit makes validation fail and routes back to Phase 5. Editing a cue after
+approval also invalidates its content-bound approval fingerprint.
 
 ### Required Skills
 
@@ -294,6 +313,8 @@ existing skill directories for `SKILL.md` changes; other agents may require a re
 5. **Get your video:**
    ```
    out/final.mp4  — chosen aspect (16:9 / 9:16 / 1:1 / 4:5), voiceover + music, H.264 + AAC
+   out/final.srt  — reviewed SubRip closed captions
+   out/final.vtt  — reviewed WebVTT closed captions
    ```
 
 ## Entry Modes
@@ -363,7 +384,8 @@ When hve-spielberg creates a video project, it generates:
 my-video-project/
 ├── project-plan.md           # Stable Creative Brief + phase tracker + decision log
 ├── .hve/
-│   └── brief-state.json      # Atomic confirmation fingerprints + phase freshness stamps
+│   ├── brief-state.json      # Atomic confirmation fingerprints + phase freshness stamps
+│   └── captions-state.json   # Final-audio/review/output caption fingerprints
 ├── context.md                # Product context from Phase 0
 ├── storyboard.md             # Scene-by-scene plan from Phase 1
 ├── DESIGN.md                 # Design contract from Phase 3 (palette, type, motion)
@@ -379,8 +401,11 @@ my-video-project/
                               # (or voiceover.json if you used standalone whisper)
 ├── background-music.mp3      # Freesound or user-provided
 ├── voiceover-with-music.mp3  # Mixed track wired into index.html
+├── captions-review.json      # Human-reviewed speech/speaker/sound cue source
 └── out/
-    └── final.mp4             # `npx hyperframes render` output
+    ├── final.mp4             # `npx hyperframes render` output
+    ├── final.srt             # Reviewed SubRip closed-caption sidecar
+    └── final.vtt             # Reviewed WebVTT closed-caption sidecar
 ```
 
 ## Skill File Structure
@@ -417,7 +442,7 @@ hve-spielberg/
 │   └── …                          # notion, vercel, airbnb, github, cal, arc, bento
 ├── scripts/
 │   ├── generate_voiceover.py      # ElevenLabs TTS + transcript verification + auto-pad
-│   ├── caption_gen.py             # transcript.json → voiceover.srt/.vtt caption sidecars
+│   ├── caption_gen.py             # ASR drafts → reviewed, audio-bound final caption sidecars
 │   ├── capture_screen.py          # native screen/region capture orchestrator (silent)
 │   ├── stitch_clip.py             # normalize/stitch captures to the CFR30 clip contract
 │   ├── validate_brief.py           # Creative Brief validation + fingerprint state
@@ -425,7 +450,7 @@ hve-spielberg/
 │   └── check_requirements.sh      # JSON/plan preflight + consent-scoped safe fixes
 ├── test/
 │   ├── run.sh                     # stdlib unit/integration test entrypoint
-│   └── unit/                       # capture, requirements-checker, and onboarding tests
+│   └── unit/                       # caption, capture, requirements, onboarding, and brief tests
 ├── example/                       # The skill's own promo, built by the skill itself
 │   ├── (out/final.mp4)           # 60s rendered demo (1920×1080, 3.4 MB) — not committed; regenerable build artifact (demo on YouTube)
 │   ├── voiceover.py               # Project-local script with the actual VO timing config

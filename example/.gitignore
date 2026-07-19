@@ -13,6 +13,11 @@ voiceover.srt
 voiceover.txt
 voiceover.tsv
 voiceover.vtt
+captions-review.json
+captions-review.previous.json
+out/final.srt
+out/final.vtt
+.hve/captions-state.json
 
 # Clip footage (if the example ever demos a clip scene) — externalized, not committed
 public/clips/

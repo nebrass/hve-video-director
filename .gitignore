@@ -17,6 +17,11 @@
 /voiceover.vtt
 /voiceover.tsv
 /voiceover.txt
+/captions-review.json
+/captions-review.previous.json
+/.hve/captions-state.json
+/out/final.srt
+/out/final.vtt
 /background-music.mp3
 
 # Node

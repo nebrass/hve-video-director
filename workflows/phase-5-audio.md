@@ -208,23 +208,13 @@ Orchestrator enforcement before render (tutorial mode) — do not advance until 
    (the `references/captions.md` `[caption-lint]` self-check logs warnings otherwise).
 There is no programmatic gate; a true build-time rule would be upstream `hyperframes` lint work (spec §14).
 
-### Caption sidecars — draft subtitles (all modes)
+### Caption transcript preparation
 
-Separate from the burned-in tutorial captions above: emit **toggleable** subtitle sidecars next to
-the render so the voiceover is readable in any player and friendly to screen readers / scrubbers.
-Run this in **every** mode (promo / showcase / tutorial) once `transcript.json` exists.
-`scripts/caption_gen.py` groups the word timings into readable cues and writes `voiceover.srt` +
-`voiceover.vtt` (the names `.gitignore` already reserves):
-
-```bash
-# Reuse $SKILL_DIR resolved in § Generate with ElevenLabs (re-resolve it the same way in a fresh shell).
-python3 "$SKILL_DIR/scripts/caption_gen.py"   # auto-detects transcript.json, then voiceover.json
-```
-
-These are **ASR draft subtitles** of the spoken track — not yet WCAG 2.1 closed captions, which also
-transcribe meaningful non-speech audio (music/sfx cues, speaker IDs) and require a human review pass
-over the ASR output. Ship them as a reviewable starting point; the burned-in tutorial captions
-(above) remain the in-frame accessibility layer.
+Keep `transcript.json` (or `voiceover.json`) as the speech-timing source for every mode. Do not
+finalize delivery captions here: music and opt-in clip audio have not been mixed yet, so any audio
+fingerprint or non-speech review would immediately become stale. Step 5.3b creates the draft after
+the final soundtrack exists, requires human review of speech/speakers/meaningful sounds, and emits
+the delivery-ready sidecars.
 
 ### Pad voiceover to VIDEO_DURATION
 
@@ -585,6 +575,152 @@ ffmpeg -hide_banner -i voiceover-with-music.mp3 -af ebur128=peak=true -f null - 
 ```
 Expected: integrated loudness ≈ -16 LUFS, with true peak at or under -1 dBTP; the ducked window is audibly quieter under the clip's sound. As in Step 5.3, `alimiter` caps sample peaks — verify the true peak with `ebur128` and lower the limiter ceiling if it reports above -1 dBTP.
 
+## Step 5.3b: Reviewed Closed-Caption Delivery (all modes)
+
+Run this after **all** music and opt-in clip audio has been mixed into the canonical
+`voiceover-with-music.mp3`. WCAG captions represent the information in the complete soundtrack,
+not speech alone: correct every spoken line, identify a speaker when the identity is not obvious,
+and include meaningful music/sound-effect cues. This is mandatory in promo, showcase, and tutorial
+modes; burned-in tutorial captions remain a separate in-frame layer.
+
+### 1. Create an audio-bound review draft
+
+```bash
+# Reuse $SKILL_DIR resolved earlier in this phase.
+python3 "$SKILL_DIR/scripts/caption_gen.py" draft \
+  --audio voiceover-with-music.mp3 \
+  --manifest captions-review.json \
+  --srt voiceover.srt \
+  --vtt voiceover.vtt
+```
+
+This writes backward-compatible ASR drafts plus `captions-review.json`. The manifest records the
+final soundtrack's SHA-256 and duration, starts with `reviewed: false`, and leaves
+`speech_review`, `speaker_review`, and `sound_review` pending. It is the human-review source; do not treat
+`voiceover.srt`/`.vtt` as final captions.
+
+If `captions-review.json` already exists, `draft` fails instead of overwriting review work. When
+the audio changed, preserve the prior manifest as `captions-review.previous.json`; only use
+`--force` to replace the canonical manifest after the user explicitly approves that replacement.
+
+### 2. Review the complete soundtrack
+
+Compare every speech cue to the approved narration and show the user the full timestamped cue
+list. Correct ASR words, punctuation, timing, and line breaks. Each manifest cue has:
+
+```json
+{
+  "start": 0.5,
+  "end": 2.8,
+  "text": "The spoken line.",
+  "speaker": "",
+  "sound": "Upbeat electronic music begins"
+}
+```
+
+`speaker` is optional when one narrator is visually/aurally obvious. `sound` is a meaningful
+non-speech cue rendered as `[Upbeat electronic music begins]`; it may share a cue with speech so
+simultaneous narration and sound stay in one two-line caption. Add standalone sound-only cues when
+they fit between speech cues. Review clip-own audio as well as music.
+
+Present all three review decisions:
+
+```json
+{
+  "questions": [
+    {
+      "question": "Was every spoken caption corrected against the final soundtrack?",
+      "header": "Speech",
+      "options": [
+        { "label": "Speech verified", "description": "All words, punctuation, timing, and line breaks match the final soundtrack." },
+        { "label": "Needs edits", "description": "Keep captions unreviewed and correct the spoken cues." }
+      ],
+      "multiSelect": false
+    },
+    {
+      "question": "How was speaker identity handled in the complete caption review?",
+      "header": "Speakers",
+      "options": [
+        { "label": "Single obvious speaker", "description": "One narrator is unambiguous; speaker labels are unnecessary." },
+        { "label": "Labels included", "description": "Required speaker labels are present in the reviewed cues." },
+        { "label": "Needs edits", "description": "Keep captions unreviewed and revise speaker coverage." }
+      ],
+      "multiSelect": false
+    },
+    {
+      "question": "How was meaningful music and sound handled in the complete caption review?",
+      "header": "Sound cues",
+      "options": [
+        { "label": "Cues included", "description": "Meaningful music/SFX cues are present, including clip-own audio." },
+        { "label": "None meaningful", "description": "The final soundtrack has no non-speech information needed to understand it." },
+        { "label": "Needs edits", "description": "Keep captions unreviewed and revise sound coverage." }
+      ],
+      "multiSelect": false
+    }
+  ]
+}
+```
+
+Map the accepted answers to `speech_review: verified`,
+`speaker_review: single-obvious | included`, and `sound_review: none-meaningful | included`.
+Any **Needs edits** response leaves
+`reviewed: false`.
+
+After the user has read the complete cue list, ask for final approval:
+
+```json
+{
+  "questions": [{
+    "question": "Approve these complete captions against the final soundtrack?",
+    "header": "Captions",
+    "options": [
+      { "label": "Approve captions", "description": "Mark this exact cue list human-reviewed and create final sidecars." },
+      { "label": "Needs changes", "description": "Keep reviewed=false and revise the named cues." }
+    ],
+    "multiSelect": false
+  }]
+}
+```
+
+Only after the user's **Approve captions** answer, run the approval command:
+
+```bash
+python3 "$SKILL_DIR/scripts/caption_gen.py" approve \
+  --audio voiceover-with-music.mp3 \
+  --manifest captions-review.json
+```
+
+The command validates the three completed review decisions, sets `reviewed: true`, and stores an
+approval fingerprint over the exact audio, language, cue list, and review decisions. Any later cue
+or decision edit invalidates approval and requires showing the revised list to the user again.
+Never run `approve` from the narration script or ASR output without that explicit user answer.
+
+### 3. Finalize and validate delivery sidecars
+
+```bash
+python3 "$SKILL_DIR/scripts/caption_gen.py" finalize \
+  --audio voiceover-with-music.mp3 \
+  --manifest captions-review.json \
+  --srt out/final.srt \
+  --vtt out/final.vtt \
+  --state .hve/captions-state.json
+
+python3 "$SKILL_DIR/scripts/caption_gen.py" validate \
+  --audio voiceover-with-music.mp3 \
+  --manifest captions-review.json \
+  --srt out/final.srt \
+  --vtt out/final.vtt \
+  --state .hve/captions-state.json
+```
+
+`finalize` rejects unapproved or changed review content, missing speech/speaker/sound decisions,
+stale audio, overlapping or out-of-range cues, more than two lines, lines over 42 characters, and
+reading speed above 25 characters/second. It stages the same-basename sidecars and deterministic
+state before publication and restores the prior delivery set if any replacement fails.
+`validate` rechecks the exact state schema and regenerates expected state and sidecar content in
+memory; any soundtrack, manifest, state, or output change routes back to this step for review and
+finalization.
+
 ## Step 5.4: Final Render
 
 The HyperFrames composition (`index.html`) already references `voiceover-with-music.mp3` via an `<audio>` clip on track 0 (see Phase 4). A single render command produces the final MP4 with embedded audio — no separate mux step.
@@ -628,6 +764,12 @@ ffmpeg -y -i out/video-silent.mp4 -i voiceover-with-music.mp3 \
 ### Verify
 ```bash
 ffprobe out/final.mp4 2>&1 | grep -E "Duration|Video|Audio"
+python3 "$SKILL_DIR/scripts/caption_gen.py" validate \
+  --audio voiceover-with-music.mp3 \
+  --manifest captions-review.json \
+  --srt out/final.srt \
+  --vtt out/final.vtt \
+  --state .hve/captions-state.json
 ```
 
 ### Troubleshooting render failures
@@ -660,12 +802,16 @@ Known issues:
 - `background-music.mp3` — Selected Freesound track (if Step 5.2 ran)
 - `voiceover-with-music.mp3` — Voiceover + music mix; **the file `index.html`'s `<audio src>` references — render is silent without it**
 - `transcript.json` — Word-level timing from `npx hyperframes transcribe` (default), OR `voiceover.json` if you used the standalone-whisper fallback (`--output_format json`)
-- `voiceover.srt` / `voiceover.vtt` — Toggleable caption sidecars (ASR draft subtitles; see § Caption sidecars — draft subtitles)
+- `voiceover.srt` / `voiceover.vtt` — Regenerable ASR drafts; never ship as reviewed captions
+- `captions-review.json` — Human-reviewed speech/speaker/meaningful-sound cue source bound to the final audio
+- `out/final.srt` / `out/final.vtt` — Reviewed, toggleable closed-caption sidecars beside the MP4
+- `.hve/captions-state.json` — Final-audio, review-manifest, and sidecar fingerprints used by resume validation
 
 ## Checkpoint
 
-After the confirmed audio choice is mixed (or the confirmed no-music path is prepared), the render
-passes verification, and the user accepts the result, stamp Phase 5:
+After the confirmed audio choice is mixed (or the confirmed no-music path is prepared), reviewed
+caption validation passes against the final soundtrack, the render passes verification, and the
+user accepts the result, stamp Phase 5:
 
 ```bash
 python3 "$SKILL_DIR/scripts/validate_brief.py" \
@@ -679,14 +825,19 @@ Surface the **absolute** output path (issue #21) so the user never has to hunt f
 
 ```bash
 FINAL="$(cd "$(dirname out/final.mp4)" && pwd)/final.mp4"   # absolute path to the render
+FINAL_SRT="$(cd "$(dirname out/final.srt)" && pwd)/final.srt"
+FINAL_VTT="$(cd "$(dirname out/final.vtt)" && pwd)/final.vtt"
 PROJECT_DIR="$(pwd)"                                        # absolute path to the project folder
 echo "Final video:    $FINAL"
+echo "Captions (SRT): $FINAL_SRT"
+echo "Captions (VTT): $FINAL_VTT"
 echo "Project folder: $PROJECT_DIR"
 ```
 
 > "Video rendered! 🎬
 >
 > Final video: `<absolute path to out/final.mp4>`
+> Captions: `<absolute path to out/final.srt>` | `<absolute path to out/final.vtt>`
 > Project folder: `<absolute path to the project dir>`
 >
 > Duration: [X]s | Resolution: [W]×[H] ([aspect]) | Audio: voiceover + music

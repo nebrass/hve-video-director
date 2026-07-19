@@ -342,6 +342,10 @@ If Phase 2 is required and any planned capture lacks its accepted output → Pha
 If no DESIGN.md or scenes/ → Phase 3
 If no index.html → Phase 4
 If no out/final.mp4 → Phase 5
+If out/final.mp4 exists but
+  `python3 "$SKILL_DIR/scripts/caption_gen.py" validate --audio voiceover-with-music.mp3
+  --manifest captions-review.json --srt out/final.srt --vtt out/final.vtt
+  --state .hve/captions-state.json` fails → Phase 5
 Also map validator earliest_stale_phase phase-2..phase-5 directly to that phase, even when its
   files exist. Choose the earliest phase found by either validator state or file checks.
   A changed story field routes to Phase 1 because Phase 1–5 stamps no longer match.
@@ -393,7 +397,9 @@ Phase 3 requires: context.md + storyboard.md, plus completion of every capture r
   it; the Phase-4 hero-frame check references it rather than re-implementing it.)
 Phase 4 requires: context.md + storyboard.md + DESIGN.md + scenes/*.html + fresh Phase-3 stamp
 Phase 5 requires: index.html (root composition) + fresh Phase-4 stamp; Phase 5 then confirms the
-  exact audio fingerprint and runs `npx hyperframes lint|inspect|validate` before render
+  exact audio fingerprint, runs `npx hyperframes lint|inspect|validate`, and requires reviewed
+  `out/final.srt` + `out/final.vtt` whose caption state validates against the final mixed-audio
+  fingerprint before stamping completion
 Tutorial content mode: PREFERS public/clips/ but does not require them. Jumping into a
 tutorial with no clips WARNS ("tutorial requested but no clips found — degrading to stills")
 and continues with stills; it does NOT block. Missing captions in tutorial mode is the
@@ -476,3 +482,4 @@ See [workflows/phase-5-audio.md](workflows/phase-5-audio.md)
 - [patterns/metallic-swoosh.md](patterns/metallic-swoosh.md) — Metallic transition (crossfade + shine, NOT clipPath)
 - [scripts/validate_brief.py](scripts/validate_brief.py) — Creative Brief validation, confirmations, fingerprints, and phase freshness
 - [scripts/generate_voiceover.py](scripts/generate_voiceover.py) — ElevenLabs generation or external-section assembly + Whisper verification
+- [scripts/caption_gen.py](scripts/caption_gen.py) — Reviewed speech/speaker/sound captions bound to the final mixed-audio fingerprint

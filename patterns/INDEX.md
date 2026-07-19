@@ -42,7 +42,7 @@ The `hyperframes` skill is invoked in Phases 3 and 4. Once invoked, these files 
 
 | Need | File | Use when |
 |---|---|---|
-| Caption authoring | `references/captions.md` | On-screen captions synced to the voiceover. **Optional in `promo`/`showcase`** (default flow renders the transcript but doesn't bake captions). **REQUIRED in `tutorial` mode** on footage segments — see `workflows/phase-5-audio.md` § "Captions (REQUIRED in tutorial mode)" and spec §7.2 (silence-only segments exempt). |
+| Caption authoring | `references/captions.md` | On-screen captions synced to the voiceover. **Optional in `promo`/`showcase`** and **REQUIRED in `tutorial` mode** on footage segments — see `workflows/phase-5-audio.md` § "Captions (REQUIRED in tutorial mode)" and spec §7.2. Separate reviewed `out/final.srt`/`.vtt` closed-caption sidecars are required in **all** modes by Phase 5 Step 5.3b. |
 | Caption-energy techniques (audio-reactive caption styling) | `references/dynamic-techniques.md` | High-energy spots — TikTok karaoke effects, beat-sync caption emphasis. |
 | Audio-reactive animation | `references/audio-reactive.md` | When music is doing narrative work — beat-matched logo pulses, frequency-driven backgrounds. Pre-extract frequency bands to JSON; never use Web Audio API at render time. |
 | Native TTS | `references/tts.md` | Phase 5 fallback when no `ELEVENLABS_API_KEY` — Kokoro-82M, 54 voices, 8 languages. |

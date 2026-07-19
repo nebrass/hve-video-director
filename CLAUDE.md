@@ -43,7 +43,7 @@ SKILL.md (orchestrator)
 - `mcp__chrome-devtools__screencast_*` + `resize_page` for Phase-2 web-clip capture (experimental, feature-detected — needs `--experimentalScreencast=true`; falls back to screenshots), and optional `asciinema`+`agg` for CLI clip recording (otherwise the authored-terminal path)
 - `mcp__chrome-devtools__list_pages` + `select_page` for the explicit authenticated-session path. The user must first connect the MCP to running Chrome with Chrome 144+ `--autoConnect` (preferred) or the dedicated-profile `--browser-url` fallback; attached capture never navigates and follows `patterns/authenticated-browser-capture.md`.
 - `scripts/generate_voiceover.py` → ElevenLabs API + optional Whisper transcription (Phase 5)
-- `scripts/caption_gen.py` → converts `transcript.json`/`voiceover.json` into `voiceover.srt` + `voiceover.vtt` caption sidecars (Phase 5, all modes; pure stdlib). ASR draft subtitles, not WCAG closed captions
+- `scripts/caption_gen.py` → preserves legacy ASR `voiceover.srt`/`.vtt` drafts and implements the Phase-5 `draft` → human review → `approve` → `finalize` → `validate` contract. Approval fingerprints the exact speech/speaker/meaningful-sound cues; final sidecars and deterministic state publish as one rollback-protected set. Pure stdlib with required `ffprobe`.
 - `scripts/capture_screen.py` → fixed-duration, silent native desktop/region capture orchestrator (pure stdlib). Uses macOS `screencapture`, Windows `gdigrab`, X11 `x11grab`, or feature-detected Wayland `wf-recorder`; WSL and unavailable Wayland return explicit recording handoffs. It trims through sibling `stitch_clip.py`, validates duration/frame count within one frame, and uses `<clip>.capture.pending` + fingerprinted `<clip>.capture.json` state so failed retakes preserve prior valid media but cannot count as complete.
 - `scripts/stitch_clip.py` → canonical normalizer/stitcher for raw captures (CFR30, H.264 High/yuv420p, even dimensions, no audio, `+faststart`) via the ffmpeg concat filter (pure stdlib)
 - `scripts/validate_brief.py` → parses the exact `project-plan.md` Creative Brief table, consent-migrates legacy plans with empty placeholders, confirms revision-bound story/audio fingerprints, atomically writes `.hve/brief-state.json`, stamps phases, and rejects stale prerequisites (pure stdlib)
@@ -58,14 +58,18 @@ The media scripts run inside generated video projects; `validate_brief.py` runs 
 skill against a generated project via `--project-dir`. `generate_voiceover.py` and
 `search_music.py` self-install `requests` via pip on first run; `caption_gen.py`,
 `capture_screen.py`, `stitch_clip.py`, and `validate_brief.py` are pure standard library (the
-capture/clip helpers invoke platform tools and `ffmpeg`/`ffprobe` with argv, never a shell).
+capture/clip helpers invoke platform tools and `ffmpeg`/`ffprobe` with argv, while
+`caption_gen.py` invokes `ffprobe` for the final-audio duration; none invokes a shell).
 
 ```bash
 # Voiceover generation (from inside a generated project)
 ELEVENLABS_API_KEY=... python3 scripts/generate_voiceover.py
 
-# Caption sidecars (from inside a generated project, after a transcript exists)
-python3 scripts/caption_gen.py                 # writes voiceover.srt + voiceover.vtt
+# Reviewed caption delivery (after the final soundtrack exists)
+python3 scripts/caption_gen.py draft           # ASR drafts + captions-review.json
+python3 scripts/caption_gen.py approve         # binds explicit approval to exact cues
+python3 scripts/caption_gen.py finalize        # writes out/final.srt + out/final.vtt
+python3 scripts/caption_gen.py validate        # verifies final-audio/output fingerprints
 
 # Fixed-duration silent native desktop/region capture
 python3 scripts/capture_screen.py --duration 6 --region 100,80,1280,720 \
