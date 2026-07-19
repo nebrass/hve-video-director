@@ -1,12 +1,22 @@
 # Project Plan — blog.nebrass.fr promo
 
-**Mode:** promo
-**Product surface:** ui
-**Aspect:** 16:9 1920×1080
-**Visual identity strategy:** design-system
-**Design system:** vercel
-**HyperFrames style:** none
-**Duration:** 53s
+## Creative Brief
+
+| Field | Value |
+|---|---|
+| mode | promo |
+| product_surface | ui |
+| duration | 53s |
+| theme | light |
+| aspect_ratio | 16:9 1920x1080 |
+| identity_strategy | design-system |
+| identity_choice | vercel |
+| voice | elevenlabs:Matilda:XrExE9yKIg1WjnnlVkGX |
+| transition_style | crossfade |
+| transition_speed | quick |
+| music_strategy | freesound |
+| final_music_track | {"license":"CC-BY-4.0","path":"background-music.mp3","source":"https://freesound.org/people/ViraMiller/sounds/746454/","title":"Spark of Inspiration"} |
+
 **Created:** 2026-06-24
 
 This is a real promo for **blog.nebrass.fr** (Nebrass Lamouchi's software-engineering blog),

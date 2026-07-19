@@ -5,9 +5,9 @@
      data-duration + data-media-start + data-track-index="0" — so HyperFrames
      frame-syncs its currentTime to this scene's window. Substitute:
        DUR    = the scene loader's FULL data-duration from index.html, i.e.
-                (out-in)/speed PLUS the 0.4s crossfade extension — a track that
+                (out-in)/speed PLUS the confirmed transition-duration extension — a track that
                 ends at the nominal clip length goes visibility:hidden during
-                the crossfade and the frame blanks.
+                the transition and the frame blanks.
        MSTART = the storyboard's `Clip in` (trim offset, seconds; 0 if whole).
        SPEED  = the storyboard's `Speed` (0.1–5.0; normally 1.0). HyperFrames reads
                 defaultPlaybackRate while footage-locking, so set it explicitly.

@@ -40,7 +40,7 @@ hve-spielberg is an Agent Skill that orchestrates end-to-end video production:
 3. **Captures your app** automatically via Chrome DevTools
 4. **Authors HTML scene templates** matching your brand DNA — pick from [10 curated design systems](design-systems/) (Stripe, Linear, Apple, Notion, Vercel, Airbnb, GitHub, Cal, Arc, Bento), 8 HyperFrames named styles, or derive from screenshots
 5. **Produces the video** in HyperFrames (HTML + GSAP, headless-Chromium rendered)
-6. **Adds voiceover + music** with ElevenLabs TTS (or local Kokoro-82M fallback), `npx hyperframes transcribe` for timing verification, and Freesound music
+6. **Adds voiceover + music** with the explicitly chosen ElevenLabs or local Kokoro-82M voice, `npx hyperframes transcribe` for timing verification, and Freesound music
 
 ### Three Modes
 
@@ -113,10 +113,10 @@ less check_requirements.sh && bash check_requirements.sh --plan
 | `hyperframes` companion skill | Phases 3–4 | `npx skills add heygen-com/hyperframes` |
 | `chrome-headless-shell` | Yes | Used by `npx hyperframes render` for frame capture. System Chrome causes 120s render hangs. Install once: `npx puppeteer browsers install chrome-headless-shell` (one-time, ~170MB, cached). Verify with `npx hyperframes doctor`. |
 | Chrome DevTools MCP | For web capture | Required only when the storyboard requests web screenshots/screencasts. Configure it in the active agent; capability names are resolved per runtime. |
-| `ELEVENLABS_API_KEY` | Recommended | [elevenlabs.io](https://elevenlabs.io) — higher-quality TTS. If unset, Phase 5 falls back to `npx hyperframes tts` (local Kokoro-82M, no key, lower quality). |
+| `ELEVENLABS_API_KEY` | For an ElevenLabs voice | [elevenlabs.io](https://elevenlabs.io) — required when the confirmed voice uses ElevenLabs. Choose Kokoro explicitly for no-key local TTS; providers are never substituted automatically. |
 | `FREESOUND_API_KEY` | No | [freesound.org/apiv2/apply](https://freesound.org/apiv2/apply/) — enables CC music search |
 | Whisper | Recommended | `pip install openai-whisper` — voiceover timing verification |
-| `espeak-ng` | Optional | `brew install espeak-ng` / `apt install espeak-ng` — only needed for non-English voiceover via `hyperframes tts` fallback |
+| `espeak-ng` | Optional | `brew install espeak-ng` / `apt install espeak-ng` — only needed for non-English voiceover via a confirmed Kokoro voice |
 | `--experimentalScreencast` (chrome-devtools MCP) | No | Enables `screencast` web-clip capture; without it, web scenes fall back to screenshots. |
 | `asciinema` + `agg` | No | Optional true terminal-clip recording for CLI scenes; without them, CLI scenes use the authored-terminal path. Install: `brew install asciinema agg` (macOS) · `apt install asciinema && cargo install --git https://github.com/asciinema/agg` (Debian/Ubuntu). See [`patterns/cli-terminal-capture.md`](patterns/cli-terminal-capture.md) for the full recording workflow. |
 | `wf-recorder` | Wayland native capture only | Feature-detected by `scripts/capture_screen.py`. Without it, use the desktop recorder and normalize the result with `scripts/stitch_clip.py`; generic FFmpeg PipeWire capture is not assumed. |
@@ -160,7 +160,7 @@ hve-spielberg depends on two **companion agent skills** plus the **`hyperframes`
 |-----------|------|---------|---------|
 | `hyperframes` skill | Agent skill | Authoring rules for HTML/GSAP compositions, sub-comps, transitions, captions | `npx skills add heygen-com/hyperframes` |
 | `gsap` skill | Agent skill | Animation choreography reference (eases, timelines, stagger) | Recommended companion to the hyperframes skill |
-| `hyperframes` npm package | CLI | `init`, `add` (pull catalog blocks, Phase 4), `lint`, `preview`, `inspect`, `validate`, `render`, `doctor` (render diagnostics), `transcribe` (Phase 5's preferred timing verifier, with standalone Whisper as fallback), `tts` (no-key fallback when `ELEVENLABS_API_KEY` is unset) | `npx hyperframes <command>` (auto-fetches; package: [`hyperframes`](https://www.npmjs.com/package/hyperframes), repo: [github.com/heygen-com/hyperframes](https://github.com/heygen-com/hyperframes)) |
+| `hyperframes` npm package | CLI | `init`, `add` (pull catalog blocks, Phase 4), `lint`, `preview`, `inspect`, `validate`, `render`, `doctor` (render diagnostics), `transcribe` (Phase 5's preferred timing verifier, with standalone Whisper as fallback), `tts` (confirmed local Kokoro voices) | `npx hyperframes <command>` (auto-fetches; package: [`hyperframes`](https://www.npmjs.com/package/hyperframes), repo: [github.com/heygen-com/hyperframes](https://github.com/heygen-com/hyperframes)) |
 
 ## Installation
 
@@ -240,9 +240,9 @@ existing skill directories for `SKILL.md` changes; other agents may require a re
 
 ## Quick Start
 
-1. **Set API keys** (both optional but recommended):
+1. **Set API keys** as needed:
    ```bash
-   export ELEVENLABS_API_KEY=your_key_here    # Phase 5 falls back to local Kokoro TTS if unset
+   export ELEVENLABS_API_KEY=your_key_here    # required only if you confirm an ElevenLabs voice
    export FREESOUND_API_KEY=your_key_here     # Phase 5 falls back to user-provided / no music if unset
    ```
 
@@ -260,15 +260,22 @@ existing skill directories for `SKILL.md` changes; other agents may require a re
    gaps. Manual system/sudo/environment actions remain yours to run. `continue` and `jump` skip
    this onboarding.
 
-4. **Follow the prompts.** Phase 0 → 5 is interactive; each phase has a user-approval checkpoint before advancing. The discovery questions include:
+4. **Follow the prompts.** Phase 0 → 5 is interactive; each phase has a user-approval checkpoint before advancing. The user-owned choices include:
    - **Mode**: Promo, Showcase, or Tutorial
    - **Duration + theme + aspect ratio**: 30s/60s/90s, light/dark, 16:9/9:16/1:1/4:5
-   - **Visual identity strategy**: pick a [vendored brand](design-systems/) (fastest), pick a HyperFrames named style (medium), or derive from screenshots (most adaptive)
-   - **Voice**: Matilda / Rachel / Daniel / Josh (ElevenLabs), or any of 54 Kokoro voices
+   - **Visual identity strategy**: pick a [vendored brand](design-systems/), pick a HyperFrames named style, derive from screenshots, or provide a custom identity
+   - **Voice provider + exact voice**: Matilda / Rachel / Daniel / Josh (ElevenLabs), or any of 54 Kokoro voices; the confirmed provider is never replaced automatically
+   - **Transitions + music strategy**: explicitly chosen before storyboarding
+   - **Complete story-brief confirmation** before `storyboard.md` is created
+   - **Exact music-track confirmation** (title/path/source/license, or explicit no music) before mixing/render
    - **Storyboard review** before Phase 2 capture
    - **Design review** after Phase 3 scene templates
    - **Composition preview** after Phase 4 root index.html
-   - **Music search** after Phase 5 voiceover
+
+   These creative-brief choices belong to the user. The agent may label a recommendation with a
+   reason, but never infers or preselects an answer from codebase research.
+   Curated-system theme support is enforced before confirmation: Linear is dark-only; Vercel,
+   Airbnb, Cal, and Bento are light-only; Stripe, Apple, Notion, GitHub, and Arc support either.
 
 5. **Get your video:**
    ```
@@ -289,12 +296,12 @@ Use the invocation syntax from the compatibility table above.
 
 | Voice | Style | Voice ID |
 |-------|-------|----------|
-| Matilda (default) | Warm, confident female | `XrExE9yKIg1WjnnlVkGX` |
+| Matilda | Warm, confident female | `XrExE9yKIg1WjnnlVkGX` |
 | Rachel | Calm, clear female | `21m00Tcm4TlvDq8ikWAM` |
 | Daniel | Authoritative male | `onwK4e9ZLuTAKqWW03F9` |
 | Josh | Friendly, conversational male | `TxGEqnHWrfWFTfGW9XjX` |
 
-**No-key fallback (Kokoro-82M):** when `ELEVENLABS_API_KEY` is unset, Phase 5 uses `npx hyperframes tts` — 54 local voices across 8 languages (e.g. `af_nova`, `af_heart`). List them with `npx hyperframes tts --list`; see the HyperFrames skill's `references/tts.md` for the full catalog.
+**Local option (Kokoro-82M):** choose Kokoro during Phase 1 for no-key local TTS with 54 voices across 8 languages (e.g. `af_nova`, `af_heart`). List them with `npx hyperframes tts --list`; see the HyperFrames skill's `references/tts.md` for the full catalog. A missing ElevenLabs key never changes a confirmed provider.
 
 ## Music Strategy
 
@@ -304,13 +311,45 @@ No bundled audio files. Three-tier approach:
 2. **User-provided** — Bring your own MP3 or URL
 3. **No music** — Voiceover only
 
+The strategy is confirmed with the story brief. Phase 5 separately confirms the exact track
+(title, project path, source, and license) or explicit `none`; no track is mixed or rendered before
+that confirmation.
+
+## Creative Brief validation
+
+Generated projects keep the stable Creative Brief table in `project-plan.md` and output-adjacent
+confirmation/freshness state in `.hve/brief-state.json`. The pure-stdlib validator writes state
+atomically, never deletes artifacts, and reports the earliest phase made stale by an edited choice.
+
+```bash
+python3 /path/to/hve-spielberg/scripts/validate_brief.py \
+  --project-dir ./my-video status --json
+# Legacy plans only, after explicit user consent: insert an empty table without inferring values
+python3 /path/to/hve-spielberg/scripts/validate_brief.py \
+  --project-dir ./my-video migrate
+python3 /path/to/hve-spielberg/scripts/validate_brief.py \
+  --project-dir ./my-video confirm-story
+python3 /path/to/hve-spielberg/scripts/validate_brief.py \
+  --project-dir ./my-video confirm-audio
+python3 /path/to/hve-spielberg/scripts/validate_brief.py \
+  --project-dir ./my-video stamp phase-1
+python3 /path/to/hve-spielberg/scripts/validate_brief.py \
+  --project-dir ./my-video require phase-1
+```
+
+Story-field changes stale Phase 1–5. Changing only `final_music_track` stales Phase 5.
+For pre-schema projects, `status --json` reports `migration_required: true`; migration preserves
+the old plan, inserts placeholders atomically, and returns to the user-owned Phase-1 prompts.
+
 ## Project Structure
 
 When hve-spielberg creates a video project, it generates:
 
 ```
 my-video-project/
-├── project-plan.md           # Phase tracker + decision log
+├── project-plan.md           # Stable Creative Brief + phase tracker + decision log
+├── .hve/
+│   └── brief-state.json      # Atomic confirmation fingerprints + phase freshness stamps
 ├── context.md                # Product context from Phase 0
 ├── storyboard.md             # Scene-by-scene plan from Phase 1
 ├── DESIGN.md                 # Design contract from Phase 3 (palette, type, motion)
@@ -366,6 +405,7 @@ hve-spielberg/
 │   ├── caption_gen.py             # transcript.json → voiceover.srt/.vtt caption sidecars
 │   ├── capture_screen.py          # native screen/region capture orchestrator (silent)
 │   ├── stitch_clip.py             # normalize/stitch captures to the CFR30 clip contract
+│   ├── validate_brief.py           # Creative Brief validation + fingerprint state
 │   ├── search_music.py            # Freesound CC music search
 │   └── check_requirements.sh      # JSON/plan preflight + consent-scoped safe fixes
 ├── test/
@@ -384,14 +424,18 @@ hve-spielberg/
 ## FAQ
 
 **Q: Can I use this without ElevenLabs?**
-A: Yes — Phase 5 falls back to `npx hyperframes tts` (Kokoro-82M, runs locally, no API key). Quality is good but noticeably below ElevenLabs Multilingual v2. For non-English narration, install `espeak-ng`. ElevenLabs remains the default when `ELEVENLABS_API_KEY` is set.
+A: Yes — explicitly choose a Kokoro voice in Phase 1. Phase 5 then uses `npx hyperframes tts`
+locally with no API key, even if an ElevenLabs key exists. For non-English narration, install
+`espeak-ng`. The skill never silently switches providers.
 
 **Q: Can I skip the screenshot capture phase?**
-A: Yes — use `--mode jump --phase 3` to skip to design, or provide your own screenshots in `public/screenshots/`.
+A: Yes, when the confirmed product surface is `none` and the storyboard requests no capture.
+Phase 2 records and stamps that intentional skip before Phase 3. A jump cannot bypass a stale or
+unconfirmed brief merely because files exist.
 
 **Q: What video resolution/format does it output?**
 A: 30fps MP4 (H.264 video + AAC audio) via `npx hyperframes render`. The canvas size is chosen in Phase 1:
-  - 16:9 → 1920×1080 (default — horizontal, web, embeds)
+  - 16:9 → 1920×1080 (recommended for horizontal promos, web, and embeds)
   - 9:16 → 1080×1920 (vertical — TikTok, Reels, Shorts)
   - 1:1  → 1080×1080 (square — IG feed, LinkedIn)
   - 4:5  → 1080×1350 (portrait IG feed)

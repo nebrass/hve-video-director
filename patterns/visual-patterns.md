@@ -205,7 +205,7 @@ tl.fromTo(root + ' .shot-browser',
 
 **Guardrails:**
 
-- **Release before the inter-scene crossfade window.** End the move (and any settle) *before* the scene's 0.4s crossfade so it never pulls back mid-transition. No exit tween on non-final scenes — the transition owns the exit (§ DON'Ts).
+- **Release before the confirmed inter-scene transition window.** End the move (and any settle) before the duration mapped from `transition_speed` (`quick = 0.4s`, `medium = 0.7s`, `slow = 1.2s`) so it never pulls back mid-transition. No scene-internal exit tween on non-final scenes — the root transition owns the exit (§ DON'Ts).
 - **Only the closing scene may end mid-hold.** Because the closing scene exits passively (no transition), a push there can settle/hold instead of releasing. But on the closing scene the move must **push or hold only — never pull back** (a pull-out on the final frame reads as the video walking away from the product). The conservative default is no camera move on the closing scene at all (`templates/scene-screenshot.html` bakes this in); a held push is the deliberate exception.
 
 **When footage text is too small (the legibility case).** When narrative-critical UI text in recorded footage renders below ~24px in the final frame, this push *is* the remedy: scale the non-timed `.clip-frame` wrapper toward the text. Key it to **footage time** (seconds into the clip); if the clip's `Speed` ≠ 1, remap the times proportionally. Release before the crossfade as above.
@@ -333,7 +333,8 @@ Scene-to-scene transitions are authored at the **composition level**, not inside
 | Slide Up | Sequential narrative beats | Outgoing `y: 0 → -80, opacity → 0`; incoming `y: 60 → 0, opacity → 1`. |
 | Wipe | Before/after reveals | Mask the outgoing scene with a CSS `linear-gradient` whose `background-position` is animated. |
 
-Transition durations: 0.3–0.5s for crossfades, 0.5–0.8s for shine/wipe. Anything over 1s reads as sluggish in a 30–60s spot.
+Transition duration comes from the confirmed brief: `quick = 0.4s`, `medium = 0.7s`,
+`slow = 1.2s`. Slow is intentionally dramatic; do not silently shorten it after the user chose it.
 
 ## Color Psychology
 

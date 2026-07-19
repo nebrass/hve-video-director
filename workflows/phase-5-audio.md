@@ -2,9 +2,29 @@
 
 Generate voiceover, mix music, and render the final video.
 
+Before generating final audio, require the accepted composition to match the current story
+fingerprint:
+
+```bash
+python3 "$SKILL_DIR/scripts/validate_brief.py" \
+  --project-dir "$PROJECT_DIR" require phase-4
+```
+
+A nonzero exit routes back to the earliest stale phase. A changed exact music track does not stale
+Phase 1–4, so it returns here to Phase 5.
+
 ## Step 5.1: Generate Voiceover
 
 **The voiceover must match the visuals.** This is non-negotiable.
+
+Read the exact confirmed `voice` from the Creative Brief. Its prefix is binding:
+
+- `elevenlabs:<name>:<voice-id>` → use ElevenLabs with that exact ID.
+- `kokoro:<voice-id>` → use HyperFrames local TTS with that exact ID.
+
+Do not choose a provider from environment-variable availability. Do not replace the confirmed
+voice with a default, and do not silently fall back between providers. An invalid value routes
+back to Phase 1.
 
 ### Extract Scene Timings
 
@@ -67,7 +87,7 @@ footage use the existing Whisper VO transcript (`auto`).
 `voiceover-with-music.mp3` plays). A scene that sets `Clip audio: <volume>` gets its sound
 mixed in with the VO ducked under it — see Step 5.3a.
 
-### Generate with ElevenLabs (default, higher quality)
+### Prepare the canonical timing assembler
 
 Copy the canonical script into the project first, then edit the **project-local
 copy** — never edit the shared skill install. Editing `$SKILL_DIR`'s script
@@ -92,32 +112,43 @@ cp "$SKILL_DIR/scripts/generate_voiceover.py" ./voiceover.py
 ```
 
 Edit the project-local `./voiceover.py`:
-- Set `VOICE_ID` to selected voice from Phase 1
 - Set `sections` list with `(start_time, text)` pairs
 - Set `VIDEO_DURATION` to match composition
+
+### Confirmed provider: ElevenLabs
+
+Run this branch only when `voice` starts with `elevenlabs:`. Set `VOICE_ID` in
+`./voiceover.py` to the exact third field of the confirmed value. Require
+`ELEVENLABS_API_KEY` (or the backward-compatible `ELEVEN_LABS_API_KEY`) before generation:
 
 ```bash
 python3 ./voiceover.py    # writes vo_section_NN.mp3 + voiceover.mp3 into the project dir
 ```
 
-### Alternative: HyperFrames-native TTS (no API key, local)
+If the key is missing or the selected ID fails, stop. Let the user configure the key, choose
+another ElevenLabs voice, or return to Phase 1 and explicitly reconfirm Kokoro. Never continue with
+a substituted provider or voice.
 
-If `ELEVENLABS_API_KEY` is unset, HyperFrames ships a local TTS via Kokoro-82M (no API key, no rate limits, ~54 voices across 8 languages). Quality is good but noticeably below ElevenLabs Multilingual v2 — prefer ElevenLabs when you can.
+### Confirmed provider: Kokoro local
+
+Run this branch only when `voice` starts with `kokoro:`. Use the exact ID after the prefix even if
+an ElevenLabs key is available. Generate one file per configured `sections` entry, preserving its
+zero-based number:
 
 ```bash
-# Single-line narration
-npx hyperframes tts "Your script line here." --voice af_nova --output voiceover.mp3
+# Repeat with each exact section text and the confirmed voice ID.
+npx hyperframes tts "First section text." --voice af_nova --output vo_section_00.mp3
+npx hyperframes tts "Second section text." --voice af_nova --output vo_section_01.mp3
 
-# From a file
-npx hyperframes tts script.txt --voice af_heart --output voiceover.mp3
-
-# List all 54 voices (8 languages)
-npx hyperframes tts --list
+# Assemble at the configured section start times and pad to VIDEO_DURATION.
+python3 ./voiceover.py --assemble-only
 ```
 
 Voice naming convention: `<lang><gender>_<name>` (e.g. `af_nova` = American female "Nova", `bm_george` = British male "George"). For non-English narration, install `espeak-ng` system-wide (`brew install espeak-ng` / `apt-get install espeak-ng`).
 
-Whisper verification (next step) is renderer-agnostic and works identically for either TTS path.
+Before assembly, require every expected `vo_section_NN.mp3` to exist and be non-empty; the
+canonical script fails rather than skipping a missing section. Whisper verification (next step)
+is renderer-agnostic and works identically for either provider.
 
 ### Verify timing (CRITICAL — do not skip!)
 
@@ -205,11 +236,17 @@ ffmpeg -y -i voiceover.mp3 -af "apad=whole_dur=${VIDEO_DURATION}" -c:a libmp3lam
 mv voiceover-padded.mp3 voiceover.mp3
 ```
 
-(`scripts/generate_voiceover.py` does this automatically using `VIDEO_DURATION`.)
+(`scripts/generate_voiceover.py` does this automatically using `VIDEO_DURATION`, including
+`--assemble-only`.)
 
 ## Step 5.2: Background Music
 
-### Freesound API (if FREESOUND_API_KEY set)
+Follow the user's confirmed `music_strategy`. Do not silently fall back to another strategy. If the
+chosen strategy cannot run (for example, `freesound` without `FREESOUND_API_KEY`), return to the
+Phase-1 music-strategy prompt, update the Creative Brief, and reconfirm the story. Because music
+strategy is a story field, changing it intentionally stales Phase 1–5.
+
+### Freesound strategy
 
 Freesound provides a real, public CC-licensed audio search API. Get a key at <https://freesound.org/apiv2/apply>. Authentication uses a `token` query parameter; previews require no OAuth2.
 
@@ -235,13 +272,103 @@ for r in data.get('results', []):
 "
 ```
 
-Present results to the user. Each hit has a high-quality .mp3 preview URL (`previews.preview-hq-mp3`) usable directly as a soundtrack. Download the chosen track:
+Each hit has a high-quality MP3 preview URL usable as the soundtrack. Present ranked candidates
+as native prompts in pages of at most three tracks plus a **More candidates** option, so no prompt
+exceeds four options. For example:
 
-```bash
-curl -sL "<selected-preview-hq-mp3-url>" -o background-music.mp3
+```json
+{
+  "questions": [{
+    "question": "Which Freesound candidate should become the final track?",
+    "header": "Music pick",
+    "options": [
+      { "label": "<track 1 title>", "description": "<author> - <license> - <duration> - <page URL>" },
+      { "label": "<track 2 title>", "description": "<author> - <license> - <duration> - <page URL>" },
+      { "label": "<track 3 title>", "description": "<author> - <license> - <duration> - <page URL>" },
+      { "label": "More candidates", "description": "Show the next page; no track is selected yet." }
+    ],
+    "multiSelect": false
+  }]
+}
 ```
 
-**Attribution:** If the chosen track is CC-BY (not CC0), you must credit the author. Write `CREDITS.md` in the project root:
+This candidate choice is provisional until the exact-track confirmation below. Do not download or
+mix it yet.
+
+### User-provided strategy
+
+Ask for the exact audio path. Verify that it exists and is a non-empty readable file. Collect a
+human-readable title and record the source as `user-provided`; record the license as `user-owned`
+or another explicit license the user supplies. Do not copy or mix it before exact confirmation.
+
+### No-music strategy
+
+Set the candidate to the exact value `none`. This is still a user-owned final choice and requires
+the explicit no-music confirmation below.
+
+### Confirm the final exact music choice
+
+Write `final_music_track` in the Creative Brief before asking for confirmation:
+
+- No music: `none`
+- Track: compact single-line JSON with exactly `title`, `path`, `source`, and `license`.
+
+Present the exact candidate details — not merely the strategy:
+
+```json
+{
+  "questions": [{
+    "question": "Confirm the final music choice: title=<title>; path=<path>; source=<source>; license=<license>?",
+    "header": "Final music",
+    "options": [
+      { "label": "Confirm this exact track", "description": "Fingerprint this title/path/source/license and allow download, mixing, encoding, and render." },
+      { "label": "Choose another track", "description": "Keep Phase 5 open; do not mix or render this candidate." }
+    ],
+    "multiSelect": false
+  }]
+}
+```
+
+For `music_strategy: none`, use this explicit no-music prompt instead:
+
+```json
+{
+  "questions": [{
+    "question": "Confirm no background music for the final video?",
+    "header": "Final music",
+    "options": [
+      { "label": "Confirm no music", "description": "Record explicit none and use voiceover only." },
+      { "label": "Change music strategy", "description": "Return to Phase 1; do not mix or render yet." }
+    ],
+    "multiSelect": false
+  }]
+}
+```
+
+After explicit confirmation, run:
+
+```bash
+python3 "$SKILL_DIR/scripts/validate_brief.py" \
+  --project-dir "$PROJECT_DIR" confirm-audio --json
+python3 "$SKILL_DIR/scripts/validate_brief.py" \
+  --project-dir "$PROJECT_DIR" require audio
+```
+
+Any nonzero exit blocks all track download/copy, mixing, encoding, and rendering. If the user
+changes only `final_music_track`, the audio fingerprint changes and only the Phase-5 stamp becomes
+stale; Phase 1–4 remain fresh.
+
+Only after `require audio` passes, materialize the confirmed track:
+
+```bash
+# Freesound:
+curl -sL "<confirmed-preview-hq-mp3-url>" -o background-music.mp3
+
+# User-provided:
+cp "<confirmed-user-path>" background-music.mp3
+```
+
+**Attribution:** If the confirmed track is CC-BY (not CC0), write `CREDITS.md`:
 
 ```
 Background music: "<track name>" by <username> (Freesound, <license>)
@@ -250,25 +377,10 @@ URL: <track page URL>
 
 Full-quality original downloads require OAuth2; previews are sufficient for video soundtracks.
 
-### User-Provided (fallback)
-
-If no FREESOUND_API_KEY or user prefers own music:
-
-```json
-{
-  "questions": [{
-    "question": "Background music?",
-    "header": "Music",
-    "options": [
-      { "label": "I'll provide a file", "description": "Provide path to an MP3" },
-      { "label": "No music", "description": "Voiceover only" }
-    ],
-    "multiSelect": false
-  }]
-}
-```
-
 ## Step 5.3: Audio Mixing
+
+Do not enter this step unless `validate_brief.py ... require audio` passed for the current exact
+track or explicit `none`.
 
 ### Normalize voiceover
 ```bash
@@ -551,6 +663,17 @@ Known issues:
 - `voiceover.srt` / `voiceover.vtt` — Toggleable caption sidecars (ASR draft subtitles; see § Caption sidecars — draft subtitles)
 
 ## Checkpoint
+
+After the confirmed audio choice is mixed (or the confirmed no-music path is prepared), the render
+passes verification, and the user accepts the result, stamp Phase 5:
+
+```bash
+python3 "$SKILL_DIR/scripts/validate_brief.py" \
+  --project-dir "$PROJECT_DIR" stamp phase-5
+```
+
+A nonzero exit means the exact track or an earlier story field changed; do not report completion
+until the stale phase is rerun and stamped.
 
 Surface the **absolute** output path (issue #21) so the user never has to hunt for the file:
 

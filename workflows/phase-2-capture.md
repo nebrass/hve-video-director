@@ -6,6 +6,21 @@ Tool names in this workflow are capability names. Resolve their exact runtime-sp
 using `SKILL.md` § Runtime Compatibility before invoking them; do not copy Claude Code's
 `mcp__...` qualification into another agent.
 
+Before doing any Phase-2 work, require the accepted storyboard to match the current confirmed
+story fingerprint:
+
+```bash
+python3 "$SKILL_DIR/scripts/validate_brief.py" \
+  --project-dir "$PROJECT_DIR" require phase-1
+```
+
+A nonzero exit routes back to Phase 1 even when `storyboard.md` exists.
+
+Read the confirmed `theme` from the Creative Brief before capture. Every capture must show that
+theme: emulate the selected color scheme for web apps, configure native apps before recording,
+and choose a matching terminal theme. If the product cannot render the confirmed theme, return to
+Phase 1 and let the user change `theme`; never capture the opposite theme and silently recolor it.
+
 ## Phase 2 routing
 
 Read `Product surface:` and every scene's `Capture:` field before asking for an app URL:
@@ -13,7 +28,8 @@ Read `Product surface:` and every scene's `Capture:` field before asking for an 
 - If `Product surface: none`, the storyboard records `Capture plan: none`, **and every scene has
   `Capture: none`**, mark Phase 2 **skipped** in `project-plan.md` and proceed to Phase 3. If any
   scene requests capture, that scene wins over a stale `Capture plan: none`. Do not ask for a URL
-  and do not create empty directories as fake completion markers.
+  and do not create empty directories as fake completion markers. Use the checkpoint's Phase-2
+  stamp to record the intentional skip before proceeding.
 - Run the web path (Steps 2.1–2.2) only for `screenshot` or `screencast` scenes.
 - Run the native screen path only for `screen-recording` scenes.
 - Run the terminal path only for `terminal` or `terminal-clip` scenes.
@@ -117,10 +133,12 @@ When `Capture: screen-recording`:
    If either is absent or invalid, return to Phase 1 and repair the storyboard before recording.
 2. If `Capture region:` is present, require exactly four comma-separated integers
    `x,y,w,h` with positive `w` and `h`; otherwise record the full desktop.
-3. Invoke the canonical helper with the storyboard values:
+3. Put the app and visible operating-system chrome in the confirmed theme, then visually verify
+   the target region. If the app cannot provide that theme, return to Phase 1 instead of recording.
+4. Invoke the canonical helper with the storyboard values:
    `python3 scripts/capture_screen.py --duration "<seconds>" [--region "<x,y,w,h>"] -o
    "<exact Clip path>"`.
-4. The helper first atomically acquires `<Clip>.capture.lock` with an attempt/owner token, then
+5. The helper first atomically acquires `<Clip>.capture.lock` with an attempt/owner token, then
    writes `<Clip>.capture.pending` **before** attempting capture. A concurrent attempt for the
    same output fails without touching capture state. The marker records schema version plus
    requested duration, region, backend, and output. A
@@ -128,11 +146,11 @@ When `Capture: screen-recording`:
    one-frame duration/frame-count tolerance, then published with `<Clip>.capture.json`. The
    sidecar records the successful request, resolved backend, validated media properties, file
    size, and SHA-256 fingerprint. Pending is removed only after both clip and sidecar publish.
-5. Accept completion only when the exact `Clip:` is non-empty, `<Clip>.capture.pending` is absent,
+6. Accept completion only when the exact `Clip:` is non-empty, `<Clip>.capture.pending` is absent,
    `<Clip>.capture.json` exists, and this command passes with the exact storyboard values:
    `python3 scripts/capture_screen.py --check --duration "<seconds>"`
    `[--region "<x,y,w,h>"] -o "<exact Clip path>"`.
-6. Publication, rollback, and pending cleanup happen while the attempt lock is owned; success
+7. Publication, rollback, and pending cleanup happen while the attempt lock is owned; success
    and ordinary failure release that lock. If a lock remains after a crash, inspect its owner,
    PID, host, creation time, and age diagnostic. Never remove an active lock; remove the exact
    lock manually only after confirming its owner stopped. On capture, normalization, validation,
@@ -183,7 +201,8 @@ storyboard's intent and what's installed.
 **Default — authored terminal scene (deterministic, no dependency):**
 1. Run the real command and capture its stdout (a Bash run, trimmed to the salient lines).
 2. Author a scene from `templates/scene-terminal.html` into `scenes/{NN}-terminal.html`,
-   replacing `CMD` with the real command and the `.oline` rows with the real output.
+   replacing `CMD` with the real command and the `.oline` rows with the real output. Replace the
+   template palette with a readable palette in the confirmed theme.
 3. This is an authored **scene** (not a clip) — it composes like any Phase-3 scene; no
    `public/clips/` file is produced. It is deterministic and on-brand.
 
@@ -409,6 +428,7 @@ here you are giving the user a chance to fill gaps before design starts. Ask:
 Before accepting any recorded clip, check (retake if it fails):
 
 - **Resolution** matches the composition canvas; **fps ≥ 30**.
+- **Theme** visibly matches the confirmed Creative Brief theme, including supplied media.
 - **No dev artifacts** in frame: browser notifications, autofill dropdowns, devtools/console
   overlays, extension badges, or personal data (emails, tokens, real names).
 - **The meaningful action is one clean, uninterrupted take** (no mid-action cut, no stray
@@ -428,16 +448,21 @@ A rejected clip falls back to a screenshot or a re-record.
       .forEach(el => el.style.display = 'none');
   }
   ```
-- **Dark mode (media-query apps)** — If the app reads `prefers-color-scheme`, use the Chrome DevTools `emulate` capability with `colorScheme: "dark"`
-- **Dark mode (class-based / Tailwind `.dark`)** — `colorScheme` does nothing for apps that toggle a `.dark` class (most Next.js / shadcn). A one-shot injected class is **clobbered by SPA hydration** (React re-renders the root and overwrites it). Inject a `MutationObserver` via `evaluate_script` **after `navigate_page` completes** — the observer re-adds the class every time hydration strips it (hydration re-renders don't navigate, so the observer survives them). Order matters: `evaluate_script` runs in the current document only, and any navigation wipes the page's JS context — an observer injected *before* navigating is destroyed by the navigation itself. Re-inject after every `navigate_page`:
+- **Confirmed theme (media-query apps)** — If the app reads `prefers-color-scheme`, use the
+  Chrome DevTools `emulate` capability with `colorScheme` set to the confirmed `light` or `dark`.
+- **Confirmed theme (class-based / Tailwind `.dark`)** — `colorScheme` does nothing for apps that
+  toggle a `.dark` class (most Next.js / shadcn). A one-shot class change is **clobbered by SPA
+  hydration**. Inject a `MutationObserver` via `evaluate_script` **after `navigate_page`
+  completes**. Re-inject after every navigation:
   ```javascript
-  () => {
+  (confirmedTheme) => {
     const html = document.documentElement;
-    const set = () => html.classList.add('dark');   // or your app's theme class
+    const set = () => html.classList.toggle('dark', confirmedTheme === 'dark');
     set();
     new MutationObserver(set).observe(html, { attributes: true, attributeFilter: ['class'] });
   }
   ```
+  Pass the exact confirmed theme; do not hard-code `dark`.
 - **Retina quality** — Always use devicePixelRatio 2+ for crisp screenshots in video
 
 ## Output
@@ -446,6 +471,15 @@ Accepted outputs are saved to the exact paths bound in `storyboard.md`: screensh
 `public/screenshots/`, clips under `public/clips/`, or authored terminal scenes under `scenes/`.
 
 ## Checkpoint
+
+After the user accepts the capture set (or the intentional no-capture skip), stamp Phase 2:
+
+```bash
+python3 "$SKILL_DIR/scripts/validate_brief.py" \
+  --project-dir "$PROJECT_DIR" stamp phase-2
+```
+
+Do not advance on a nonzero exit.
 
 > "Capture phase complete. [N] bound artifacts are ready ([S] screenshots, [C] clips,
 > [T] authored terminal scenes).

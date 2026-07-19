@@ -1,45 +1,38 @@
 # Project Plan — {project-name}
 
-**Mode:** {promo | showcase | tutorial}
-**Product surface:** {ui | none}   <!-- ui = the product has a UI and real captures are the video's spine (default); none = intentional abstract/no-product brand film (CLI lib, API, pure backend) — waives the Phase-3 capture-coverage gate -->
-**Aspect:** {16:9 1920×1080 | 9:16 1080×1920 | 1:1 1080×1080 | 4:5 1080×1350}
-**Visual identity strategy:** {design-system | hyperframes-style | screenshots}
-**Design system:** {none | stripe | linear-app | apple | notion | vercel | airbnb | github | cal | arc | bento}
-**HyperFrames style:** {none | Swiss Pulse | Velvet Standard | Deconstructed | Maximalist Type | Data Drift | Soft Signal | Folk Frequency | Shadow Cut}
-**Duration:** {30s | 60s | 90s}
-**Theme:** {light | dark}
-**Voice:** {Matilda | Rachel | Daniel | Josh | custom} — {ElevenLabs voice ID}
-**Section transition:** {crossfade | branded swoosh | hard cut | flash-through-white} · speed {slow | medium | fast}
-**Music:** {none | Freesound: <name/id> | user-provided: <path>}
+## Creative Brief
+
+| Field | Value |
+|---|---|
+| mode | {promo, showcase, or tutorial} |
+| product_surface | {ui or none} |
+| duration | {positive seconds, for example 60s} |
+| theme | {light or dark} |
+| aspect_ratio | {16:9 1920x1080, 9:16 1080x1920, 1:1 1080x1080, or 4:5 1080x1350} |
+| identity_strategy | {design-system, hyperframes-style, screenshots, or custom} |
+| identity_choice | {design-system slug, HyperFrames style name, captured-screenshots, or custom identity name} |
+| voice | {elevenlabs:<name>:<voice-id> or kokoro:<voice-id>} |
+| transition_style | {metallic-swoosh, zoom-through, crossfade, or slide-from-bottom} |
+| transition_speed | {quick, medium, or slow} |
+| music_strategy | {freesound, user-provided, or none} |
+| final_music_track | {none or compact JSON with title, path, source, and license} |
+
+Every field is a user-owned choice. The agent may mark a recommendation in an option's
+label/description and explain why, but it never selects or infers an answer from Phase-0 research.
+
+`final_music_track` remains a placeholder until Phase 5. Record either the exact value `none` or a
+single-line JSON object, for example:
+
+```json
+{"license":"CC-BY-4.0","path":"background-music.mp3","source":"https://freesound.org/s/123/","title":"Example Track"}
+```
+
+Confirm the story fields before creating `storyboard.md`; confirm the exact final track (or `none`)
+before mixing or rendering. The installed skill's `scripts/validate_brief.py` stores confirmations
+and phase fingerprints atomically in `.hve/brief-state.json`. It never deletes generated artifacts;
+changed fingerprints make the affected phase stamps stale.
+
 **Created:** {date}
-
-## Creative Brief — user-owned selections
-
-Every lever below is the **user's** choice, surfaced as a native prompt in Phase 1 and **never**
-self-answered from the Phase-0 codebase analysis (see `SKILL.md` § "creative instinct governs
-craft, not the user's choices"). The agent *recommends* (with a smart default pre-highlighted); the
-user *decides*. Tick each box only after the user has explicitly confirmed that lever — do not
-advance to the storyboard with the identity or voice still unconfirmed.
-
-| Lever | Recorded in | Confirmed by user |
-|---|---|---|
-| Video mode | `Mode` above | ⬜ |
-| Product surface (film the real product?) | `Product surface` above | ⬜ |
-| Duration | `Duration` above | ⬜ |
-| Theme (light/dark) | `Theme` above | ⬜ |
-| Aspect ratio | `Aspect` above | ⬜ |
-| Visual identity / design system | `Visual identity strategy` + `Design system`/`HyperFrames style` above | ⬜ |
-| Voiceover voice | `Voice` above | ⬜ |
-| Section transition · speed | `Section transition` above | ⬜ |
-| Music | `Music` above | ⬜ |
-
-**Locked once confirmed — changing a lever invalidates downstream artifacts.** If a confirmed lever
-changes later, treat everything derived from it as stale and re-run from the earliest affected phase,
-then re-confirm the changed lever:
-
-- **Identity / theme / aspect** → invalidate `DESIGN.md`, `scenes/`, `index.html`, and the render.
-- **Duration** → invalidate `storyboard.md` onward (scene timings, composition, voiceover length).
-- **Voice / music** → invalidate `voiceover.mp3`, `background-music.mp3`, `out/final.mp4`.
 
 ## Phase Tracker
 

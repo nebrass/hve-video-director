@@ -2,6 +2,15 @@
 
 Assemble the storyboard, screenshots, and Phase 3 scene templates into a single HyperFrames composition. Output is a `index.html` at the project root that can be previewed in a browser and rendered to MP4.
 
+Before assembly, require the accepted design artifacts to match the current story fingerprint:
+
+```bash
+python3 "$SKILL_DIR/scripts/validate_brief.py" \
+  --project-dir "$PROJECT_DIR" require phase-3
+```
+
+A nonzero exit routes back to the earliest stale phase even when `DESIGN.md` and `scenes/` exist.
+
 ## Step 4.1: Initialize the Project
 
 By the time you reach Phase 4, `{project-dir}/` already has `DESIGN.md` and `scenes/*.html` from Phase 3. `npx hyperframes init {project-dir}` would clobber those files. **The supported flow is to skip `init` for hve-spielberg projects** — author `index.html` directly in the existing directory.
@@ -70,7 +79,10 @@ npx hyperframes add logo-outro
 
 Each `add` drops a sub-composition file (typically under `blocks/` or `catalog/`) which you then wire into the root `index.html` via `data-composition-src`, exactly like a Phase 3 scene template. The block's own `<template>` wrapper and registered timeline are already correct — you set its `data-start`, `data-duration`, `data-track-index` in the root composition.
 
-When in doubt, prefer a catalog block over a hand-authored transition. The blocks have been tested for determinism, layout safety, and cross-aspect-ratio behaviour.
+Use a catalog block only when it implements the confirmed transition style and can be retokenized
+to the confirmed theme without changing its identity. The user's `transition_style`,
+`transition_speed`, and `theme` always win; never introduce a white flash into a dark composition
+or an unselected transition because a block is convenient.
 
 ## Step 4.3: Reconcile Assets
 
@@ -95,12 +107,23 @@ Screenshots stay at `public/screenshots/` — referenced from `index.html` via r
 
 `index.html` is a single HyperFrames composition whose total duration equals the storyboard total. Standalone compositions (the root) do **not** use a `<template>` wrapper — the `data-composition-id` div sits directly in `<body>`. Sub-compositions loaded via `data-composition-src` are the only ones that need `<template>`.
 
+Read `theme`, `transition_style`, and `transition_speed` from the confirmed Creative Brief before
+writing the root. Resolve the root canvas and every transition overlay from the single
+confirmed-theme token set in `DESIGN.md`; no root, loading, or overlap frame may expose an
+opposite-theme default. Map speed exactly once: `quick = 0.4s`, `medium = 0.7s`, `slow = 1.2s`.
+Call that value `D`. Every non-closing loader remains alive for its nominal scene duration plus
+`D`; clip-scene inner videos use that same full loader window. Replace every uppercase color and
+timing token below with computed literals before linting.
+
 ```html
 <!doctype html>
 <html>
 <head>
   <meta charset="utf-8">
   <link rel="stylesheet" href="styles.css">
+  <style>
+    html, body { margin: 0; background: THEME_CANVAS; }
+  </style>
 </head>
 <body>
   <div id="root"
@@ -124,9 +147,9 @@ Screenshots stay at `public/screenshots/` — referenced from `index.html` via r
 
     <!-- Scene clips. CRITICAL invariants:
            1. data-composition-id on the loader must match the inner sub-comp's id.
-           2. Adjacent scenes must OVERLAP during the crossfade window — each scene's
-              data-duration extends 0.4s past its nominal end, and the next scene's
-              data-start moves 0.4s earlier. Both render during the transition;
+           2. Adjacent scenes must OVERLAP during the confirmed transition window D —
+              each non-closing scene's data-duration extends D past its nominal end.
+              The incoming scene starts at the nominal boundary. Both render during the transition;
               otherwise the body color flashes through.
            3. Track indices must be UNIQUE for overlapping scenes — HyperFrames
               rejects same-track overlap. Use 1,2,3,4,5 (or any unique integers).
@@ -134,21 +157,24 @@ Screenshots stay at `public/screenshots/` — referenced from `index.html` via r
               same z-index, later elements paint on top).
     -->
 
-    <!-- Scene 0  (0 → 5.4) — extended 0.4s past nominal end -->
+    <!-- Scene 0 nominally spans 0 → 5; full loader window is 5 + D. -->
     <div data-composition-id="scene-00-title-card"
          data-composition-src="scenes/00-title-card.html"
-         data-start="0"  data-duration="5.4" data-track-index="1"></div>
+         data-start="0" data-duration="SCENE_00_NOMINAL_PLUS_D"
+         data-track-index="1"></div>
 
-    <!-- Scene 1  (5 → 9.4) — starts 0.4s early, ends 0.4s late -->
+    <!-- Scene 1 nominally spans 5 → 9; full loader window is 4 + D. -->
     <div data-composition-id="scene-01-pain-point"
          data-composition-src="scenes/01-pain-point.html"
-         data-start="5"  data-duration="4.4" data-track-index="2"
+         data-start="5" data-duration="SCENE_01_NOMINAL_PLUS_D"
+         data-track-index="2"
          style="opacity:0"></div>
 
-    <!-- Scene 2  (9 → end) -->
+    <!-- Closing scene: nominal duration only; it never transitions out. -->
     <div data-composition-id="scene-02-feature"
          data-composition-src="scenes/02-feature.html"
-         data-start="9"  data-duration="6.4" data-track-index="3"
+         data-start="9" data-duration="SCENE_02_NOMINAL"
+         data-track-index="3"
          style="opacity:0"></div>
     <!-- … etc … -->
   </div>
@@ -159,6 +185,10 @@ Screenshots stay at `public/screenshots/` — referenced from `index.html` via r
     // hosts inter-scene transitions and ambient effects.
     window.__timelines = window.__timelines || {};
     const tl = gsap.timeline({ paused: true });
+    const D = Number("TRANSITION_DURATION_SECONDS");
+    if (!Number.isFinite(D) || D <= 0) {
+      throw new Error("Replace TRANSITION_DURATION_SECONDS from transition_speed");
+    }
 
     // Crossfade pattern: ONLY animate the INCOMING scene's opacity 0→1.
     // The outgoing scene stays at opacity 1 below and is occluded as the
@@ -166,10 +196,11 @@ Screenshots stay at `public/screenshots/` — referenced from `index.html` via r
     // body color show through compositing math and creates a flash artifact.
 
     tl.to('[data-composition-id="scene-01-pain-point"]',
-      { opacity: 1, duration: 0.4, ease: "power2.inOut" }, 5);
+      { opacity: 1, duration: D, ease: "power2.inOut" }, 5);
     tl.to('[data-composition-id="scene-02-feature"]',
-      { opacity: 1, duration: 0.4, ease: "power2.inOut" }, 9);
-    // … etc per scene boundary
+      { opacity: 1, duration: D, ease: "power2.inOut" }, 9);
+    // This skeleton shows crossfade wiring. Replace each main-section boundary
+    // with the confirmed style's Step 4.5 recipe; do not leave it as crossfade.
 
     window.__timelines["main"] = tl;
   </script>
@@ -195,10 +226,10 @@ Use the `hyperframes` skill for the composition authoring rules — the most imp
   only frame-syncs videos that have `data-start`; without it the clip isn't synced and, with
   2+ clip scenes, cross-routes (one scene plays another's footage, another plays black). The
   `scene-clip.html` / `scene-terminal-clip.html` archetypes pre-wire this — keep it.
-  - The inner video's `data-duration` = the **loader's full window incl. the 0.4s crossfade
-    extension** (Step 4.5), NOT the bare clip length — the runtime hides an expired track
+  - The inner video's `data-duration` = the **loader's full window including the confirmed
+    transition-duration extension** (Step 4.5), NOT the bare clip length — the runtime hides an expired track
     (`visibility:hidden`), so a video that ends at the nominal length blanks the frame during
-    every crossfade out of the scene.
+    every transition out of the scene.
   - `data-media-start` = the storyboard's `Clip in` (trim offset, seconds; `0` if whole).
     Omitting it plays the source from `t=0`, discards the `Clip in/out` trim, and desyncs the
     footage from Phase 5's clip-audio window (`CIN`/`COUT`, Step 5.3a).
@@ -219,13 +250,66 @@ Use the `hyperframes` skill for the composition authoring rules — the most imp
 
 ## Step 4.5: Wire Transitions
 
-Default to a quiet crossfade. Use `patterns/metallic-swoosh.md` only at major narrative beats (≤2 per video in a 30–60s spot). Transition timing rules:
+The storyboard is authoritative at each boundary. It was derived from the confirmed
+`transition_style` / `transition_speed`: main section boundaries use the chosen style, connective
+cuts inside a section use `crossfade`, and the closing scene uses `none`. Never replace
+`zoom-through`, `slide-from-bottom`, `medium`, or `slow` with a quiet 0.4s crossfade.
 
-- Crossfade: 0.3–0.5s, `power2.inOut`
-- Metallic swoosh: 0.4s, see pattern doc
+Use one duration `D` everywhere:
+
+| `transition_speed` | `D` |
+|---|---:|
+| `quick` | `0.4s` |
+| `medium` | `0.7s` |
+| `slow` | `1.2s` |
+
+For every non-closing boundary at nominal time `AT`, extend the outgoing loader by `D`, start the
+incoming loader at `AT`, and wire exactly one recipe below in the root timeline. Scene-internal
+timelines do not own these exits.
+
+### `crossfade`
+
+Keep the outgoing scene opaque underneath and reveal only the incoming scene:
+
+```js
+tl.to(INCOMING, { opacity: 1, duration: D, ease: "power2.inOut" }, AT);
+```
+
+### `metallic-swoosh`
+
+Use the incoming-only crossfade above plus the shine overlay from
+`patterns/metallic-swoosh.md`. Set the overlay's `data-duration` and every tween from the same `D`;
+align the shine peak to `AT + D / 2`. Keep this style to the storyboard's main section boundaries
+(normally no more than two in a 30–60s video).
+
+### `zoom-through`
+
+Use a 2D scale transition in the root timeline. The transition owns the outgoing scale; scene
+templates still have no exit animation. No `rotateX`, `rotateY`, perspective, or other 3D motion:
+
+```js
+tl.set(INCOMING, { opacity: 0, scale: 0.92, transformOrigin: "50% 50%" }, AT);
+tl.to(OUTGOING,
+  { scale: 1.08, transformOrigin: "50% 50%", duration: D, ease: "power2.in" }, AT);
+tl.to(INCOMING,
+  { opacity: 1, scale: 1, duration: D, ease: "power2.out" }, AT);
+```
+
+### `slide-from-bottom`
+
+Keep the outgoing scene static while the incoming scene covers it from below:
+
+```js
+tl.set(INCOMING, { opacity: 1, yPercent: 100 }, AT);
+tl.to(INCOMING, { yPercent: 0, duration: D, ease: "power3.inOut" }, AT);
+```
+
+For every recipe:
+
+- Resolve `OUTGOING` / `INCOMING` to the exact root loader selectors for that boundary.
 - No `clipPath` transitions (anti-aliased black slivers).
-- No 3D rotations on transitions.
-- The closing scene never transitions out — it ends on its final frame.
+- No 3D rotations or perspective in transitions.
+- Do not add a transition after the closing scene; hold its final frame.
 
 ## Step 4.6: Preview
 
@@ -263,6 +347,11 @@ npx hyperframes inspect . --at 2.5,7,12,18,24,30
 Then **Read each `.hyperframes/inspect/*.png`** and confirm, scene by scene, that the frame shows what the storyboard calls for — correct screenshot, correct clip footage, correct copy. This re-uses the headless-Chrome frames `inspect` already writes (no `ffmpeg`, no rendered MP4 needed — the render doesn't exist until Phase 5). Do not advance until every scene's hero frame matches its storyboard intent.
 
 **Capture-coverage backstop:** if `product_surface: ui`, confirm at least one hero frame shows a real on-screen capture (the product framed) — this is the visual confirmation of the Phase-3 capture-coverage gate (`SKILL.md` § Entry Modes → `jump`). A promo/showcase whose hero frames are all text/CTA means the spine never made it on screen; return to Phase 3.
+
+**Theme backstop:** confirm every hero frame, browser/terminal mockup, clip matte, root canvas, and
+transition overlap visibly matches the Creative Brief theme. Any opposite-theme default routes
+back to Phase 3; do not approve it as an intentional contrast unless the Creative Brief itself is
+changed and reconfirmed.
 
 Ask:
 
@@ -351,18 +440,27 @@ Prompt the user with a self-review checklist instead:
 
 ```json
 {
-  "questions": [{
-    "question": "Self-review checklist before audio — any of these feel off?",
-    "header": "Critique",
-    "multiSelect": true,
-    "options": [
-      { "label": "Generic AI feel", "description": "Does it look like every other AI-generated promo? (Purple gradients, three-word headlines, rounded squares everywhere, ungrounded floating cards.)" },
-      { "label": "Hierarchy unclear", "description": "Does the eye know where to land first in each scene?" },
-      { "label": "Timing feels mechanical", "description": "Are all entrances the same duration? Same ease? Same stagger?" },
-      { "label": "Philosophy drifts", "description": "Does each scene feel like a different design direction?" },
-      { "label": "Composition looks empty", "description": "Are key elements smaller than they should be? Padding too tight or too loose?" }
-    ]
-  }]
+  "questions": [
+    {
+      "question": "Which composition issues still feel off?",
+      "header": "Composition",
+      "multiSelect": true,
+      "options": [
+        { "label": "Generic AI feel", "description": "Purple gradients, three-word headlines, rounded squares, or ungrounded floating cards." },
+        { "label": "Hierarchy unclear", "description": "The eye does not know where to land first in a scene." },
+        { "label": "Composition looks empty", "description": "Key elements are undersized or spacing feels unbalanced." }
+      ]
+    },
+    {
+      "question": "Which motion or consistency issues still feel off?",
+      "header": "Motion",
+      "multiSelect": true,
+      "options": [
+        { "label": "Timing feels mechanical", "description": "Entrances repeat the same duration, ease, or stagger." },
+        { "label": "Philosophy drifts", "description": "Scenes feel like different design directions." }
+      ]
+    }
+  ]
 }
 ```
 
@@ -375,6 +473,15 @@ For each checked item, propose 1-2 fixes and iterate. See `patterns/anti-slop.md
 - (If `critique` skill ran) Empty Fix list or consciously-accepted residual items
 
 ## Checkpoint
+
+After the user accepts the preview and all three HyperFrames gates pass, stamp Phase 4:
+
+```bash
+python3 "$SKILL_DIR/scripts/validate_brief.py" \
+  --project-dir "$PROJECT_DIR" stamp phase-4
+```
+
+Do not advance on a nonzero exit.
 
 > "Composition built. [N] scenes, [duration]s, all screenshots integrated. `hyperframes inspect` and `validate` pass. Aesthetic critique complete.
 >

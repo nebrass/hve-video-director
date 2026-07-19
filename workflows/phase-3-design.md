@@ -6,13 +6,32 @@ without Phase-2 artifacts.
 
 The authoring engine is **HyperFrames** (HTML + GSAP). There is no React, no JSX, no `useCurrentFrame`. Scene timing is expressed in **seconds** via `data-start` and `data-duration` attributes; motion is authored as GSAP tweens on paused timelines.
 
-## Step 3.1: Seed DESIGN.md (3 strategies)
+Before authoring, require Phase 2 (including an intentional stamped skip) to be fresh:
 
-Pick the most specific path that Phase 1 Step 1.2 set up.
+```bash
+python3 "$SKILL_DIR/scripts/validate_brief.py" \
+  --project-dir "$PROJECT_DIR" require phase-2
+```
 
-### Path A — Curated design system (fastest)
+A nonzero exit routes to the earliest stale prior phase even when capture files exist.
 
-**If Phase 1 recorded `design_system: <slug>`** in `project-plan.md` (one of `stripe`, `linear-app`, `apple`, `notion`, `vercel`, `airbnb`, `github`, `cal`, `arc`, `bento`), the brand specification ships with the skill. Copy it straight into the project root:
+## Step 3.1: Seed DESIGN.md (4 strategies)
+
+Use the identity path the user explicitly confirmed in Phase 1. Never substitute another path
+because it seems faster or more appropriate.
+
+The confirmed `theme` is a hard design input for every path. Add a `### Confirmed Theme` section
+to `DESIGN.md` that names `light` or `dark` and defines the canvas, surface, text, border, shadow,
+and browser/terminal chrome tokens for that mode. Do not leave dual light/dark alternatives in
+the final contract. If the selected identity cannot produce the confirmed theme, return to Phase 1
+instead of improvising or overriding the user.
+
+### Path A — Curated design system
+
+**If Phase 1 recorded `identity_strategy: design-system` and `identity_choice: <slug>`** in
+`project-plan.md` (one of `stripe`, `linear-app`, `apple`, `notion`, `vercel`, `airbnb`, `github`,
+`cal`, `arc`, `bento`), the brand specification ships with the skill. Copy it straight into the
+project root:
 
 ```bash
 # $SKILL_HOMES is the canonical home list defined in SKILL.md § Runtime Compatibility.
@@ -33,15 +52,38 @@ cp "$SKILL_DIR/design-systems/<slug>/DESIGN.md" ./DESIGN.md
 
 Every preset includes the sections a HyperFrames composition actually needs: atmosphere, palette, typography, depth, **motion** (the section that distinguishes a video preset from a generic web spec), per-scene-type applications, and brand-specific anti-patterns. See `design-systems/README.md` for the catalog.
 
-Then skim the captured screenshots only for **product-specific overrides**: a custom logo wordmark, a screenshot that suggests a different shade of the brand's accent colour, or a UI element worth referencing in a feature scene. Note these as **additions** to the seeded DESIGN.md, not replacements. This skim only enriches DESIGN.md *tokens* — the screenshots themselves remain the on-screen **spine** in scene authoring (Step 3.2 below), not palette fodder. Skip the rest of this section.
+Immediately resolve the copied preset to the confirmed theme using the compatibility table from
+Phase 1. For dual-theme systems, choose the documented role values for that mode. For single-theme
+systems, the validator has already required their native mode; do not invert the palette. Then
+skim the captured screenshots only for **product-specific overrides**: a custom logo wordmark, a
+screenshot that suggests a different shade of the brand's accent colour, or a UI element worth
+referencing in a feature scene. Note these as **additions** to the seeded DESIGN.md, not
+replacements. This skim only enriches DESIGN.md *tokens* — the screenshots themselves remain the
+on-screen **spine** in scene authoring (Step 3.2 below), not palette fodder. Skip the rest of this
+section.
 
-### Path B — HyperFrames named style (medium)
+### Path B — HyperFrames named style
 
-**If Phase 1 recorded `style: <name>`** (Swiss Pulse, Velvet Standard, Deconstructed, Maximalist Type, Data Drift, Soft Signal, Folk Frequency, Shadow Cut), invoke `Skill(hyperframes)` and read `visual-styles.md` for that style's palette, type, and motion feel. Pre-fill DESIGN.md from those values; skim the screenshots only to spot any conflicting brand cue worth overriding. Skip the rest of this section.
+**If Phase 1 recorded `identity_strategy: hyperframes-style` and the style name in
+`identity_choice`** (Swiss Pulse, Velvet Standard, Deconstructed, Maximalist Type, Data Drift,
+Soft Signal, Folk Frequency, Shadow Cut), invoke `Skill(hyperframes)` and read `visual-styles.md`
+for that style's palette, type, and motion feel. Pre-fill DESIGN.md from those values; skim the
+screenshots only to spot any conflicting brand cue worth overriding. Resolve every semantic color
+role to the confirmed theme while preserving the named style's identity. Skip the rest of this
+section.
 
-### Path C — Derive from screenshots (default)
+### Path C — Custom identity
 
-Analyze the captured screenshots to identify the app's design language:
+**If Phase 1 recorded `identity_strategy: custom`**, use the exact guide, `DESIGN.md`, or named
+direction in `identity_choice`. Preserve the user's stated constraints and translate them into the
+same palette, typography, depth, shape, and motion sections required below. Do not replace the
+custom direction with a curated system or named style. If the guide explicitly requires the
+opposite theme, return to Phase 1 and ask the user to change the theme or custom identity.
+
+### Path D — Derive from screenshots
+
+Analyze only captures that passed the Phase-2 confirmed-theme gate to identify the app's design
+language:
 
 - **Color palette** — dominant colors, accent colors, surface/background, on-surface text
 - **Typography** — font families (web-safe or Google Fonts equivalents), weight ladder, size relationships
@@ -75,14 +117,22 @@ Write `DESIGN.md` at the project root. We use this as the design contract — it
 ### Motion Defaults
 - Entrance ease: power3.out
 - Stagger:       0.08–0.12s
-- Transition:    crossfade 0.4s; metallic-swoosh between major sections only
+- Transition:    {confirmed transition_style} at {0.4s quick | 0.7s medium | 1.2s slow}
+- Connective cut: crossfade at the same confirmed duration
 ```
 
-The Phase 4 composition will reference values from this file; do not hard-code colors or font sizes in scene templates that aren't also documented here.
+Copy `transition_style` and `transition_speed` from the confirmed Creative Brief into these motion
+defaults. The Phase 4 composition will reference values from this file; do not hard-code colors,
+font sizes, transition styles, or transition durations that aren't also documented here.
 
 ## Step 3.2: Author Scene Templates via the HyperFrames Skill
 
 Invoke the `hyperframes` skill and request authoring of brand-matched scene templates. Each template is a **standalone HTML file** that will later be loaded as a sub-composition by the Phase 4 root `index.html`.
+
+Every template's body canvas, surfaces, text, controls, mockup chrome, screenshot framing, terminal
+chrome, and clip matte must use the one confirmed-theme token set in `DESIGN.md`. Do not fall back
+to a template's original light or dark defaults. Before completing Step 3.3, inspect every authored
+scene and reject any opposite-theme canvas or surface.
 
 ```
 Invoke: Skill(hyperframes)
@@ -123,7 +173,8 @@ Request these scene archetypes (adapt to mode — promo or showcase).
 
 > This re-steers the **default** scene mix and the worked example only — it does **not**
 > change the Phase-3 file-presence prerequisite. An intentionally abstract / no-product brand
-> film is still valid (mark it `Product surface: none` — see `SKILL.md`). The Phase-2 capture
+> film is still valid (mark it `product_surface: none` in the Creative Brief — see `SKILL.md`).
+> The Phase-2 capture
 > **checkpoint** stays warn-don't-block, but the Phase-3 **capture-coverage gate** BLOCKS for
 > promo/showcase when `product_surface: ui` and no scene shows a real capture (it WARNS in
 > tutorial) — see `SKILL.md` § Entry Modes → `jump`.
@@ -260,9 +311,9 @@ the explicit clip contract: `id`, `data-start="0"`, `data-duration`, `data-media
 from those attributes (Wiring S — render-verified). Two values matter:
 
 - `data-duration` = the scene loader's **full** `data-duration` from `index.html` — i.e.
-  `(out-in)/speed` **plus the 0.4s crossfade extension** (Phase 4 Step 4.5 /
+  `(out-in)/speed` **plus the confirmed transition-duration extension** (Phase 4 Step 4.5 /
   `patterns/transition-catalog.md`). If the video's track ends at the nominal clip length,
-  the runtime hides it (`visibility:hidden`) during the crossfade and the outgoing scene
+  the runtime hides it (`visibility:hidden`) during the transition and the outgoing scene
   shows an empty frame.
 - `data-media-start` = the storyboard's `Clip in` (trim offset into the source, seconds;
   `0` if the whole clip is used). Without it the runtime plays from source `t=0`, the
@@ -350,6 +401,15 @@ Any Phase-2 artifacts already live at their storyboard-bound paths under `public
 Phase-2 directory requirement.
 
 ## Checkpoint
+
+After the user accepts `DESIGN.md` and the scene templates, stamp Phase 3:
+
+```bash
+python3 "$SKILL_DIR/scripts/validate_brief.py" \
+  --project-dir "$PROJECT_DIR" stamp phase-3
+```
+
+Do not advance on a nonzero exit.
 
 > "Design contract and [N] scene templates ready. Palette + typography locked in `DESIGN.md`. Scenes are verified in Phase 4 — `preview .` lists each one individually for scrubbing and `lint`/`inspect`/`validate .` run on the assembled composition.
 >

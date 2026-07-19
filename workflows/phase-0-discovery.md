@@ -35,7 +35,7 @@ Read key files to understand: product name, tech stack, main features, recent ch
 
 **If "I'll describe it":**
 
-Quick surface scan (smart defaults):
+Quick surface scan (research context only — never creative-brief defaults):
 ```bash
 head -30 README.md 2>/dev/null
 ls src/ app/ 2>/dev/null | head -10
@@ -55,10 +55,45 @@ Present findings as dynamic selectable options:
 ```json
 {
   "questions": [
-    { "question": "What's the product?", "header": "Product", "options": ["<detected-name>", "<alternative>"], "multiSelect": false },
-    { "question": "Target audience?", "header": "Audience", "options": ["<detected-role>", "<alternative>"], "multiSelect": false },
-    { "question": "Key problems to address?", "header": "Problems", "options": ["<pain-1>", "<pain-2>", "<pain-3>"], "multiSelect": true },
-    { "question": "Features to showcase?", "header": "Features", "options": ["<feat-1>", "<feat-2>", "<feat-3>", "<feat-4>"], "multiSelect": true }
+    {
+      "question": "What's the product?",
+      "header": "Product",
+      "options": [
+        { "label": "<detected-name>", "description": "Product name detected from the supplied context." },
+        { "label": "<alternative>", "description": "A second plausible product framing." }
+      ],
+      "multiSelect": false
+    },
+    {
+      "question": "Target audience?",
+      "header": "Audience",
+      "options": [
+        { "label": "<detected-role>", "description": "Primary audience inferred from product research." },
+        { "label": "<alternative>", "description": "A second plausible audience." }
+      ],
+      "multiSelect": false
+    },
+    {
+      "question": "Key problems to address?",
+      "header": "Problems",
+      "options": [
+        { "label": "<pain-1>", "description": "First researched audience pain." },
+        { "label": "<pain-2>", "description": "Second researched audience pain." },
+        { "label": "<pain-3>", "description": "Third researched audience pain." }
+      ],
+      "multiSelect": true
+    },
+    {
+      "question": "Features to showcase?",
+      "header": "Features",
+      "options": [
+        { "label": "<feat-1>", "description": "First researched product capability." },
+        { "label": "<feat-2>", "description": "Second researched product capability." },
+        { "label": "<feat-3>", "description": "Third researched product capability." },
+        { "label": "<feat-4>", "description": "Fourth researched product capability." }
+      ],
+      "multiSelect": true
+    }
   ]
 }
 ```
@@ -109,5 +144,9 @@ Generate `context.md` from `templates/context.md` with all gathered information.
 
 > "Discovery complete. Here's what I understand about your product and audience:
 > [Summary of context.md]
+>
+> Next, Phase 1 is where **you choose how the video looks and sounds**: duration, theme, aspect
+> ratio, identity/design system, voice, transitions, and music strategy. I may recommend an option
+> with a reason, but I will not infer or select any of those choices from this research.
 >
 > Ready to move to Phase 1: Storytelling?"

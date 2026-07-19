@@ -9,7 +9,7 @@ The renderer is **HyperFrames** (HTML + GSAP, rendered via headless Chromium). R
 Keep two scopes distinct when editing:
 
 - **This repo** — the skill definition (`SKILL.md`, `workflows/`, `templates/`, `patterns/`, `scripts/`, `design-systems/`). Edits here change behavior for *all* users.
-- **Generated video projects** — created by the skill at runtime in `{project-dir}/`. They contain `project-plan.md`, `context.md`, `storyboard.md`, `DESIGN.md`, `public/screenshots/`, `scenes/*.html`, `index.html` (root HyperFrames composition), `voiceover.mp3`, `out/final.mp4`. These do **not** live in this repo (except the canonical reference build under `example/`).
+- **Generated video projects** — created by the skill at runtime in `{project-dir}/`. They contain `project-plan.md`, `.hve/brief-state.json`, `context.md`, `storyboard.md`, `DESIGN.md`, `public/screenshots/`, `scenes/*.html`, `index.html` (root HyperFrames composition), `voiceover.mp3`, `out/final.mp4`. These do **not** live in this repo (except the canonical reference build under `example/`).
 
 ## Architecture
 
@@ -40,12 +40,13 @@ SKILL.md (orchestrator)
 - `mcp__chrome-devtools__*` for app capture (Phase 2)
 - The `hyperframes` companion agent skill for HTML/GSAP authoring rules (Phases 3 + 4) — distinct from the `hyperframes` npm CLI
 - The `gsap` skill (optional companion) for choreography reference
-- `npx hyperframes` CLI for `init`, `add` (pull catalog blocks, Phase 4), `lint`, `preview`, `inspect`, `validate`, `render`, `doctor` (render-environment diagnostics, Phase 5), `transcribe` (preferred voiceover-timing verifier in Phase 5; falls back to standalone Whisper if unavailable), and `tts` (used in Phase 5 as the no-API-key fallback when `ELEVENLABS_API_KEY` is unset)
+- `npx hyperframes` CLI for `init`, `add` (pull catalog blocks, Phase 4), `lint`, `preview`, `inspect`, `validate`, `render`, `doctor` (render-environment diagnostics, Phase 5), `transcribe` (preferred voiceover-timing verifier in Phase 5; falls back to standalone Whisper if unavailable), and `tts` (used in Phase 5 when the user explicitly confirms a local Kokoro voice)
 - `mcp__chrome-devtools__screencast_*` + `resize_page` for Phase-2 web-clip capture (experimental, feature-detected — needs `--experimentalScreencast=true`; falls back to screenshots), and optional `asciinema`+`agg` for CLI clip recording (otherwise the authored-terminal path)
 - `scripts/generate_voiceover.py` → ElevenLabs API + optional Whisper transcription (Phase 5)
 - `scripts/caption_gen.py` → transcript JSON to SRT/VTT caption sidecars (pure stdlib)
 - `scripts/capture_screen.py` → fixed-duration, silent native desktop/region capture orchestrator (pure stdlib): macOS `screencapture`, Windows `gdigrab`, X11 `x11grab`, or feature-detected Wayland `wf-recorder`; WSL/unavailable Wayland return explicit handoffs. It trims via sibling `stitch_clip.py`, validates duration/frame count within one frame, and uses `<clip>.capture.pending` + fingerprinted `<clip>.capture.json` state so failed retakes preserve prior valid media but cannot count as complete.
 - `scripts/stitch_clip.py` → canonical raw-capture normalizer/stitcher for CFR30 H.264 High/yuv420p, even dimensions, no audio, and `+faststart` (pure stdlib wrapper for ffmpeg/ffprobe)
+- `scripts/validate_brief.py` → exact Creative Brief parser, consent-gated legacy placeholder migration, revision-bound story/audio fingerprints, atomic `.hve/brief-state.json`, phase stamps, and stale-prerequisite checks (pure stdlib)
 - `scripts/search_music.py` → Freesound API for CC music (Phase 5)
 - `scripts/check_requirements.sh` → structured toolchain preflight. Default, `--json`, and
   `--plan` are side-effect-free and never use online `npx` probes. Scoped
@@ -59,8 +60,9 @@ SKILL.md (orchestrator)
 
 ## Working with the skill scripts
 
-The Python scripts run inside generated video projects, not from this repo. Only
-`generate_voiceover.py` and `search_music.py` self-install `requests`; capture, stitch, and caption
+The media scripts run inside generated video projects; `validate_brief.py` runs from the installed
+skill against a generated project via `--project-dir`. Only `generate_voiceover.py` and
+`search_music.py` self-install `requests`; capture, stitch, caption, and Creative Brief validation
 helpers are pure standard library.
 
 ```bash
@@ -73,6 +75,13 @@ python3 scripts/capture_screen.py --duration 6 --region 100,80,1280,720 \
 
 # Normalize or stitch existing recordings
 python3 scripts/stitch_clip.py raw.mov -o public/clips/scene-02-dashboard.mp4
+
+# Validate the Creative Brief in a generated project
+python3 /path/to/hve-spielberg/scripts/validate_brief.py \
+  --project-dir /path/to/generated-project status --json
+# Legacy plans only, after explicit user consent
+python3 /path/to/hve-spielberg/scripts/validate_brief.py \
+  --project-dir /path/to/generated-project migrate
 
 # Music search (from inside a generated project)
 FREESOUND_API_KEY=... python3 scripts/search_music.py
@@ -104,6 +113,9 @@ Anti-slop content rules (see `patterns/anti-slop.md`) also matter: no default Ta
 
 - **Add a voice** → update both the `## ElevenLabs Voice IDs` table in `SKILL.md` and the `## Voices` table in `README.md` (the two tables must stay in sync).
 - **Change phase logic** → edit the relevant `workflows/phase-N-*.md`; update the prerequisite list in `SKILL.md` if a new required file is introduced.
+- **Change the Creative Brief schema** → update the template, validator, example plan, workflow
+  field names, and tests together. Story changes stale Phase 1–5; final-track-only changes stale
+  Phase 5.
 - **Adjust prerequisite checks** → update `scripts/check_requirements.sh` and its stdlib tests;
   keep the first-run Phase -1 interpretation in `SKILL.md` aligned with the JSON schema.
 - **Bump skill metadata** → frontmatter at top of `SKILL.md` (especially `allowed-tools` if a new MCP tool is needed).

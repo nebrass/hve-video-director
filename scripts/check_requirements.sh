@@ -722,9 +722,9 @@ collect_checks() {
       "ELEVENLABS_API_KEY set (high-quality TTS)"
   else
     add_check elevenlabs-key "ELEVENLABS_API_KEY" recommended degraded "5" \
-      "not set; Phase 5 falls back to local Kokoro-82M TTS at lower quality" "" \
+      "not set; ElevenLabs voice choices are unavailable until a key is configured" "" \
       manual-env "" "export ELEVENLABS_API_KEY=<key>" Recommended \
-      "ELEVENLABS_API_KEY not set — Phase 5 falls back to npx hyperframes tts (local Kokoro-82M, lower quality)"
+      "ELEVENLABS_API_KEY not set — choose Kokoro explicitly for local TTS or configure the key before confirming ElevenLabs"
   fi
 
   if command -v whisper >/dev/null 2>&1; then
@@ -758,13 +758,13 @@ collect_checks() {
 
   if command -v espeak-ng >/dev/null 2>&1; then
     add_check espeak-ng "espeak-ng" optional ready "5" \
-      "non-English local TTS fallback is available" "" manual-system "" \
-      "$ESPEAK_COMMAND" Optional "espeak-ng (non-English tts fallback)"
+      "non-English local Kokoro TTS is available" "" manual-system "" \
+      "$ESPEAK_COMMAND" Optional "espeak-ng (non-English Kokoro tts)"
   else
     add_check espeak-ng "espeak-ng" optional degraded "5" \
-      "not found; only needed for non-English voiceover via the local TTS fallback" "" \
+      "not found; only needed for non-English voiceover via confirmed local Kokoro TTS" "" \
       manual-system "" "$ESPEAK_COMMAND" Optional \
-      "espeak-ng not found — only needed for non-English voiceover via the tts fallback"
+      "espeak-ng not found — only needed for non-English voiceover via Kokoro TTS"
   fi
 
   command_path a asciinema 2>/dev/null || a=""

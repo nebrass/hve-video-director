@@ -25,6 +25,16 @@ You also understand **design thinking** — you don't just make videos, you firs
 Your creative instincts guide every decision. Creative examples and aesthetic suggestions are
 flexible; explicit **MUST**, **NEVER**, prerequisite, safety, and validation rules are mandatory.
 
+**Creative instinct governs craft, not the user's choices.** The agent owns motion choreography,
+easing, composition polish, narrative craft, and implementation details. The user owns the
+creative brief: mode, product surface, duration, theme, aspect ratio, identity/design system,
+voice provider and exact voice, transition style, transition speed, music strategy, and the final
+exact music track (or an explicit no-music choice). Surface every lever as a native prompt.
+Phase-0 research may support a
+recommendation, but never infer, silently default, preselect, or answer for the user. If making a
+recommendation, put `Recommended - <reason>` in the option label/description; visible guidance is
+not consent.
+
 ## Runtime Compatibility
 
 This skill uses the Agent Skills `SKILL.md` format. The complete Phase 0→5 pipeline is verified
@@ -46,6 +56,8 @@ as follows:
   `multiple: true`. Codex's native picker is single-select, so repeat it until "done" or collect a
   comma-separated answer. Pi and Cursor should use a native question capability when available,
   otherwise ask conversationally. Never print raw JSON, and never silently discard selections.
+  Every question object has at most **four options** (Claude's native cap). Keep larger catalogs
+  reachable through family/category prompts followed by a second prompt; never truncate choices.
 - **Resolving tool capabilities.** Workflow names such as `navigate_page`, `take_screenshot`,
   `screencast_start`, and `resize_page` are capability names. Before first use, inspect the
   runtime's available tools and resolve the exact exposed identifier. If tools are deferred,
@@ -96,6 +108,21 @@ for home in $SKILL_HOMES; do
 done
 IFS=$OLD_IFS
 ```
+
+The same installed root provides the deterministic brief validator:
+
+```bash
+VALIDATOR="$SKILL_DIR/scripts/validate_brief.py"
+[ -f "$VALIDATOR" ] || {
+  echo "ERROR: installed hve-spielberg is missing scripts/validate_brief.py" >&2
+  exit 2
+}
+```
+
+All validator commands take `--project-dir "$PROJECT_DIR"`. They read the stable Creative Brief
+table in `project-plan.md` and atomically maintain `.hve/brief-state.json`; they never delete
+generated artifacts. Resolve `$SKILL_DIR`, `$VALIDATOR`, and `$PROJECT_DIR` again in a fresh shell
+because shell state does not persist between agent tool calls.
 
 ---
 
@@ -170,12 +197,12 @@ Run Phase -1 for direct/default `new` mode only when there is no `project-plan.m
 
    | Phase | Work | Approval/checkpoint before advancing |
    |---|---|---|
-   | Phase 0 — Discovery | Understand product, audience, goal, and constraints | Approve `context.md` and the creative brief |
-   | Phase 1 — Storytelling | Build the narrative, script, and scene plan | Approve `storyboard.md` |
+   | Phase 0 — Discovery | Understand product, audience, goal, and constraints | Approve `context.md`; Phase 1 is where the user chooses how it looks/sounds |
+   | Phase 1 — Storytelling | Collect and confirm the user-owned story brief, then build the narrative | Confirm the complete brief before `storyboard.md`; approve the storyboard |
    | Phase 2 — Capture | Gather bound web, terminal, supplied, or native recordings | Approve the capture set and any fallbacks |
    | Phase 3 — Design | Define brand/motion and author scene HTML | Approve `DESIGN.md` and scene previews |
    | Phase 4 — Production | Wire the root composition and transitions | Approve the preview after lint/inspect/validate |
-   | Phase 5 — Audio & Render | Generate narration/captions, choose music, render MP4 | Approve audio choices and the final render |
+   | Phase 5 — Audio & Render | Generate narration/captions, confirm exact music, render MP4 | Confirm title/path/source/license (or explicit none) before mixing; approve render |
 
    Mention that `screen-recording` capture is native where supported: macOS uses the
    `screencapture` adapter, Windows uses FFmpeg `gdigrab`, and X11 uses FFmpeg `x11grab`.
@@ -199,10 +226,10 @@ Run Phase -1 for direct/default `new` mode only when there is no `project-plan.m
 }
 ```
 
-**Then determine the product surface.** Real captures of the product are the default spine of
-the video (Phases 1–3 build around them). Only mark a film as no-product when the subject
-genuinely has no UI to capture (a CLI library, an API, a pure-backend tool) or the user
-explicitly wants an abstract brand film. Present a selectable prompt:
+**Then determine the product surface.** When a usable UI exists, recommend real captures as the
+video's spine and explain why (Phases 1–3 build around them), but do not preselect that answer.
+Only offer the no-product framing for a subject with no UI to capture (a CLI library, an API, a
+pure-backend tool) or an explicitly abstract brand film. Present a selectable prompt:
 
 ```json
 {
@@ -210,7 +237,7 @@ explicitly wants an abstract brand film. Present a selectable prompt:
     "question": "Does the product have a UI we can capture and put on screen?",
     "header": "Surface",
     "options": [
-      { "label": "Yes — capture the real product", "description": "Real screenshots/clips become the video's spine; text scenes are connective tissue. (Default.)" },
+      { "label": "Yes — capture the real product", "description": "Recommended when a usable UI exists: real screenshots/clips become the spine." },
       { "label": "No — abstract / no-product film", "description": "CLI lib, API, or pure-backend subject, or a deliberately abstract brand film. Waives the Phase-3 capture-coverage gate." }
     ],
     "multiSelect": false
@@ -219,8 +246,9 @@ explicitly wants an abstract brand film. Present a selectable prompt:
 ```
 
 Then create `{project-dir}/`, generate `project-plan.md` from `templates/project-plan.md`, and
-record the answer in `project-plan.md` as `Product surface: ui | none` (default `ui`); carry it
-into `storyboard.md` (`Product surface:`) in Phase 1. Begin Phase 0.
+record the explicit answers in the Creative Brief table as `mode: promo | showcase | tutorial`
+and `product_surface: ui | none`. Do not mark either option selected before the user's response.
+Carry the product surface into `storyboard.md` (`Product surface:`) in Phase 1. Begin Phase 0.
 
 **Make the output location crystal-clear (issue #21).** Before creating the directory, resolve and
 show its **absolute** path so the user knows exactly where their work will live, and let them
@@ -237,15 +265,57 @@ absolute path from the CWD each run — never persist it into a committed artifa
 
 ### `continue`
 
-Read `{project-dir}/project-plan.md`, then verify the artifact contract below. The phase tracker
-selects the candidate next phase; filesystem/storyboard verification prevents a stale tracker from
-skipping required work.
+Read `{project-dir}/project-plan.md`, resolve the installed validator, and run it even when all
+expected files exist:
+
+```bash
+python3 "$VALIDATOR" --project-dir "$PROJECT_DIR" status --json
+```
+
+Exit 1 means the table is incomplete or a legacy plan needs migration; still parse the JSON. A
+structurally complete table may return 0 while `story.confirmed`, `audio.confirmed`, or phase
+freshness is false, so always inspect those JSON fields. Exit 2 means malformed Markdown/state and
+blocks resume with the validator's actionable error. The phase tracker is informational. The
+validator's `earliest_stale_phase` plus the existing file-presence checks are authoritative. Never
+delete stale artifacts automatically.
+
+When `migration_required` is `true`, preserve the legacy plan and never promote its old defaults or
+agent-inferred decisions into confirmed choices. Explain that migration inserts an empty Creative
+Brief table, then present this consent prompt:
+
+```json
+{
+  "questions": [{
+    "question": "This project predates the confirmed Creative Brief schema. Insert an empty brief table and collect every choice from you?",
+    "header": "Migration",
+    "options": [
+      { "label": "Migrate and collect choices", "description": "Preserve the legacy plan, insert placeholders atomically, then ask every Phase-1 brief question." },
+      { "label": "Cancel resume", "description": "Leave project-plan.md unchanged and stop." }
+    ],
+    "multiSelect": false
+  }]
+}
+```
+
+Only after explicit migration consent, run:
+
+```bash
+python3 "$VALIDATOR" --project-dir "$PROJECT_DIR" migrate --json
+```
+
+The migration never infers values. Continue normal detection afterward: run Phase 0 first if
+`context.md` is absent; otherwise route to Phase 1 to collect, summarize, and confirm every
+user-owned story field before reusing or replacing any legacy storyboard.
 
 **Detection logic:**
 ```
 If no project-plan.md → report that there is no resumable project and switch to the normal "new"
   prompts, but preserve the explicit-continue origin: skip Phase -1 and begin at video-type selection
+If validator migration_required is true → ask migration consent; on approval run migrate, then
+  treat every story field as incomplete and route through Phase 0 if needed, otherwise Phase 1
 If context.md missing → Phase 0
+If validator story.complete is false, story.confirmed is false, or earliest_stale_phase is phase-1
+  → Phase 1 (collect/reconfirm the complete story brief before storyboard creation)
 If storyboard.md missing → Phase 1
 Determine whether Phase 2 is needed from storyboard.md:
   - REQUIRED when Product surface is `ui`, or any scene requests screenshot, screencast,
@@ -268,33 +338,58 @@ If Phase 2 is required and any planned capture lacks its accepted output → Pha
 If no DESIGN.md or scenes/ → Phase 3
 If no index.html → Phase 4
 If no out/final.mp4 → Phase 5
+Also map validator earliest_stale_phase phase-2..phase-5 directly to that phase, even when its
+  files exist. Choose the earliest phase found by either validator state or file checks.
+  A changed story field routes to Phase 1 because Phase 1–5 stamps no longer match.
+  A changed final_music_track with the same confirmed story routes only to Phase 5.
 ```
 
 ### `jump`
 
-Go directly to a specific phase. Verify prerequisites:
+Go directly to a specific phase only after checking current state. Run `status --json`; if its
+`earliest_stale_phase` is earlier than the requested phase, reject the jump and route to that
+earliest stale phase. Keep every existing file-presence prerequisite below, and add these
+fingerprint requirements:
+
+If `migration_required` is true, reject the requested jump. Use the same consent-gated migration
+prompt as `continue`, then route through Phase 0 when `context.md` is missing or Phase 1 otherwise.
+No legacy value may become confirmed without being presented to the user.
+
+```bash
+# Before Phase 2:
+python3 "$VALIDATOR" --project-dir "$PROJECT_DIR" require phase-1
+# Before Phase 3 / 4 / 5, require phase-2 / phase-3 / phase-4 respectively.
+```
+
+Phase 1 itself requires `context.md` and performs `confirm-story` before creating the storyboard.
+Phase 5 performs `confirm-audio` after an exact track (or explicit none) is known and before any
+mix/encode/render. Verify prerequisites:
+
 ```
 Phase 1 requires: context.md
-Phase 2 requires: context.md + storyboard.md
+Phase 2 requires: context.md + storyboard.md + fresh Phase-1 stamp
 Phase 3 requires: context.md + storyboard.md, plus completion of every capture requested by the
-  storyboard. In particular, `screen-recording` requires a positive `Capture duration:`, an
+  storyboard, and a fresh Phase-2 stamp. In particular, `screen-recording` requires a positive `Capture duration:`, an
   optional valid `Capture region: x,y,w,h`, a non-empty file at the exact `Clip:` path, no
   `<Clip>.capture.pending`, and a matching `<Clip>.capture.json` sidecar. Run
   `capture_screen.py --check` with the storyboard duration/region/Clip; if any check fails,
   BLOCK Phase 3 and resume Phase 2 (or return to Phase 1 to repair invalid fields).
-  Product surface `none` with no requested captures has no Phase-2 artifact prerequisite.
+  `product_surface: none` with no requested captures has no Phase-2 artifact prerequisite, but
+  the intentional Phase-2 skip must still have a fresh Phase-2 stamp.
   Capture-coverage gate (orchestrator-enforced; promo/showcase only): before authoring
-  scenes, if product_surface is `ui` (the default) and NO storyboard scene binds an existing real
+  scenes, if product_surface is `ui` and NO storyboard scene binds an existing real
   capture (`Screenshot:` or `Clip:`), BLOCK and resolve — return to Phase 2 to capture the
-  product, or, if the film is genuinely abstract, set `Product surface: none` in both
-  project-plan.md and storyboard.md. After scene authoring, verify that each bound artifact is
+  product, or, if the film is genuinely abstract, set `product_surface: none` in the
+  project-plan.md Creative Brief and `Product surface: none` in storyboard.md. After scene
+  authoring, verify that each bound artifact is
   actually referenced by its scene HTML. Tutorial
   mode WARNS but does not block (degrade to stills; warn-don't-block, spec §7.3). This turns
   the former silent "(unless skipped, e.g. no real product)" escape hatch into an intentional,
   recorded decision. (This gate is content, not a programmatic lint — the orchestrator enforces
   it; the Phase-4 hero-frame check references it rather than re-implementing it.)
-Phase 4 requires: context.md + storyboard.md + DESIGN.md + scenes/*.html
-Phase 5 requires: index.html (root composition); Phase 5 then runs `npx hyperframes lint|inspect|validate` before render
+Phase 4 requires: context.md + storyboard.md + DESIGN.md + scenes/*.html + fresh Phase-3 stamp
+Phase 5 requires: index.html (root composition) + fresh Phase-4 stamp; Phase 5 then confirms the
+  exact audio fingerprint and runs `npx hyperframes lint|inspect|validate` before render
 Tutorial content mode: PREFERS public/clips/ but does not require them. Jumping into a
 tutorial with no clips WARNS ("tutorial requested but no clips found — degrading to stills")
 and continues with stills; it does NOT block. Missing captions in tutorial mode is the
@@ -375,4 +470,5 @@ See [workflows/phase-5-audio.md](workflows/phase-5-audio.md)
 - [templates/](templates/) — Project scaffolding templates
 - [patterns/visual-patterns.md](patterns/visual-patterns.md) — Animation techniques
 - [patterns/metallic-swoosh.md](patterns/metallic-swoosh.md) — Metallic transition (crossfade + shine, NOT clipPath)
-- [scripts/generate_voiceover.py](scripts/generate_voiceover.py) — ElevenLabs + Whisper pipeline
+- [scripts/validate_brief.py](scripts/validate_brief.py) — Creative Brief validation, confirmations, fingerprints, and phase freshness
+- [scripts/generate_voiceover.py](scripts/generate_voiceover.py) — ElevenLabs generation or external-section assembly + Whisper verification

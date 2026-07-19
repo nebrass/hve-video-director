@@ -11,7 +11,7 @@ The renderer is **HyperFrames** (HTML + GSAP, rendered via headless Chromium). R
 Two things to keep distinct:
 
 - **This repo** — the skill definition (`SKILL.md`, `workflows/`, `templates/`, `patterns/`, `scripts/`, `design-systems/`) plus the canonical demo (`example/`). Edits here change behavior for *all* users.
-- **Generated video projects** — created by the skill at runtime in `{project-dir}/`. They contain `project-plan.md`, `context.md`, `storyboard.md`, `DESIGN.md`, `public/screenshots/`, `scenes/*.html`, `index.html` (root HyperFrames composition), `voiceover.mp3`, `out/final.mp4`. These do not live in this repo (except `example/`, which is *this skill's own* generated project, committed as the reference build).
+- **Generated video projects** — created by the skill at runtime in `{project-dir}/`. They contain `project-plan.md`, `.hve/brief-state.json`, `context.md`, `storyboard.md`, `DESIGN.md`, `public/screenshots/`, `scenes/*.html`, `index.html` (root HyperFrames composition), `voiceover.mp3`, `out/final.mp4`. These do not live in this repo (except `example/`, which is *this skill's own* generated project, committed as the reference build).
 
 ## Architecture
 
@@ -39,12 +39,13 @@ SKILL.md (orchestrator)
 - `mcp__chrome-devtools__*` for app capture (Phase 2)
 - The `hyperframes` skill for HTML/GSAP authoring rules (Phases 3 + 4)
 - The `gsap` skill (optional companion) for choreography reference
-- `npx hyperframes` CLI for `init`, `add` (pull catalog blocks, Phase 4), `lint`, `preview`, `inspect`, `validate`, `render`, `doctor` (render-environment diagnostics, Phase 5), `transcribe` (preferred voiceover-timing verifier in Phase 5; falls back to standalone Whisper if unavailable), and `tts` (used in Phase 5 as the no-API-key fallback when `ELEVENLABS_API_KEY` is unset)
+- `npx hyperframes` CLI for `init`, `add` (pull catalog blocks, Phase 4), `lint`, `preview`, `inspect`, `validate`, `render`, `doctor` (render-environment diagnostics, Phase 5), `transcribe` (preferred voiceover-timing verifier in Phase 5; falls back to standalone Whisper if unavailable), and `tts` (used in Phase 5 when the user explicitly confirms a local Kokoro voice)
 - `mcp__chrome-devtools__screencast_*` + `resize_page` for Phase-2 web-clip capture (experimental, feature-detected — needs `--experimentalScreencast=true`; falls back to screenshots), and optional `asciinema`+`agg` for CLI clip recording (otherwise the authored-terminal path)
 - `scripts/generate_voiceover.py` → ElevenLabs API + optional Whisper transcription (Phase 5)
 - `scripts/caption_gen.py` → converts `transcript.json`/`voiceover.json` into `voiceover.srt` + `voiceover.vtt` caption sidecars (Phase 5, all modes; pure stdlib). ASR draft subtitles, not WCAG closed captions
 - `scripts/capture_screen.py` → fixed-duration, silent native desktop/region capture orchestrator (pure stdlib). Uses macOS `screencapture`, Windows `gdigrab`, X11 `x11grab`, or feature-detected Wayland `wf-recorder`; WSL and unavailable Wayland return explicit recording handoffs. It trims through sibling `stitch_clip.py`, validates duration/frame count within one frame, and uses `<clip>.capture.pending` + fingerprinted `<clip>.capture.json` state so failed retakes preserve prior valid media but cannot count as complete.
 - `scripts/stitch_clip.py` → canonical normalizer/stitcher for raw captures (CFR30, H.264 High/yuv420p, even dimensions, no audio, `+faststart`) via the ffmpeg concat filter (pure stdlib)
+- `scripts/validate_brief.py` → parses the exact `project-plan.md` Creative Brief table, consent-migrates legacy plans with empty placeholders, confirms revision-bound story/audio fingerprints, atomically writes `.hve/brief-state.json`, stamps phases, and rejects stale prerequisites (pure stdlib)
 - `scripts/search_music.py` → Freesound API for CC music (Phase 5)
 - `scripts/check_requirements.sh` → verifies the toolchain (node/python/ffmpeg/chrome-headless-shell/hyperframes CLI + companion skills + env vars). Default, `--json`, and `--plan` are side-effect-free; report modes never use online `npx` probes. `--fix=<id,id>` runs only selected safe user-scoped actions (`chrome-shell`, `hyperframes-skill`, `whisper`), while bare `--fix` retains all-safe behavior. System/sudo/environment actions are printed, never run. Its `SKILL_HOMES` line must stay in lock-step with the canonical list in `SKILL.md` (same parity rule as the Phase 3/5 resolvers).
 
@@ -52,7 +53,11 @@ SKILL.md (orchestrator)
 
 ## Working with the skill scripts
 
-The Python scripts run inside generated video projects, not from this repo. `generate_voiceover.py` and `search_music.py` self-install `requests` via pip on first run; `caption_gen.py`, `capture_screen.py`, and `stitch_clip.py` are pure standard library (the capture/clip helpers invoke platform tools and `ffmpeg`/`ffprobe` with argv, never a shell).
+The media scripts run inside generated video projects; `validate_brief.py` runs from the installed
+skill against a generated project via `--project-dir`. `generate_voiceover.py` and
+`search_music.py` self-install `requests` via pip on first run; `caption_gen.py`,
+`capture_screen.py`, `stitch_clip.py`, and `validate_brief.py` are pure standard library (the
+capture/clip helpers invoke platform tools and `ffmpeg`/`ffprobe` with argv, never a shell).
 
 ```bash
 # Voiceover generation (from inside a generated project)
@@ -68,12 +73,20 @@ python3 scripts/capture_screen.py --duration 6 --region 100,80,1280,720 \
 # Normalize / stitch a capture into the Phase-2 clip contract
 python3 scripts/stitch_clip.py raw.mp4 -o public/clips/scene-02-dashboard.mp4
 
+# Validate/confirm the stable Creative Brief and phase fingerprints
+python3 /path/to/hve-spielberg/scripts/validate_brief.py \
+  --project-dir /path/to/generated-project status --json
+# Legacy plans only, after explicit user consent
+python3 /path/to/hve-spielberg/scripts/validate_brief.py \
+  --project-dir /path/to/generated-project migrate
+
 # Music search (from inside a generated project) — query is a required argument
 FREESOUND_API_KEY=... python3 scripts/search_music.py "cinematic corporate uplifting"
 ```
 
-Run the stdlib tests with `bash test/run.sh`; the suite mocks platform capture and includes a
-synthetic ffmpeg normalization integration test when ffmpeg/ffprobe are installed.
+Run the stdlib tests with `bash test/run.sh`; the suite covers brief validation/fingerprints,
+question-contract integration, mocked platform capture, and a synthetic ffmpeg normalization
+integration test when ffmpeg/ffprobe are installed.
 
 Both `ELEVENLABS_API_KEY` and `ELEVEN_LABS_API_KEY` are accepted (back-compat).
 
@@ -95,6 +108,9 @@ These are enforced verbally in the `## DON'Ts` section of `SKILL.md`. If you mod
 
 - **Add a voice** → update both the `## ElevenLabs Voice IDs` table in `SKILL.md` and the `## Voices` table in `README.md` (the two tables must stay in sync).
 - **Change phase logic** → edit the relevant `workflows/phase-N-*.md`; update the prerequisite list in `SKILL.md` if a new required file is introduced.
+- **Change the Creative Brief schema** → update `templates/project-plan.md`,
+  `scripts/validate_brief.py`, `example/project-plan.md`, workflow field names, and validator tests
+  together. Story fields stale Phase 1–5; only `final_music_track` is audio-only and stales Phase 5.
 - **Adjust prerequisite checks** → update `scripts/check_requirements.sh` and its stdlib tests. `SKILL.md` Phase -1 consumes `--json` only for direct/default `new` mode with no `project-plan.md`; explicit `continue`/`jump` skip it.
 - **Add a user-interaction prompt in a workflow** → write it as a neutral `{"questions":[...]}` block (the runtime-agnostic schema), introduced by plain prose ("ask the user…", "present selectable options…"). **Never name a picker tool** (`AskUserQuestion`, `ask_user`) or write a literal tool call inside a workflow — the per-runtime binding for the question schema, `Skill(<name>)`, and `multiSelect` lives in **one place**: `SKILL.md` § Runtime Compatibility. This is the "name actions, not tools" rule that keeps the phase content portable; a tool name hard-coded in a phase body is a portability regression. (Qualified MCP names like `mcp__chrome-devtools__*` are *not* a violation — they're identical across runtimes; the rule targets names that *differ* per runtime.)
 - **Change where the skill can be installed** (`$SKILL_HOMES`) → `SKILL.md` § Runtime Compatibility holds the canonical search list. The same `SKILL_ROOT=…` bootstrap and pipe-delimited `SKILL_HOMES="…"` line are repeated in the `SKILL.md` prereq probe, the `SKILL_DIR` resolver of `workflows/phase-3-design.md` + `workflows/phase-5-audio.md`, and `scripts/check_requirements.sh` (shell state can't cross the agent's separate bash calls, so the list is re-stated at each bootstrap point rather than sourced). The `|` delimiter plus `IFS='|'` preserves skill paths containing spaces. Keep all `SKILL_HOMES` lines byte-identical; verify with:
