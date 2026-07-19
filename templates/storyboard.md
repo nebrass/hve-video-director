@@ -4,6 +4,7 @@
 **Mode:** {promo | showcase | tutorial} | **Theme:** {light | dark}
 **Product surface:** {ui | none}   *(ui = real captures are the spine; none = intentional abstract/no-product film — waives the Phase-3 capture-coverage gate)*
 **Capture plan:** {N bound artifacts | none — skip Phase 2}
+**Web capture source:** {navigate | attached-session | pending | n/a}
 
 All times are in **seconds**. Each scene below maps 1:1 to a HyperFrames sub-composition under `scenes/`. The Phase 4 root `index.html` references them via `data-composition-src`.
 

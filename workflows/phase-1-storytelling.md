@@ -532,6 +532,10 @@ a section, the duration mapped from `transition_speed`, and `none` on the closin
 
 Generate `storyboard.md` from `templates/storyboard.md`.
 
+Set `Web capture source: n/a` when no scene requests web capture. When web capture is planned,
+write `Web capture source: pending`; Phase 2 must ask whether to navigate or attach to an
+already-open authenticated session and then persist the explicit answer.
+
 ### Capture type per scene (optional)
 
 Each product/spine scene defaults to a still **screenshot**. Connective title/text/CTA scenes

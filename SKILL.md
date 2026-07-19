@@ -58,8 +58,9 @@ as follows:
   otherwise ask conversationally. Never print raw JSON, and never silently discard selections.
   Every question object has at most **four options** (Claude's native cap). Keep larger catalogs
   reachable through family/category prompts followed by a second prompt; never truncate choices.
-- **Resolving tool capabilities.** Workflow names such as `navigate_page`, `take_screenshot`,
-  `screencast_start`, and `resize_page` are capability names. Before first use, inspect the
+- **Resolving tool capabilities.** Workflow names such as `navigate_page`, `list_pages`,
+  `select_page`, `take_screenshot`, `screencast_start`, and `resize_page` are capability names.
+  Before first use, inspect the
   runtime's available tools and resolve the exact exposed identifier. If tools are deferred,
   search/load their definitions first. Claude Code commonly exposes
   `mcp__chrome-devtools__<capability>`; Copilot CLI commonly exposes
@@ -199,7 +200,7 @@ Run Phase -1 for direct/default `new` mode only when there is no `project-plan.m
    |---|---|---|
    | Phase 0 — Discovery | Understand product, audience, goal, and constraints | Approve `context.md`; Phase 1 is where the user chooses how it looks/sounds |
    | Phase 1 — Storytelling | Collect and confirm the user-owned story brief, then build the narrative | Confirm the complete brief before `storyboard.md`; approve the storyboard |
-   | Phase 2 — Capture | Gather bound web, terminal, supplied, or native recordings | Approve the capture set and any fallbacks |
+   | Phase 2 — Capture | Gather bound web (including an already-open authenticated Chrome tab), terminal, supplied, or native recordings | Approve the capture set and any fallbacks |
    | Phase 3 — Design | Define brand/motion and author scene HTML | Approve `DESIGN.md` and scene previews |
    | Phase 4 — Production | Wire the root composition and transitions | Approve the preview after lint/inspect/validate |
    | Phase 5 — Audio & Render | Generate narration/captions, confirm exact music, render MP4 | Confirm title/path/source/license (or explicit none) before mixing; approve render |
@@ -208,6 +209,9 @@ Run Phase -1 for direct/default `new` mode only when there is no `project-plan.m
    `screencapture` adapter, Windows uses FFmpeg `gdigrab`, and X11 uses FFmpeg `x11grab`.
    Wayland is conditional on feature-detected `wf-recorder`; WSL uses an explicit Windows-host
    recording handoff followed by normalization with `stitch_clip.py`.
+   If the product needs an already-open authenticated Chrome tab, explain that Phase 2 supports
+   it after the user manually enables Chrome remote debugging and configures the Chrome DevTools
+   MCP with `--autoConnect` (Chrome 144+). Do not enable it during onboarding.
 
 **First, select video type:**
 

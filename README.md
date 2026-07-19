@@ -37,7 +37,7 @@ hve-spielberg is an Agent Skill that orchestrates end-to-end video production:
 
 1. **Understands your product** through design thinking (empathize, define, ideate)
 2. **Builds a narrative** with scene storyboarding and emotional arc
-3. **Captures your app** automatically via Chrome DevTools
+3. **Captures your app** automatically via Chrome DevTools, including an explicitly selected already-authenticated Chrome tab
 4. **Authors HTML scene templates** matching your brand DNA — pick from [10 curated design systems](design-systems/) (Stripe, Linear, Apple, Notion, Vercel, Airbnb, GitHub, Cal, Arc, Bento), 8 HyperFrames named styles, or derive from screenshots
 5. **Produces the video** in HyperFrames (HTML + GSAP, headless-Chromium rendered)
 6. **Adds voiceover + music** with the explicitly chosen ElevenLabs or local Kokoro-82M voice, `npx hyperframes transcribe` for timing verification, and Freesound music
@@ -112,7 +112,7 @@ less check_requirements.sh && bash check_requirements.sh --plan
 | HyperFrames CLI | Yes | `npm install --global hyperframes` (the checker never fetches it during report modes) |
 | `hyperframes` companion skill | Phases 3–4 | `npx skills add heygen-com/hyperframes` |
 | `chrome-headless-shell` | Yes | Used by `npx hyperframes render` for frame capture. System Chrome causes 120s render hangs. Install once: `npx puppeteer browsers install chrome-headless-shell` (one-time, ~170MB, cached). Verify with `npx hyperframes doctor`. |
-| Chrome DevTools MCP | For web capture | Required only when the storyboard requests web screenshots/screencasts. Configure it in the active agent; capability names are resolved per runtime. |
+| Chrome DevTools MCP | For web capture | Required only when the storyboard requests web screenshots/screencasts. Configure it in the active agent; capability names are resolved per runtime. For an already-authenticated tab, use Chrome 144+ remote debugging plus MCP `--autoConnect` (preferred), or the documented dedicated-profile `--browser-url` fallback. |
 | `ELEVENLABS_API_KEY` | For an ElevenLabs voice | [elevenlabs.io](https://elevenlabs.io) — required when the confirmed voice uses ElevenLabs. Choose Kokoro explicitly for no-key local TTS; providers are never substituted automatically. |
 | `FREESOUND_API_KEY` | No | [freesound.org/apiv2/apply](https://freesound.org/apiv2/apply/) — enables CC music search |
 | Whisper | Recommended | `pip install openai-whisper` — voiceover timing verification |
@@ -120,6 +120,20 @@ less check_requirements.sh && bash check_requirements.sh --plan
 | `--experimentalScreencast` (chrome-devtools MCP) | No | Enables `screencast` web-clip capture; without it, web scenes fall back to screenshots. |
 | `asciinema` + `agg` | No | Optional true terminal-clip recording for CLI scenes; without them, CLI scenes use the authored-terminal path. Install: `brew install asciinema agg` (macOS) · `apt install asciinema && cargo install --git https://github.com/asciinema/agg` (Debian/Ubuntu). See [`patterns/cli-terminal-capture.md`](patterns/cli-terminal-capture.md) for the full recording workflow. |
 | `wf-recorder` | Wayland native capture only | Feature-detected by `scripts/capture_screen.py`. Without it, use the desktop recorder and normalize the result with `scripts/stitch_clip.py`; generic FFmpeg PipeWire capture is not assumed. |
+
+### Already-authenticated browser capture
+
+Phase 2 can capture an SSO/MFA app from an already-open Chrome tab without navigating away. The
+preferred setup is Chrome 144+ with remote debugging enabled at
+`chrome://inspect/#remote-debugging` and `--autoConnect` added to the Chrome DevTools MCP server
+arguments. Phase 2 then lists the connected profile's tabs, asks the user to select the exact tab,
+and leaves its URL/history unchanged.
+
+The MCP can inspect and control every open window in the connected profile. Close unrelated
+sensitive tabs first, never expose a remote-debugging port to the network, and use a dedicated
+profile when appropriate. See
+[`patterns/authenticated-browser-capture.md`](patterns/authenticated-browser-capture.md) for the
+manual `--browser-url` fallback, privacy contract, viewport restoration, and failure handling.
 
 ### Native screen capture and clip normalization
 
@@ -392,6 +406,7 @@ hve-spielberg/
 │   ├── metallic-swoosh.md         # Premium transition pattern
 │   ├── marker-highlight.md        # 5 word-emphasis modes
 │   ├── transition-catalog.md      # Mood-mapped transition reference
+│   ├── authenticated-browser-capture.md # safe SSO/MFA live-tab attachment
 │   └── anti-slop.md               # Cardinal sins + AI Tool Promo specifics
 ├── design-systems/                # 10 vendored brand presets (Phase 1 Path A)
 │   ├── README.md                  # Catalog + how to use

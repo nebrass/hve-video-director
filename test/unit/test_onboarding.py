@@ -54,6 +54,11 @@ class FirstRunOnboardingTestCase(unittest.TestCase):
                      "wf-recorder", "WSL"):
             self.assertIn(term, text)
 
+    def test_phase_minus_one_surfaces_authenticated_browser_capture(self):
+        text = self.phase_minus_one
+        self.assertIn("already-open authenticated Chrome tab", text)
+        self.assertIn("--autoConnect", text)
+
     def test_skill_homes_lines_remain_byte_identical(self):
         paths = [
             ROOT / "SKILL.md",

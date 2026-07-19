@@ -12,6 +12,7 @@ Quick map: *"I need to do X"* → *"read this file."* hve-spielberg leans on the
 | `transition-catalog.md` | One-page map of every CSS transition family + catalog blocks, mapped to product-video moments |
 | `anti-slop.md` | Cardinal sins, soft tells, polish tells — distinguishes "shipped by a marketer" from "AI default output". Includes **§ AI Tool Promo Specifics** (dogfooding loop, show-don't-tell, 1-based phase numbering) and **§ CTA discipline** (full URL on screen, match canonical command). |
 | `cli-terminal-capture.md` | Professional CLI scene recording via `asciinema` + `agg`: install, shell pre-flight (prompt, secrets, size), recording flags, cast editing, theme→palette pairing, MP4 render, quality gate, troubleshooting. Read when the storyboard calls for a real terminal clip; for the no-dep fallback see `templates/scene-terminal.html`. |
+| `authenticated-browser-capture.md` | Connect Chrome DevTools MCP to an already-open Chrome 144+ session, select the exact SSO/MFA tab, capture without navigation, protect auth data, and restore viewport state. |
 
 ## HyperFrames skill references (in `~/.claude/skills/hyperframes/` or `~/.copilot/skills/hyperframes/`)
 

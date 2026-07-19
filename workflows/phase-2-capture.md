@@ -17,13 +17,14 @@ python3 "$SKILL_DIR/scripts/validate_brief.py" \
 A nonzero exit routes back to Phase 1 even when `storyboard.md` exists.
 
 Read the confirmed `theme` from the Creative Brief before capture. Every capture must show that
-theme: emulate the selected color scheme for web apps, configure native apps before recording,
-and choose a matching terminal theme. If the product cannot render the confirmed theme, return to
-Phase 1 and let the user change `theme`; never capture the opposite theme and silently recolor it.
+theme: emulate the selected color scheme for navigated web apps, ask the user to prepare it in an
+attached authenticated tab, configure native apps before recording, and choose a matching
+terminal theme. If the product cannot render the confirmed theme, return to Phase 1 and let the
+user change `theme`; never capture the opposite theme and silently recolor it.
 
 ## Phase 2 routing
 
-Read `Product surface:` and every scene's `Capture:` field before asking for an app URL:
+Read `Product surface:` and every scene's `Capture:` field before asking for a web source:
 
 - If `Product surface: none`, the storyboard records `Capture plan: none`, **and every scene has
   `Capture: none`**, mark Phase 2 **skipped** in `project-plan.md` and proceed to Phase 3. If any
@@ -53,6 +54,9 @@ file). Stills remain the default and the fallback.
 A scene's `Capture:` value selects a source; each is feature-detected and degrades cleanly:
 
 - `none`: no Phase-2 work for that connective scene.
+- `Web capture source: attached-session`: requires a Chrome DevTools MCP connection to the user's
+  running browser. If `list_pages` fails or the selected tab disappears, pause with the documented
+  setup/re-authentication handoff; never open or navigate a replacement page automatically.
 - `screencast` (web): usable only if the chrome-devtools MCP exposes `screencast_start`
   AND the server was started with `--experimentalScreencast=true`. Detect by attempting
   it; if the tool is absent or it errors about the flag, **fall back to `take_screenshot`**,
@@ -165,14 +169,18 @@ When `Capture: screen-recording`:
 
 When `Capture: screencast` and screencast is available (see detection above):
 
-1. Size the viewport to the composition canvas with the Chrome DevTools `resize_page` capability
-   to the Phase-1 dimensions (e.g. 1920×1080) so the recording matches render size.
-2. Navigate to the scene's view and let it settle (`navigate_page` + `wait_for`).
+1. For `navigate`, size the viewport to the Phase-1 canvas with `resize_page`. For
+   `attached-session`, resize only after the explicit viewport choice below, and retain the
+   original dimensions for mandatory restoration.
+2. Reach the scene's view according to `Web capture source`: for `navigate`, use
+   `navigate_page` + `wait_for`; for `attached-session`, keep the selected live tab at its current
+   URL and use only the already-visible state. Never route an attached session through navigation.
 3. Invoke `screencast_start` with
    `filePath: "public/clips/.scene-{NN}-{slug}.screencast-raw.mp4"`.
 4. Drive the scripted interaction with the existing input tools (`click`, `wait_for`,
-   `evaluate_script` for scroll). Keep the meaningful action **one continuous take** —
-   never cut mid-action.
+   `evaluate_script` for scroll). In an attached session, each input action requires the exact
+   per-action consent defined below. Keep the meaningful action **one continuous take** — never
+   cut mid-action.
 5. Invoke `screencast_stop`, then normalize the raw recording with the copied canonical helper:
    `python3 scripts/stitch_clip.py public/clips/.scene-{NN}-{slug}.screencast-raw.mp4 -o
    public/clips/scene-{NN}-{slug}.mp4`. Remove the raw file only after that succeeds. Keep the
@@ -335,14 +343,19 @@ fall back to the authored-terminal path and tell them once: *"asciinema/agg
 not detected — using the authored terminal scene. Install with
 `brew install asciinema agg` to enable autonomous terminal recording."*
 
-## Step 2.1: Get App URL (web captures only)
+## Step 2.1: Choose web capture source (web captures only)
+
+If `Web capture source:` in `storyboard.md` already contains `navigate` or `attached-session`,
+reuse that explicit choice on resume. If it contains `pending`/a placeholder, or if the user
+explicitly requests a change, present:
 
 ```json
 {
   "questions": [{
-    "question": "What's the app URL to capture?",
-    "header": "URL",
+    "question": "How should I reach the web app for capture?",
+    "header": "Web source",
     "options": [
+      { "label": "Attach authenticated tab", "description": "Use an already-open Chrome tab and keep its SSO/MFA session; requires a configured Chrome DevTools MCP connection." },
       { "label": "localhost:3000", "description": "Local dev server (default React/Next.js)" },
       { "label": "localhost:5173", "description": "Local dev server (Vite)" },
       { "label": "Deployed URL", "description": "I'll provide the URL" }
@@ -351,6 +364,93 @@ not detected — using the authored terminal scene. Install with
   }]
 }
 ```
+
+Record `attached-session` or `navigate` in the storyboard's top-level
+`Web capture source:` field before any browser action. Changing this value makes every existing
+web capture stale: keep the old files for diagnosis, but do not accept them for the new source.
+
+### Attached authenticated-session path
+
+Use this path only after the user chooses **Attach authenticated tab**. Read
+[`patterns/authenticated-browser-capture.md`](../patterns/authenticated-browser-capture.md) before
+connecting.
+
+1. Confirm that the active Chrome DevTools MCP is connected to the user's running Chrome:
+   - Preferred: Chrome 144 or newer, remote debugging enabled at
+     `chrome://inspect/#remote-debugging`, and the MCP server configured with `--autoConnect`.
+   - Sandboxed/remote fallback: an MCP server configured with
+     `--browser-url=http://127.0.0.1:9222` and a dedicated non-default Chrome profile.
+   MCP configuration and Chrome's permission dialog are user-owned manual setup. Never edit a
+   runtime's MCP configuration, launch a debuggable browser, or enable remote debugging without
+   explicit user action. After configuration changes, stop Phase 2 and let the user restart the
+   runtime, then resume.
+2. Invoke `list_pages` as the connection test. If it fails, or the expected tab is absent, stop
+   with the setup handoff from the pattern. Do not create a replacement page or silently switch
+   to URL capture.
+3. Build a selection list from the real returned pages. Show only a sanitized title plus
+   scheme/host/path; omit the URL query and fragment because they may contain tokens. Present at
+   most three tabs plus **More tabs**, paging until every page remains reachable:
+
+   ```json
+   {
+     "questions": [{
+       "question": "Which already-open Chrome tab should I capture?",
+       "header": "Tab",
+       "options": [
+         { "label": "1. <sanitized title>", "description": "<scheme>://<host>/<path>; query and fragment omitted." },
+         { "label": "2. <sanitized title>", "description": "<scheme>://<host>/<path>; query and fragment omitted." },
+         { "label": "3. <sanitized title>", "description": "<scheme>://<host>/<path>; query and fragment omitted." },
+         { "label": "More tabs", "description": "Show the next page of open Chrome tabs." }
+       ],
+       "multiSelect": false
+     }]
+   }
+   ```
+
+   Keep the returned page IDs only in memory for this selection; never write IDs or URLs into
+   project files.
+4. Invoke `select_page` with the exact ID mapped to the user's choice. Invoke `list_pages` again
+   and verify that the same ID is selected. Report its sanitized title/origin and confirm:
+
+   ```json
+   {
+     "questions": [{
+       "question": "Use this exact authenticated tab for the bound captures?",
+       "header": "Tab check",
+       "options": [
+         { "label": "Use this tab", "description": "Capture the selected live tab without changing its URL." },
+         { "label": "Choose another", "description": "Return to the open-tab list." },
+         { "label": "Stop capture", "description": "Leave the browser untouched and pause Phase 2." }
+       ],
+       "multiSelect": false
+     }]
+   }
+   ```
+
+5. Attached mode is read-only by default. Never read or persist cookies, `localStorage`,
+   `sessionStorage`, authorization headers, saved passwords, or authentication tokens. Never
+   submit forms, change account/app settings, publish, purchase, delete, log out, or follow links.
+   If a storyboard beat genuinely requires an in-page click, scroll, or keypress, name the exact
+   action and obtain per-action consent first; consent for one action does not cover another.
+6. Before any temporary resize, record the selected page's original outer width and height.
+   Present the viewport choice from the pattern. If the user approves resizing, use `resize_page`
+   for the confirmed canvas and restore the original viewport after the last capture and on every
+   failure path. If restoration fails, report it explicitly.
+7. For an unchanged still, invoke `take_screenshot` directly. Use `take_snapshot` only after the
+   user consents to a specific interaction; its accessibility tree may expose more than the
+   visible viewport, so never persist or quote unrelated nodes. Use the screencast recipe above
+   for a consented motion beat. Do not use full-page capture without separate consent because it
+   may expose off-screen private data. If the confirmed theme is not already active, ask the user
+   to change it manually or return to Phase 1; do not mutate a persistent theme setting in the
+   authenticated profile.
+8. At completion, restore the original viewport. Never close the tab or browser, and leave its
+   URL and history unchanged. If the session expires or the tab closes, let the user
+   re-authenticate manually and start again from `list_pages`; do not navigate to a sign-in page.
+
+### URL navigation path
+
+For any non-attach choice, record `Web capture source: navigate`, resolve the selected/custom URL,
+and use the existing dev-server flow below.
 
 If the app isn't running, offer to start it:
 ```bash
@@ -361,7 +461,7 @@ if [ -f "package.json" ]; then
 fi
 ```
 
-## Step 2.2: Navigate and Capture
+## Step 2.2: Capture the selected web source
 
 **Capture richly — more than one frame per view where it strengthens a beat.** A single flat
 screenshot per scene is what makes the spine monotonous. For each meaningful view, grab the
@@ -374,22 +474,29 @@ spine instead of repeating one image.
 
 For each view defined in the storyboard (Phase 1, Step 1.6):
 
-1. **Navigate** to the URL:
-   - Use the Chrome DevTools `navigate_page` capability with `type: "url"` and the target URL
-   - Wait for page load with `wait_for`
+1. **Reach the view**:
+   - For `attached-session`, retain the selected page and current URL from Step 2.1; skip this
+     navigation branch entirely.
+   - For `navigate`, use the Chrome DevTools `navigate_page` capability with `type: "url"` and
+     the target URL, then wait for page load with `wait_for`.
 
 2. **Set viewport** for consistent captures:
-   - Desktop: use `emulate` with viewport `1920x1080x2` (retina)
-   - Mobile: use `emulate` with viewport `390x844x3,mobile,touch`
+   - For `navigate`: desktop uses `emulate` with `1920x1080x2` (retina); mobile uses
+     `390x844x3,mobile,touch`.
+   - For `attached-session`: follow the explicit resize/keep choice and restoration contract;
+     do not apply emulation or resize implicitly.
 
 3. **Interact** if needed (click buttons, open modals, fill forms):
+   - In `attached-session`, follow the read-only/per-action-consent contract above; filling or
+     submitting forms is prohibited.
    - Take a snapshot first with `take_snapshot`
    - Click elements with `click` using the uid from the snapshot
    - Wait for state with `wait_for` and the target text
 
 4. **Capture** the screenshot:
    - Invoke `take_screenshot` with `filePath: "public/screenshots/scene-{NN}-{description}.png"`
-   - For full-page captures: set `fullPage: true`
+   - For `navigate` full-page captures: set `fullPage: true`.
+   - For `attached-session`: never set `fullPage: true` without its separate consent.
 
 5. **Repeat** for each storyboard scene
 
@@ -441,16 +548,20 @@ A rejected clip falls back to a screenshot or a re-record.
 ## Capture Tips
 
 - **Wait for animations** — Use `wait_for` to ensure page is fully loaded before capturing
-- **Hide cookie banners** — Use `evaluate_script` to hide overlay elements:
+- **Hide cookie banners (`navigate` only)** — Use `evaluate_script` to hide overlay elements:
   ```javascript
   () => {
     document.querySelectorAll('[class*="cookie"], [class*="consent"], [class*="banner"]')
       .forEach(el => el.style.display = 'none');
   }
   ```
-- **Confirmed theme (media-query apps)** — If the app reads `prefers-color-scheme`, use the
+- **Attached-session overlays** — Do not hide or remove DOM elements. Ask the user to dismiss an
+  overlay manually, or obtain exact per-action consent for a reversible in-page dismissal.
+- **Confirmed theme (media-query apps, `navigate` only)** — If the app reads
+  `prefers-color-scheme`, use the
   Chrome DevTools `emulate` capability with `colorScheme` set to the confirmed `light` or `dark`.
-- **Confirmed theme (class-based / Tailwind `.dark`)** — `colorScheme` does nothing for apps that
+- **Confirmed theme (class-based / Tailwind `.dark`, `navigate` only)** — `colorScheme` does
+  nothing for apps that
   toggle a `.dark` class (most Next.js / shadcn). A one-shot class change is **clobbered by SPA
   hydration**. Inject a `MutationObserver` via `evaluate_script` **after `navigate_page`
   completes**. Re-inject after every navigation:
@@ -463,6 +574,8 @@ A rejected clip falls back to a screenshot or a re-record.
   }
   ```
   Pass the exact confirmed theme; do not hard-code `dark`.
+- **Attached-session theme** — Do not apply either override above. Ask the user to prepare the
+  confirmed theme in the selected tab without changing a persistent app/account setting.
 - **Retina quality** — Always use devicePixelRatio 2+ for crisp screenshots in video
 
 ## Output

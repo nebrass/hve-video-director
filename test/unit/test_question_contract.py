@@ -9,6 +9,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 SKILL = ROOT / "SKILL.md"
 WORKFLOWS = sorted((ROOT / "workflows").glob("*.md"))
+PATTERNS = sorted((ROOT / "patterns").glob("*.md"))
 QUESTION_BLOCK = re.compile(
     r"^[ \t]*```json[ \t]*\n(.*?)^[ \t]*```[ \t]*$",
     re.DOTALL | re.MULTILINE,
@@ -41,7 +42,7 @@ HYPERFRAMES_STYLES = {
 class QuestionContractTestCase(unittest.TestCase):
     def test_every_question_block_is_json_with_at_most_four_options(self):
         question_count = 0
-        for path in (SKILL, *WORKFLOWS):
+        for path in (SKILL, *WORKFLOWS, *PATTERNS):
             text = path.read_text(encoding="utf-8")
             for match in QUESTION_BLOCK.finditer(text):
                 line = text.count("\n", 0, match.start()) + 1
@@ -236,6 +237,54 @@ class QuestionContractTestCase(unittest.TestCase):
         self.assertIn("Do not choose a provider from environment-variable availability", audio)
         self.assertIn("python3 ./voiceover.py --assemble-only", audio)
         self.assertRegex(audio, r"(?is)kokoro.+even if.+ElevenLabs key")
+
+    def test_authenticated_session_capture_is_selective_and_navigation_safe(self):
+        capture = (ROOT / "workflows" / "phase-2-capture.md").read_text(
+            encoding="utf-8"
+        )
+        pattern = (
+            ROOT / "patterns" / "authenticated-browser-capture.md"
+        ).read_text(encoding="utf-8")
+        index = (ROOT / "patterns" / "INDEX.md").read_text(encoding="utf-8")
+        storyboard = (ROOT / "templates" / "storyboard.md").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn("Attach authenticated tab", capture)
+        self.assertIn(
+            "**Web capture source:** {navigate | attached-session | pending | n/a}",
+            storyboard,
+        )
+        self.assertIn("authenticated-browser-capture.md", index)
+
+        start = capture.index("### Attached authenticated-session path")
+        end = capture.index("### URL navigation path", start)
+        attached = capture[start:end]
+        self.assertLess(attached.index("list_pages"), attached.index("select_page"))
+        self.assertNotIn("navigate_page", attached)
+        self.assertNotIn("new_page", attached)
+        for requirement in (
+            "query and fragment",
+            "per-action consent",
+            "restore the original viewport",
+            "Never close the tab",
+            "cookies",
+            "localStorage",
+        ):
+            self.assertIn(requirement, attached)
+
+        combined = capture + pattern
+        for setup_term in (
+            "--autoConnect",
+            "chrome://inspect/#remote-debugging",
+            "--browser-url",
+            "Chrome 144",
+        ):
+            self.assertIn(setup_term, combined)
+
+        tips = capture[capture.index("## Capture Tips"):]
+        self.assertIn("Hide cookie banners (`navigate` only)", tips)
+        self.assertIn("Attached-session overlays", tips)
 
     def test_resume_and_jump_route_stale_state(self):
         skill = SKILL.read_text(encoding="utf-8")
