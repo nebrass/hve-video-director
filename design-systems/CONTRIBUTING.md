@@ -111,7 +111,10 @@ This is the section that distinguishes a real preset from a borrowed web spec. *
 | Scene-to-scene transition | … |
 | Section-boundary | … |
 | Counter / stat ease | … |
+| Product-shot camera | <push-in / parallax rate, or "none"> |
 | Avoid | … |
+
+The `Product-shot camera` row is **required** — because real product captures are the spine of a generated video, every preset must declare its camera behaviour on a product shot; when a brand should hold still, state `none` explicitly rather than omitting the row. It describes per-brand camera *motion* on a product shot (the framing itself lives in § 6). It must be **deterministic**: a WRAPPER-transform tween only — never an `<img>`/`<video>` dimension animation, never `.play()` / video-as-clock; release before the crossfade window.
 
 Plus 1–2 paragraphs explaining the brand's motion *voice*.
 

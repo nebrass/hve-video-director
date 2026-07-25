@@ -3,10 +3,12 @@ name: hve-spielberg
 description: >
   End-to-end video production pipeline with design thinking. 6-phase orchestrator:
   Discovery (design thinking + context) → Storytelling (narrative + storyboard) →
-  Capture (Chrome DevTools screenshots + screencast clips, asciinema terminal recording) → Design (HyperFrames scene templates) →
+  Capture (Chrome DevTools screenshots/screencasts, native desktop or region screen
+  recording where supported, asciinema terminal recording) → Design (HyperFrames scene templates) →
   Production (HyperFrames composition) → Audio &amp; Render (ElevenLabs + Whisper + Freesound music).
   Three content modes: promo (marketing), showcase (portfolio/demo), or tutorial (walkthrough/how-to). Triggers: "create video",
-  "promo video", "showcase video", "tutorial video", "walkthrough video", "how-to video", "product video", "demo video", "launch video".
+  "promo video", "showcase video", "tutorial video", "walkthrough video", "how-to video", "product video", "demo video",
+  "launch video", "desktop app demo", "screen recording video", "record a screen region".
 user-invocable: true
 argument-hint: "[project-dir] [--mode new|continue|jump] [--phase 0|1|2|3|4|5]"
 allowed-tools: Bash(npm:*), Bash(npx:*), Bash(ffmpeg:*), Bash(python:*), Bash(python3:*), Bash(pip:*), Bash(whisper:*), Bash(curl:*), Bash(git:*), Bash(asciinema:*), Bash(agg:*), Bash(timeout:*), Bash(ffprobe:*), Bash(script:*), Read, Write, Edit, Glob, Grep, AskUserQuestion, Skill, mcp__chrome-devtools__navigate_page, mcp__chrome-devtools__take_screenshot, mcp__chrome-devtools__take_snapshot, mcp__chrome-devtools__click, mcp__chrome-devtools__wait_for, mcp__chrome-devtools__evaluate_script, mcp__chrome-devtools__emulate, mcp__chrome-devtools__list_pages, mcp__chrome-devtools__new_page, mcp__chrome-devtools__select_page, mcp__chrome-devtools__screencast_start, mcp__chrome-devtools__screencast_stop, mcp__chrome-devtools__resize_page
@@ -20,77 +22,108 @@ You are a **20-year veteran motion graphics designer, visual marketing expert, a
 
 You also understand **design thinking** — you don't just make videos, you first understand the user's intent, audience, and desired outcome. You empathize before you create.
 
-Your creative instincts guide every decision. The guidelines below are suggestions, not rules.
+Your creative instincts guide every decision. Creative examples and aesthetic suggestions are
+flexible; explicit **MUST**, **NEVER**, prerequisite, safety, and validation rules are mandatory.
+
+**Creative instinct governs craft, not the user's choices.** The agent owns motion choreography,
+easing, composition polish, narrative craft, and implementation details. The user owns the
+creative brief: mode, product surface, duration, theme, aspect ratio, identity/design system,
+voice provider and exact voice, transition style, transition speed, music strategy, and the final
+exact music track (or an explicit no-music choice). Surface every lever as a native prompt.
+Phase-0 research may support a
+recommendation, but never infer, silently default, preselect, or answer for the user. If making a
+recommendation, put `Recommended - <reason>` in the option label/description; visible guidance is
+not consent.
 
 ## Runtime Compatibility
 
-This skill is **agent-agnostic** — it runs on both **Claude Code** and **GitHub Copilot CLI**.
-A few conventions in this file and the phase workflows are written once and mapped to whatever
-runtime you are on:
+This skill uses the Agent Skills `SKILL.md` format. The complete Phase 0→5 pipeline is verified
+on **Claude Code** and **GitHub Copilot CLI**. **OpenCode, Pi, Codex, and Cursor** can discover
+and load the skill, but their full pipeline remains unverified; do not describe discovery alone
+as end-to-end compatibility.
+
+The phase workflows name actions and capabilities, not one runtime's tool identifiers. Bind them
+as follows:
 
 - **Frontmatter** (`allowed-tools`, `user-invocable`, `argument-hint`) follows the Claude Code
-  skill schema. GitHub Copilot CLI loads this skill from the `name`/`description` fields and
-  harmlessly ignores the rest — there is nothing to change.
+  extensions to the Agent Skills schema. Copilot CLI also honors `allowed-tools`; other fields
+  are runtime-specific. OpenCode, Pi, Codex, and Cursor may ignore unsupported fields. Workflow
+  correctness must never depend on a frontmatter extension.
 - **Asking the user a question.** Wherever a `{"questions": [...]}` JSON block appears, treat it
   as a runtime-neutral schema: render each question as a **native multiple-choice prompt** using
-  whatever selection tool your runtime provides — `AskUserQuestion` on Claude Code, `ask_user` on
-  GitHub Copilot CLI. Never print the raw JSON to the user. `multiSelect: true` means the user may
-  pick several options — on a runtime whose picker is single-select only (Copilot CLI's `ask_user`),
-  do **not** silently keep one answer: ask the question as a free-text prompt that invites a
-  comma-separated list, or repeat the single-select until the user signals "done," so every chosen
-  option survives into `context.md`.
+  the runtime's question capability. Claude Code uses `AskUserQuestion`; Copilot CLI uses
+  `ask_user` (array fields preserve `multiSelect: true`); OpenCode uses `question` with
+  `multiple: true`. Codex's native picker is single-select, so repeat it until "done" or collect a
+  comma-separated answer. Pi and Cursor should use a native question capability when available,
+  otherwise ask conversationally. Never print raw JSON, and never silently discard selections.
+  Every question object has at most **four options** (Claude's native cap). Keep larger catalogs
+  reachable through family/category prompts followed by a second prompt; never truncate choices.
+- **Resolving tool capabilities.** Workflow names such as `navigate_page`, `list_pages`,
+  `select_page`, `take_screenshot`, `screencast_start`, and `resize_page` are capability names.
+  Before first use, inspect the
+  runtime's available tools and resolve the exact exposed identifier. If tools are deferred,
+  search/load their definitions first. Claude Code commonly exposes
+  `mcp__chrome-devtools__<capability>`; Copilot CLI commonly exposes
+  `chrome-devtools-<capability>`; other runtimes use different qualification. Never assume one
+  runtime's literal MCP name is portable.
 - **Loading a companion skill.** Wherever you see `Skill(<name>)` (e.g. `Skill(hyperframes)`),
-  load that skill the way your runtime does it — the `Skill` tool on Claude Code, or read the
-  companion skill's `SKILL.md` (auto-discovered alongside this one) on GitHub Copilot CLI.
+  use the runtime's native skill loader/selector. If no callable loader exists, locate the
+  companion's `SKILL.md` in the canonical homes below and read only the referenced file.
 - **Skill install home.** Companion skills (`hyperframes`, `gsap`) live next to this skill in
-  whichever home your runtime scans — `~/.claude/skills/<name>/` (Claude Code) or
-  `~/.copilot/skills/<name>/` (Copilot CLI) for a global install, or the project-level home
-  (`.claude/skills/` on Claude Code; `.github/skills/` or `.agents/skills/` on Copilot CLI — note
-  project-level `.copilot/skills/` is **not** scanned).
+  whichever global or project home the runtime scans. Project-level `.copilot/skills/` is not a
+  Copilot CLI skill home.
 
   These homes, in this order, are the **single canonical list** — the prereq probe below and every
   workflow's `SKILL_DIR` resolver derive from exactly this `$SKILL_HOMES` definition. Change it here
   and nowhere else:
 
   ```bash
-  # CANONICAL skill-home search list (global first, then project; Claude Code + Copilot CLI).
-  SKILL_HOMES="$HOME/.claude/skills $HOME/.copilot/skills $HOME/.agents/skills .claude/skills .github/skills .agents/skills"
+  # CANONICAL pipe-delimited skill-home list (preserves spaces in paths).
+  SKILL_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+  SKILL_HOMES="$HOME/.claude/skills|$HOME/.copilot/skills|$HOME/.agents/skills|$HOME/.pi/agent/skills|$HOME/.config/opencode/skills|$HOME/.cursor/skills|$HOME/.codex/skills|/etc/codex/skills|.claude/skills|.github/skills|.agents/skills|.pi/skills|.opencode/skills|.cursor/skills|.codex/skills|$SKILL_ROOT/.claude/skills|$SKILL_ROOT/.github/skills|$SKILL_ROOT/.agents/skills|$SKILL_ROOT/.pi/skills|$SKILL_ROOT/.opencode/skills|$SKILL_ROOT/.cursor/skills|$SKILL_ROOT/.codex/skills"
   ```
 
 ## Prerequisites
 
-Check required tools and skills:
+The structured requirements checker is the single source of truth for setup state. Resolve the
+entry mode before running it: direct/default `new` mode uses the guided Phase -1 below;
+`continue` and `jump` skip Phase -1 and keep their existing artifact/prerequisite checks.
 
-```bash
-node --version        # ✓ 18+
-python3 --version     # ✓ 3.10+
-ffmpeg -version       # ✓ for audio/video processing
-echo "ELEVENLABS_API_KEY: $([ -n \"$ELEVENLABS_API_KEY\" ] && echo '✓ set (high-quality TTS)' || echo '○ not set — Phase 5 will fall back to npx hyperframes tts (Kokoro-82M, local, lower quality)')"
-echo "FREESOUND_API_KEY: $([ -n \"$FREESOUND_API_KEY\" ] && echo '✓ set (music search)' || echo '○ not set (music search disabled, user-provided only)')"
-echo "screencast (web clips): optional — needs the chrome-devtools MCP started with --experimentalScreencast=true; falls back to screenshots if unavailable"
-echo "asciinema+agg+timeout (CLI clip recording): optional — $(command -v asciinema >/dev/null && command -v agg >/dev/null && command -v timeout >/dev/null && echo '✓ available (real terminal-clip path enabled — see patterns/cli-terminal-capture.md)' || echo '○ incomplete (CLI scenes use the authored-terminal path; install — see patterns/cli-terminal-capture.md § Install; macOS: brew install asciinema agg coreutils)')"
-```
+Default, `--json`, and `--plan` are side-effect-free. Only an explicitly consented
+`--fix=<id,id>` may install safe user-scoped dependencies. Never run commands whose checker
+`fixability.kind` is manual/system/environment; print those exact commands for the user instead.
+
+To locate the checker when the runtime does not expose the loaded skill's root, probe the
+canonical homes without creating or downloading anything:
 
 ```bash
 # Probe the canonical skill homes ($SKILL_HOMES, defined in § Runtime Compatibility above).
-SKILL_HOMES="$HOME/.claude/skills $HOME/.copilot/skills $HOME/.agents/skills .claude/skills .github/skills .agents/skills"
-for s in hyperframes gsap; do
-  found=
-  for home in $SKILL_HOMES; do
-    [ -f "$home/$s/SKILL.md" ] && { echo "$s skill: ✓ ($home)"; found=1; break; }
-  done
-  [ -n "$found" ] && continue
-  [ "$s" = hyperframes ] \
-    && echo "hyperframes skill: ✗ — install it into ~/.claude/skills/ (Claude Code) or ~/.copilot/skills/ (GitHub Copilot CLI)" \
-    || echo "gsap skill: ○ — recommended companion to hyperframes for animation choreography"
+SKILL_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+SKILL_HOMES="$HOME/.claude/skills|$HOME/.copilot/skills|$HOME/.agents/skills|$HOME/.pi/agent/skills|$HOME/.config/opencode/skills|$HOME/.cursor/skills|$HOME/.codex/skills|/etc/codex/skills|.claude/skills|.github/skills|.agents/skills|.pi/skills|.opencode/skills|.cursor/skills|.codex/skills|$SKILL_ROOT/.claude/skills|$SKILL_ROOT/.github/skills|$SKILL_ROOT/.agents/skills|$SKILL_ROOT/.pi/skills|$SKILL_ROOT/.opencode/skills|$SKILL_ROOT/.cursor/skills|$SKILL_ROOT/.codex/skills"
+OLD_IFS=$IFS
+IFS='|'
+SKILL_DIR=
+for home in $SKILL_HOMES; do
+  [ -f "$home/hve-spielberg/scripts/check_requirements.sh" ] \
+    && { SKILL_DIR="$home/hve-spielberg"; break; }
 done
-npx --yes hyperframes --version 2>/dev/null && echo "hyperframes CLI: ✓" || echo "hyperframes CLI: ✗ — npm i -g hyperframes  (or rely on npx; package: hyperframes on npm, repo github.com/heygen-com/hyperframes)"
+IFS=$OLD_IFS
 ```
 
-Whisper is recommended but optional:
+The same installed root provides the deterministic brief validator:
+
 ```bash
-whisper --help 2>/dev/null && echo "whisper: ✓" || echo "whisper: ○ — pip install openai-whisper (recommended for VO timing verification)"
+VALIDATOR="$SKILL_DIR/scripts/validate_brief.py"
+[ -f "$VALIDATOR" ] || {
+  echo "ERROR: installed hve-spielberg is missing scripts/validate_brief.py" >&2
+  exit 2
+}
 ```
+
+All validator commands take `--project-dir "$PROJECT_DIR"`. They read the stable Creative Brief
+table in `project-plan.md` and atomically maintain `.hve/brief-state.json`; they never delete
+generated artifacts. Resolve `$SKILL_DIR`, `$VALIDATOR`, and `$PROJECT_DIR` again in a fresh shell
+because shell state does not persist between agent tool calls.
 
 ---
 
@@ -98,7 +131,87 @@ whisper --help 2>/dev/null && echo "whisper: ✓" || echo "whisper: ○ — pip 
 
 ### `new` (default)
 
-Start fresh. Ask mode, create project directory, begin Phase 0.
+Start fresh. Complete the guided first-run setup, ask mode, create the project directory, then
+begin Phase 0.
+
+### Phase -1: Guided first-run setup
+
+Run Phase -1 for direct/default `new` mode only when there is no `project-plan.md`. Skip it for explicit `continue` and `jump` invocations; do not create the project directory or
+`project-plan.md` until this setup has completed.
+
+1. Resolve the installed skill root (`$SKILL_DIR`) from the runtime's loaded skill path, falling
+   back to the canonical-home probe in § Prerequisites. Run the checker in structured,
+   side-effect-free mode:
+
+   ```bash
+   bash "$SKILL_DIR/scripts/check_requirements.sh" --json
+   ```
+
+2. Parse the JSON and explain it conversationally rather than dumping it:
+   - `ready` means the capability is available.
+   - `degraded` means a recommended/optional path is unavailable; name the affected phases and
+     the documented fallback.
+   - `blocked` means a required dependency is missing; name every affected phase.
+   - For each non-ready check, show the exact `fixability.command`. Manual sudo, system,
+     download, and environment actions are instructions for the user — print them, never run
+     them or set environment variables.
+
+3. If any non-ready check has `fixability.kind: safe-user`, present a native multi-select prompt.
+   Include only options whose fix IDs appear in that JSON report; remove already-ready options.
+   These are the complete allowed safe IDs:
+
+   ```json
+   {
+     "questions": [{
+       "question": "Which safe, user-scoped setup fixes may I run?",
+       "header": "Setup fixes",
+       "options": [
+         { "label": "Install render browser", "description": "Fix ID: chrome-shell — downloads chrome-headless-shell to the user cache." },
+         { "label": "Install HyperFrames skill", "description": "Fix ID: hyperframes-skill — installs the companion skill in an agent skill home." },
+         { "label": "Install Whisper", "description": "Fix ID: whisper — runs pip3 install --user openai-whisper." }
+       ],
+       "multiSelect": true
+     }]
+   }
+   ```
+
+   Treat an empty selection as no consent. Validate every selected value against the safe fix IDs
+   returned by the report, join only those IDs with commas, then execute exactly one scoped
+   command:
+
+   ```bash
+   bash "$SKILL_DIR/scripts/check_requirements.sh" "--fix=$SELECTED_FIX_IDS"
+   ```
+
+   Never substitute bare `--fix` for a scoped consent response.
+
+4. After selected fixes finish — or immediately when none were selected — re-run:
+
+   ```bash
+   bash "$SKILL_DIR/scripts/check_requirements.sh" --json
+   ```
+
+   Block entry to Phase 0 only while a `required` check remains `blocked`. Recommended or
+   optional checks may remain `degraded`; explain the affected phases and fallback, then continue.
+
+5. Before Phase 0, show this compact journey and its approval checkpoints:
+
+   | Phase | Work | Approval/checkpoint before advancing |
+   |---|---|---|
+   | Phase 0 — Discovery | Understand product, audience, goal, and constraints | Approve `context.md`; Phase 1 is where the user chooses how it looks/sounds |
+   | Phase 1 — Storytelling | Collect and confirm the user-owned story brief, then build the narrative | Confirm the complete brief before `storyboard.md`; approve the storyboard |
+   | Phase 2 — Capture | Gather bound web (including an already-open authenticated Chrome tab), terminal, supplied, or native recordings | Approve the capture set and any fallbacks |
+   | Phase 3 — Design | Define brand/motion and author scene HTML | Approve `DESIGN.md` and scene previews |
+   | Phase 4 — Production | Wire the root composition and transitions | Approve the preview after lint/inspect/validate |
+   | Phase 5 — Audio & Render | Generate narration/captions, confirm exact music, render MP4 | Confirm title/path/source/license (or explicit none) before mixing; approve render |
+
+   Mention that `screen-recording` capture is native where supported: macOS uses the
+   `screencapture` adapter, Windows uses FFmpeg `gdigrab`, and X11 uses FFmpeg `x11grab`.
+   Wayland is conditional on feature-detected `wf-recorder`; WSL uses an explicit Windows-host
+   recording handoff followed by normalization with `stitch_clip.py`.
+   If the product needs an already-open authenticated Chrome tab, explain that Phase 2 supports
+   it after the user manually enables Chrome remote debugging and configures the Chrome DevTools
+   MCP with `--autoConnect` (Chrome 144+). Do not enable it during onboarding.
 
 **First, select video type:**
 
@@ -117,32 +230,176 @@ Start fresh. Ask mode, create project directory, begin Phase 0.
 }
 ```
 
-Then create `{project-dir}/` and generate `project-plan.md` from `templates/project-plan.md`. Begin Phase 0.
+**Then determine the product surface.** When a usable UI exists, recommend real captures as the
+video's spine and explain why (Phases 1–3 build around them), but do not preselect that answer.
+Only offer the no-product framing for a subject with no UI to capture (a CLI library, an API, a
+pure-backend tool) or an explicitly abstract brand film. Present a selectable prompt:
+
+```json
+{
+  "questions": [{
+    "question": "Does the product have a UI we can capture and put on screen?",
+    "header": "Surface",
+    "options": [
+      { "label": "Yes — capture the real product", "description": "Recommended when a usable UI exists: real screenshots/clips become the spine." },
+      { "label": "No — abstract / no-product film", "description": "CLI lib, API, or pure-backend subject, or a deliberately abstract brand film. Waives the Phase-3 capture-coverage gate." }
+    ],
+    "multiSelect": false
+  }]
+}
+```
+
+Then create `{project-dir}/`, generate `project-plan.md` from `templates/project-plan.md`, and
+record the explicit answers in the Creative Brief table as `mode: promo | showcase | tutorial`
+and `product_surface: ui | none`. Do not mark either option selected before the user's response.
+Carry the product surface into `storyboard.md` (`Product surface:`) in Phase 1. Begin Phase 0.
+
+**Make the output location crystal-clear (issue #21).** Before creating the directory, resolve and
+show its **absolute** path so the user knows exactly where their work will live, and let them
+confirm, rename, or cancel via a native prompt (create / change location / cancel):
+
+```bash
+# Resolve to an absolute path even though {project-dir} doesn't exist yet (parent must exist).
+PROJECT_DIR="$(cd "$(dirname "{project-dir}")" && pwd)/$(basename "{project-dir}")"
+echo "Project will be created at: $PROJECT_DIR"
+```
+
+After `mkdir`, confirm with `Created project at: $PROJECT_DIR`. Recompute this machine-specific
+absolute path from the CWD each run — never persist it into a committed artifact.
 
 ### `continue`
 
-Read `{project-dir}/project-plan.md` → find last completed phase → resume next.
+Read `{project-dir}/project-plan.md`, resolve the installed validator, and run it even when all
+expected files exist:
+
+```bash
+python3 "$VALIDATOR" --project-dir "$PROJECT_DIR" status --json
+```
+
+Exit 1 means the table is incomplete or a legacy plan needs migration; still parse the JSON. A
+structurally complete table may return 0 while `story.confirmed`, `audio.confirmed`, or phase
+freshness is false, so always inspect those JSON fields. Exit 2 means malformed Markdown/state and
+blocks resume with the validator's actionable error. The phase tracker is informational. The
+validator's `earliest_stale_phase` plus the existing file-presence checks are authoritative. Never
+delete stale artifacts automatically.
+
+When `migration_required` is `true`, preserve the legacy plan and never promote its old defaults or
+agent-inferred decisions into confirmed choices. Explain that migration inserts an empty Creative
+Brief table, then present this consent prompt:
+
+```json
+{
+  "questions": [{
+    "question": "This project predates the confirmed Creative Brief schema. Insert an empty brief table and collect every choice from you?",
+    "header": "Migration",
+    "options": [
+      { "label": "Migrate and collect choices", "description": "Preserve the legacy plan, insert placeholders atomically, then ask every Phase-1 brief question." },
+      { "label": "Cancel resume", "description": "Leave project-plan.md unchanged and stop." }
+    ],
+    "multiSelect": false
+  }]
+}
+```
+
+Only after explicit migration consent, run:
+
+```bash
+python3 "$VALIDATOR" --project-dir "$PROJECT_DIR" migrate --json
+```
+
+The migration never infers values. Continue normal detection afterward: run Phase 0 first if
+`context.md` is absent; otherwise route to Phase 1 to collect, summarize, and confirm every
+user-owned story field before reusing or replacing any legacy storyboard.
 
 **Detection logic:**
 ```
-If no project-plan.md → switch to "new" mode
+If no project-plan.md → report that there is no resumable project and switch to the normal "new"
+  prompts, but preserve the explicit-continue origin: skip Phase -1 and begin at video-type selection
+If validator migration_required is true → ask migration consent; on approval run migrate, then
+  treat every story field as incomplete and route through Phase 0 if needed, otherwise Phase 1
 If context.md missing → Phase 0
+If validator story.complete is false, story.confirmed is false, or earliest_stale_phase is phase-1
+  → Phase 1 (collect/reconfirm the complete story brief before storyboard creation)
 If storyboard.md missing → Phase 1
-If no public/screenshots/ → Phase 2
+Determine whether Phase 2 is needed from storyboard.md:
+  - REQUIRED when Product surface is `ui`, or any scene requests screenshot, screencast,
+    screen-recording, terminal, terminal-clip, or supplied capture.
+  - SKIPPED when Product surface is `none` and no scene requests capture.
+If Phase 2 is required and any planned capture lacks its accepted output → Phase 2:
+  - screenshot: bound screenshot exists and is non-empty
+  - screencast: exact bound Clip exists and is non-empty, or the storyboard was explicitly
+    rewritten to screenshot and its bound screenshot exists and is non-empty
+  - screen-recording: positive Capture duration is present, optional Capture region is valid
+    x,y,w,h, the exact bound Clip exists and is non-empty, `<Clip>.capture.pending` is absent,
+    `<Clip>.capture.json` is present, and
+    `python3 scripts/capture_screen.py --check --duration "<Capture duration>"`
+    `[--region "<Capture region>"] -o "<Clip>"` passes (including sidecar request match,
+    media contract, and fingerprint)
+  - terminal: authored terminal scene exists and is non-empty
+  - terminal-clip: non-empty MP4 exists, or storyboard was rewritten to terminal and its
+    non-empty scene exists
+  - supplied: named supplied file exists and is non-empty
 If no DESIGN.md or scenes/ → Phase 3
 If no index.html → Phase 4
 If no out/final.mp4 → Phase 5
+If out/final.mp4 exists but
+  `python3 "$SKILL_DIR/scripts/caption_gen.py" validate --audio voiceover-with-music.mp3
+  --manifest captions-review.json --srt out/final.srt --vtt out/final.vtt
+  --state .hve/captions-state.json` fails → Phase 5
+Also map validator earliest_stale_phase phase-2..phase-5 directly to that phase, even when its
+  files exist. Choose the earliest phase found by either validator state or file checks.
+  A changed story field routes to Phase 1 because Phase 1–5 stamps no longer match.
+  A changed final_music_track with the same confirmed story routes only to Phase 5.
 ```
 
 ### `jump`
 
-Go directly to a specific phase. Verify prerequisites:
+Go directly to a specific phase only after checking current state. Run `status --json`; if its
+`earliest_stale_phase` is earlier than the requested phase, reject the jump and route to that
+earliest stale phase. Keep every existing file-presence prerequisite below, and add these
+fingerprint requirements:
+
+If `migration_required` is true, reject the requested jump. Use the same consent-gated migration
+prompt as `continue`, then route through Phase 0 when `context.md` is missing or Phase 1 otherwise.
+No legacy value may become confirmed without being presented to the user.
+
+```bash
+# Before Phase 2:
+python3 "$VALIDATOR" --project-dir "$PROJECT_DIR" require phase-1
+# Before Phase 3 / 4 / 5, require phase-2 / phase-3 / phase-4 respectively.
+```
+
+Phase 1 itself requires `context.md` and performs `confirm-story` before creating the storyboard.
+Phase 5 performs `confirm-audio` after an exact track (or explicit none) is known and before any
+mix/encode/render. Verify prerequisites:
+
 ```
 Phase 1 requires: context.md
-Phase 2 requires: context.md + storyboard.md
-Phase 3 requires: capture artifacts in public/screenshots/ and/or public/clips/ (unless skipped, e.g. no real product)
-Phase 4 requires: context.md + storyboard.md + DESIGN.md + scenes/*.html
-Phase 5 requires: index.html (root composition); Phase 5 then runs `npx hyperframes lint|inspect|validate` before render
+Phase 2 requires: context.md + storyboard.md + fresh Phase-1 stamp
+Phase 3 requires: context.md + storyboard.md, plus completion of every capture requested by the
+  storyboard, and a fresh Phase-2 stamp. In particular, `screen-recording` requires a positive `Capture duration:`, an
+  optional valid `Capture region: x,y,w,h`, a non-empty file at the exact `Clip:` path, no
+  `<Clip>.capture.pending`, and a matching `<Clip>.capture.json` sidecar. Run
+  `capture_screen.py --check` with the storyboard duration/region/Clip; if any check fails,
+  BLOCK Phase 3 and resume Phase 2 (or return to Phase 1 to repair invalid fields).
+  `product_surface: none` with no requested captures has no Phase-2 artifact prerequisite, but
+  the intentional Phase-2 skip must still have a fresh Phase-2 stamp.
+  Capture-coverage gate (orchestrator-enforced; promo/showcase only): before authoring
+  scenes, if product_surface is `ui` and NO storyboard scene binds an existing real
+  capture (`Screenshot:` or `Clip:`), BLOCK and resolve — return to Phase 2 to capture the
+  product, or, if the film is genuinely abstract, set `product_surface: none` in the
+  project-plan.md Creative Brief and `Product surface: none` in storyboard.md. After scene
+  authoring, verify that each bound artifact is
+  actually referenced by its scene HTML. Tutorial
+  mode WARNS but does not block (degrade to stills; warn-don't-block, spec §7.3). This turns
+  the former silent "(unless skipped, e.g. no real product)" escape hatch into an intentional,
+  recorded decision. (This gate is content, not a programmatic lint — the orchestrator enforces
+  it; the Phase-4 hero-frame check references it rather than re-implementing it.)
+Phase 4 requires: context.md + storyboard.md + DESIGN.md + scenes/*.html + fresh Phase-3 stamp
+Phase 5 requires: index.html (root composition) + fresh Phase-4 stamp; Phase 5 then confirms the
+  exact audio fingerprint, runs `npx hyperframes lint|inspect|validate`, and requires reviewed
+  `out/final.srt` + `out/final.vtt` whose caption state validates against the final mixed-audio
+  fingerprint before stamping completion
 Tutorial content mode: PREFERS public/clips/ but does not require them. Jumping into a
 tutorial with no clips WARNS ("tutorial requested but no clips found — degrading to stills")
 and continues with stills; it does NOT block. Missing captions in tutorial mode is the
@@ -156,10 +413,10 @@ stricter check (see Phase 5). (warn-don't-block; spec §7.3)
 ```
 Phase 0: DISCOVERY ──── Phase 1: STORYTELLING ──── Phase 2: CAPTURE
   │                       │                          │
-  ├ Design thinking       ├ Narrative structure      ├ Chrome DevTools MCP
+  ├ Design thinking       ├ Narrative structure      ├ Web / terminal / supplied
   ├ Codebase analysis     ├ Scene storyboard         ├ Auto-navigate app
-  ├ Product context Q&A   ├ Emotional arc            ├ Screenshot key views
-  └ Goal/audience         └ Script outline           └ Interaction states
+  ├ Product context Q&A   ├ Emotional arc            ├ Screenshots + clips
+  └ Goal/audience         └ Script outline           └ Bound capture artifacts
 
 Phase 3: DESIGN ──── Phase 4: PRODUCTION ──── Phase 5: AUDIO &amp; RENDER
   │                    │                        │
@@ -179,6 +436,9 @@ See [workflows/phase-1-storytelling.md](workflows/phase-1-storytelling.md)
 See [workflows/phase-2-capture.md](workflows/phase-2-capture.md)
 
 ### Phase 3: Design
+**Capture-coverage gate runs at entry** (see § Entry Modes → `jump`): a promo/showcase video with
+`product_surface: ui` must put real captures on screen before scenes are authored — the real
+product, framed, is the spine; text scenes are connective tissue.
 See [workflows/phase-3-design.md](workflows/phase-3-design.md)
 
 ### Phase 4: Production
@@ -220,4 +480,6 @@ See [workflows/phase-5-audio.md](workflows/phase-5-audio.md)
 - [templates/](templates/) — Project scaffolding templates
 - [patterns/visual-patterns.md](patterns/visual-patterns.md) — Animation techniques
 - [patterns/metallic-swoosh.md](patterns/metallic-swoosh.md) — Metallic transition (crossfade + shine, NOT clipPath)
-- [scripts/generate_voiceover.py](scripts/generate_voiceover.py) — ElevenLabs + Whisper pipeline
+- [scripts/validate_brief.py](scripts/validate_brief.py) — Creative Brief validation, confirmations, fingerprints, and phase freshness
+- [scripts/generate_voiceover.py](scripts/generate_voiceover.py) — ElevenLabs generation or external-section assembly + Whisper verification
+- [scripts/caption_gen.py](scripts/caption_gen.py) — Reviewed speech/speaker/sound captions bound to the final mixed-audio fingerprint

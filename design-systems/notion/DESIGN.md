@@ -66,6 +66,7 @@ Notion's brand is *editorial-software calm*. Soft eases, generous timing, hand-d
 | Stagger | 0.10–0.15s |
 | Scene-to-scene transition | Soft crossfade 0.6–0.8s, `power1.inOut`. Page-turn variants acceptable. |
 | Section-boundary | Surface-swap from `#ffffff` to `#f6f5f4` (use the warm white) |
+| Product-shot camera | Gentle 1.03→1.0 drift over ~1.5s, `power1.inOut` — no snap |
 | Avoid | Flash transitions, glitch, hard cuts — wrong tone for editorial calm |
 
 ## 6. Video applications

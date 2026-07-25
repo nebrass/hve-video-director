@@ -6,12 +6,13 @@ Quick map: *"I need to do X"* → *"read this file."* hve-spielberg leans on the
 
 | File | What it covers |
 |---|---|
-| `visual-patterns.md` | Easing vocabulary, scene-entry tweens (fade-up, scale-in, stagger, typewriter, counter), screenshot mockups (browser, floating card, device frame), colour psychology, text sizing, project-wide DON'Ts |
+| `visual-patterns.md` | Easing vocabulary, scene-entry tweens (fade-up, scale-in, stagger, typewriter, counter), screenshot mockups (browser, floating card, device frame), **camera & depth** (camera moves on stills, scroll-within-frame, motivated parallax, anchored callout/spotlight, in-scene shine sweep, masked reveal), colour psychology, text sizing, project-wide DON'Ts |
 | `metallic-swoosh.md` | Diagonal-shine transition between two scenes (inline in root timeline, not a sub-comp) |
 | `marker-highlight.md` | 5 word-emphasis patterns: highlight, circle, burst, scribble, sketchout — for kicker lines, stat reveals, before/after |
 | `transition-catalog.md` | One-page map of every CSS transition family + catalog blocks, mapped to product-video moments |
 | `anti-slop.md` | Cardinal sins, soft tells, polish tells — distinguishes "shipped by a marketer" from "AI default output". Includes **§ AI Tool Promo Specifics** (dogfooding loop, show-don't-tell, 1-based phase numbering) and **§ CTA discipline** (full URL on screen, match canonical command). |
 | `cli-terminal-capture.md` | Professional CLI scene recording via `asciinema` + `agg`: install, shell pre-flight (prompt, secrets, size), recording flags, cast editing, theme→palette pairing, MP4 render, quality gate, troubleshooting. Read when the storyboard calls for a real terminal clip; for the no-dep fallback see `templates/scene-terminal.html`. |
+| `authenticated-browser-capture.md` | Connect Chrome DevTools MCP to an already-open Chrome 144+ session, select the exact SSO/MFA tab, capture without navigation, protect auth data, and restore viewport state. |
 
 ## HyperFrames skill references (in `~/.claude/skills/hyperframes/` or `~/.copilot/skills/hyperframes/`)
 
@@ -41,7 +42,7 @@ The `hyperframes` skill is invoked in Phases 3 and 4. Once invoked, these files 
 
 | Need | File | Use when |
 |---|---|---|
-| Caption authoring | `references/captions.md` | On-screen captions synced to the voiceover. **Optional in `promo`/`showcase`** (default flow renders the transcript but doesn't bake captions). **REQUIRED in `tutorial` mode** on footage segments — see `workflows/phase-5-audio.md` § "Captions (REQUIRED in tutorial mode)" and spec §7.2 (silence-only segments exempt). |
+| Caption authoring | `references/captions.md` | On-screen captions synced to the voiceover. **Optional in `promo`/`showcase`** and **REQUIRED in `tutorial` mode** on footage segments — see `workflows/phase-5-audio.md` § "Captions (REQUIRED in tutorial mode)" and spec §7.2. Separate reviewed `out/final.srt`/`.vtt` closed-caption sidecars are required in **all** modes by Phase 5 Step 5.3b. |
 | Caption-energy techniques (audio-reactive caption styling) | `references/dynamic-techniques.md` | High-energy spots — TikTok karaoke effects, beat-sync caption emphasis. |
 | Audio-reactive animation | `references/audio-reactive.md` | When music is doing narrative work — beat-matched logo pulses, frequency-driven backgrounds. Pre-extract frequency bands to JSON; never use Web Audio API at render time. |
 | Native TTS | `references/tts.md` | Phase 5 fallback when no `ELEVENLABS_API_KEY` — Kokoro-82M, 54 voices, 8 languages. |
@@ -66,6 +67,13 @@ Phase 1 (storytelling)
 Phase 3 (design)
   ├─ Scene authoring → hyperframes skill SKILL.md + patterns.md
   ├─ Animation → ../visual-patterns.md (this repo)
+  ├─ Camera & depth on a still → ../visual-patterns.md § Camera & Depth (this repo):
+  │     ├─ Push / pull / drift on a screenshot → § Camera Moves on Stills
+  │     ├─ Pan a tall full-page capture        → § Scroll-Within-Frame
+  │     ├─ Depth from real product layers      → § Motivated Parallax
+  │     ├─ Direct the eye to a UI region       → § Anchored Callout / Spotlight
+  │     ├─ Specular pass over a UI card        → § In-Scene Shine Sweep
+  │     └─ Wipe an element in via a mask        → § Masked Reveal (mask-position)
   ├─ Charts/counters → data-in-motion.md
   └─ Emphasis on text → ../marker-highlight.md (this repo)
 

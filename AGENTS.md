@@ -34,8 +34,23 @@ MIT-licensed, matching this repository.
 - **Codex** — `$CWD/.agents/skills/`, `$REPO_ROOT/.agents/skills/`, `$HOME/.agents/skills/`, `/etc/codex/skills/`
 - **Cursor** — `.agents/skills/`, `.cursor/skills/`, `~/.agents/skills/`, `~/.cursor/skills/`, plus `.claude/skills/` and `.codex/skills/`
 
-`npx skills add nebrass/hve-spielberg` installs a `<name>/SKILL.md` subdir into a scanned home, so all of these pick it up natively (see the agent sections in [`README.md`](README.md)). Skill loading follows each agent's documented convention; a full Phase 0→5 run on the non-verified agents is not yet confirmed (end-to-end render is proven on Claude Code and GitHub Copilot CLI).
+`npx skills add nebrass/hve-spielberg` installs a `<name>/SKILL.md` subdir into a scanned home,
+so these agents can discover it natively (see [`README.md`](README.md)). **Discovery is not
+end-to-end compatibility:** Phase 0→5 is verified on Claude Code and GitHub Copilot CLI only.
+OpenCode, Pi, Codex, and Cursor remain pipeline-unverified; their question and MCP tool identifiers
+are resolved at runtime rather than assumed to match Claude Code.
 
 ## Using the skill
 
-Once installed, start it with `/hve-spielberg` (a slash command on Claude Code; invoke by name or intent on GitHub Copilot CLI — run `/skills` there to confirm it loaded). It runs a 6-phase video production pipeline — see [`SKILL.md`](SKILL.md) and [`README.md`](README.md).
+Invocation differs by host:
+
+| Agent | Invocation |
+|---|---|
+| Claude Code | `/hve-spielberg` |
+| GitHub Copilot CLI | `/hve-spielberg` or intent; inspect with `/skills info hve-spielberg` |
+| OpenCode | Intent/native skill loader |
+| Pi | `/skill:hve-spielberg` |
+| Codex | `/skills` or `$hve-spielberg` |
+| Cursor | `/hve-spielberg` |
+
+See [`SKILL.md`](SKILL.md) and [`README.md`](README.md) for the six-phase pipeline.

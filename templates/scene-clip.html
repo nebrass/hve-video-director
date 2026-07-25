@@ -4,20 +4,23 @@
      currentTime to this scene's window. data-start is relative to THIS scene.
      Placeholders to substitute when authoring:
        DUR    = this scene loader's FULL data-duration from index.html, i.e.
-                (out-in)/speed PLUS the 0.4s crossfade extension (see
+                (out-in)/speed PLUS the confirmed transition-duration extension (see
                 patterns/transition-catalog.md). If the video's track ends at
                 the nominal clip length, the runtime hides it
-                (visibility:hidden) during the crossfade and the frame blanks.
+                (visibility:hidden) during the transition and the frame blanks.
        MSTART = the storyboard's `Clip in` (trim offset into the source file,
                 seconds; 0 if untrimmed). Without data-media-start the runtime
                 plays from source t=0 and ignores the trim — and desyncs from
                 Phase 5's clip-audio extraction (CIN).
+       SPEED  = the storyboard's `Speed` (0.1–5.0; normally 1.0). HyperFrames reads
+                defaultPlaybackRate while footage-locking, so set it explicitly.
      The runtime only seeks videos that carry data-start: a bare <video> is
      auto-discovered for display but never time-synced, so it's safe ONLY as
      the single clip in a composition (and even then it never advances past
      frame 0). With 2+ clip scenes, bare videos cross-route — one scene plays
      another's footage, another plays black. Animate the wrapper, NEVER the
-     <video> dimensions. Clip-own audio is OFF in v1 (muted). -->
+     <video> dimensions. The element stays muted; opt-in clip-own audio is
+     mixed separately in Phase 5. -->
 <template id="scene-NN-clip-template">
   <div data-composition-id="scene-NN-clip" data-width="1920" data-height="1080">
     <div class="clip-frame">
@@ -37,6 +40,13 @@
     <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js" integrity="sha384-sG0Hv1tP1lZCk9KQmrIbY/XNwi+OY84GQqhMscbnsoBFqAz8KNCil1kvfL3Hbbk2" crossorigin="anonymous"></script>
     <script>
       window.__timelines = window.__timelines || {};
+      const video = document.getElementById("vid-NN");
+      const SPEED = Number.NaN; // REQUIRED: replace with storyboard Speed (normally 1.0)
+      if (!Number.isFinite(SPEED) || SPEED < 0.1 || SPEED > 5.0) {
+        throw new Error("scene-NN-clip: SPEED must be between 0.1 and 5.0");
+      }
+      video.defaultPlaybackRate = SPEED;
+      video.playbackRate = SPEED;
       const tl = gsap.timeline({ paused: true });
       // Entrance: animate the WRAPPER only (autoAlpha + fromTo per the stagger-trap rule).
       tl.fromTo('[data-composition-id="scene-NN-clip"] .clip-frame',
@@ -44,7 +54,7 @@
       // Legibility punch-in (spec §7.2a): when narrative-critical UI text renders <24px
       // effective, scale the NON-TIMED .clip-frame wrapper toward the text region (never the
       // <video>). Keyed to FOOTAGE time t; if Speed != 1, remap t. Release BEFORE the
-      // inter-scene crossfade so it never pulls back mid-transition.
+      // inter-scene transition window so it never pulls back mid-transition.
       // effective_px = source_px * scale * (rendered_frame_width / source_capture_width)
       // tl.to('[data-composition-id="scene-NN-clip"] .clip-frame', { scale: 2.0, transformOrigin: "18% 12%", duration: 0.6, ease: "power2.inOut" }, 3.0);
       // tl.to('[data-composition-id="scene-NN-clip"] .clip-frame', { scale: 1.0, transformOrigin: "18% 12%", duration: 0.6, ease: "power2.inOut" }, 6.0);

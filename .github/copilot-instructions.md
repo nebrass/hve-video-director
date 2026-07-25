@@ -2,14 +2,14 @@
 
 ## What this repo is
 
-This repo **is an agent skill** (`hve-spielberg`) that runs on both **GitHub Copilot CLI** and **Claude Code**, not a typical application. The "source" is prompt content (markdown) plus two Python helper scripts. There is no build system, no test suite, no lint config — the skill is consumed by future agent sessions that invoke `/hve-spielberg <project-dir>` (a slash command on Claude Code; invoked by name/intent on Copilot CLI). The `SKILL.md` frontmatter follows the Claude Code skill schema; Copilot CLI loads the skill from its `name`/`description` and harmlessly ignores the Claude-only fields (`allowed-tools`, `user-invocable`, `argument-hint`). See the **Runtime Compatibility** section in `SKILL.md` for how interaction blocks (`{"questions": […]}`), companion-skill loading (`Skill(<name>)`), and skill-home paths map across runtimes — preserve that mapping when editing.
+This repo **is an agent skill** (`hve-spielberg`) that runs on both **GitHub Copilot CLI** and **Claude Code**, not a typical application. The "source" is prompt content (markdown) plus Python helper scripts. There is no build system or lint config; pure-stdlib helper tests live under `test/`. The skill is consumed by future agent sessions that invoke `/hve-spielberg <project-dir>` (a slash command on Claude Code; invoked by name/intent on Copilot CLI). The `SKILL.md` frontmatter follows the Claude Code skill schema; Copilot CLI loads the skill from its `name`/`description` and harmlessly ignores the Claude-only fields (`allowed-tools`, `user-invocable`, `argument-hint`). See the **Runtime Compatibility** section in `SKILL.md` for how interaction blocks (`{"questions": […]}`), companion-skill loading (`Skill(<name>)`), and skill-home paths map across runtimes — preserve that mapping when editing.
 
 The renderer is **HyperFrames** (HTML + GSAP, rendered via headless Chromium). React/Remotion are **not** used.
 
 Keep two scopes distinct when editing:
 
 - **This repo** — the skill definition (`SKILL.md`, `workflows/`, `templates/`, `patterns/`, `scripts/`, `design-systems/`). Edits here change behavior for *all* users.
-- **Generated video projects** — created by the skill at runtime in `{project-dir}/`. They contain `project-plan.md`, `context.md`, `storyboard.md`, `DESIGN.md`, `public/screenshots/`, `scenes/*.html`, `index.html` (root HyperFrames composition), `voiceover.mp3`, `out/final.mp4`. These do **not** live in this repo (except the canonical reference build under `example/`).
+- **Generated video projects** — created by the skill at runtime in `{project-dir}/`. They contain `project-plan.md`, `.hve/brief-state.json`, `context.md`, `storyboard.md`, `DESIGN.md`, `public/screenshots/`, `scenes/*.html`, `index.html` (root HyperFrames composition), `voiceover.mp3`, `out/final.mp4`. These do **not** live in this repo (except the canonical reference build under `example/`).
 
 ## Architecture
 
@@ -40,10 +40,20 @@ SKILL.md (orchestrator)
 - `mcp__chrome-devtools__*` for app capture (Phase 2)
 - The `hyperframes` companion agent skill for HTML/GSAP authoring rules (Phases 3 + 4) — distinct from the `hyperframes` npm CLI
 - The `gsap` skill (optional companion) for choreography reference
-- `npx hyperframes` CLI for `init`, `add` (pull catalog blocks, Phase 4), `lint`, `preview`, `inspect`, `validate`, `render`, `doctor` (render-environment diagnostics, Phase 5), `transcribe` (preferred voiceover-timing verifier in Phase 5; falls back to standalone Whisper if unavailable), and `tts` (used in Phase 5 as the no-API-key fallback when `ELEVENLABS_API_KEY` is unset)
+- `npx hyperframes` CLI for `init`, `add` (pull catalog blocks, Phase 4), `lint`, `preview`, `inspect`, `validate`, `render`, `doctor` (render-environment diagnostics, Phase 5), `transcribe` (preferred voiceover-timing verifier in Phase 5; falls back to standalone Whisper if unavailable), and `tts` (used in Phase 5 when the user explicitly confirms a local Kokoro voice)
 - `mcp__chrome-devtools__screencast_*` + `resize_page` for Phase-2 web-clip capture (experimental, feature-detected — needs `--experimentalScreencast=true`; falls back to screenshots), and optional `asciinema`+`agg` for CLI clip recording (otherwise the authored-terminal path)
+- `mcp__chrome-devtools__list_pages` + `select_page` for the explicit authenticated-session path. The user must first connect the MCP to running Chrome with Chrome 144+ `--autoConnect` (preferred) or the dedicated-profile `--browser-url` fallback; attached capture never navigates and follows `patterns/authenticated-browser-capture.md`.
 - `scripts/generate_voiceover.py` → ElevenLabs API + optional Whisper transcription (Phase 5)
+- `scripts/caption_gen.py` → backward-compatible ASR drafts plus the Phase-5 reviewed-caption workflow: `draft` creates an audio-bound manifest, `approve` binds explicit user approval to the exact cues, `finalize` transactionally publishes `out/final.srt` + `out/final.vtt` + deterministic state, and `validate` rejects stale audio/manifest/state/outputs (pure stdlib + required `ffprobe`)
+- `scripts/capture_screen.py` → fixed-duration, silent native desktop/region capture orchestrator (pure stdlib): macOS `screencapture`, Windows `gdigrab`, X11 `x11grab`, or feature-detected Wayland `wf-recorder`; WSL/unavailable Wayland return explicit handoffs. It trims via sibling `stitch_clip.py`, validates duration/frame count within one frame, and uses `<clip>.capture.pending` + fingerprinted `<clip>.capture.json` state so failed retakes preserve prior valid media but cannot count as complete.
+- `scripts/stitch_clip.py` → canonical raw-capture normalizer/stitcher for CFR30 H.264 High/yuv420p, even dimensions, no audio, and `+faststart` (pure stdlib wrapper for ffmpeg/ffprobe)
+- `scripts/validate_brief.py` → exact Creative Brief parser, consent-gated legacy placeholder migration, revision-bound story/audio fingerprints, atomic `.hve/brief-state.json`, phase stamps, and stale-prerequisite checks (pure stdlib)
 - `scripts/search_music.py` → Freesound API for CC music (Phase 5)
+- `scripts/check_requirements.sh` → structured toolchain preflight. Default, `--json`, and
+  `--plan` are side-effect-free and never use online `npx` probes. Scoped
+  `--fix=<id,id>` runs only selected safe user-scoped fixes; bare `--fix` means all safe fixes.
+  It never runs system/sudo commands or sets environment variables. Phase -1 consumes its JSON
+  only for a direct/default first `new` run; explicit `continue` and `jump` skip onboarding.
 
 `templates/` files are copied into generated projects. `patterns/` files are referenced for visual techniques. `patterns/INDEX.md` is the wayfinding map between local patterns and the deeper `hyperframes` skill references — read it before adding new pattern files. `patterns/metallic-swoosh.md` documents *why* clipPath transitions are banned (black-sliver artifacts).
 
@@ -51,11 +61,29 @@ SKILL.md (orchestrator)
 
 ## Working with the skill scripts
 
-The Python scripts run inside generated video projects, not from this repo. They self-install `requests` via pip on first run.
+The media scripts run inside generated video projects; `validate_brief.py` runs from the installed
+skill against a generated project via `--project-dir`. Only `generate_voiceover.py` and
+`search_music.py` self-install `requests`; capture, stitch, caption, and Creative Brief validation
+helpers are pure standard library. Caption finalization invokes the required `ffprobe` binary for
+duration validation.
 
 ```bash
 # Voiceover generation (from inside a generated project)
 ELEVENLABS_API_KEY=... python3 scripts/generate_voiceover.py
+
+# Fixed-duration silent native screen/region capture
+python3 scripts/capture_screen.py --duration 6 --region 100,80,1280,720 \
+  -o public/clips/scene-02-dashboard.mp4
+
+# Normalize or stitch existing recordings
+python3 scripts/stitch_clip.py raw.mov -o public/clips/scene-02-dashboard.mp4
+
+# Validate the Creative Brief in a generated project
+python3 /path/to/hve-spielberg/scripts/validate_brief.py \
+  --project-dir /path/to/generated-project status --json
+# Legacy plans only, after explicit user consent
+python3 /path/to/hve-spielberg/scripts/validate_brief.py \
+  --project-dir /path/to/generated-project migrate
 
 # Music search (from inside a generated project)
 FREESOUND_API_KEY=... python3 scripts/search_music.py
@@ -63,7 +91,10 @@ FREESOUND_API_KEY=... python3 scripts/search_music.py
 
 Both `ELEVENLABS_API_KEY` and `ELEVEN_LABS_API_KEY` are accepted (back-compat).
 
-There is no test/lint/build command for this repo. Validation of skill changes happens by running `/hve-spielberg <project-dir>` end-to-end in Claude Code; the canonical reference build is `example/` (run `example/voiceover.py` then `npx hyperframes render` to reproduce its `out/final.mp4`).
+There is no build or lint command for this repo. Run `bash test/run.sh` for the stdlib helper tests;
+validation of workflow changes still happens by running `/hve-spielberg <project-dir>` end-to-end
+in Claude Code. The canonical reference build is `example/` (run `example/voiceover.py` then
+`npx hyperframes render` to reproduce its `out/final.mp4`).
 
 ## Editing rules — DON'Ts that are easy to violate
 
@@ -84,7 +115,11 @@ Anti-slop content rules (see `patterns/anti-slop.md`) also matter: no default Ta
 
 - **Add a voice** → update both the `## ElevenLabs Voice IDs` table in `SKILL.md` and the `## Voices` table in `README.md` (the two tables must stay in sync).
 - **Change phase logic** → edit the relevant `workflows/phase-N-*.md`; update the prerequisite list in `SKILL.md` if a new required file is introduced.
-- **Adjust prerequisite checks** → the `## Prerequisites` block in `SKILL.md` (runs at skill entry).
+- **Change the Creative Brief schema** → update the template, validator, example plan, workflow
+  field names, and tests together. Story changes stale Phase 1–5; final-track-only changes stale
+  Phase 5.
+- **Adjust prerequisite checks** → update `scripts/check_requirements.sh` and its stdlib tests;
+  keep the first-run Phase -1 interpretation in `SKILL.md` aligned with the JSON schema.
 - **Bump skill metadata** → frontmatter at top of `SKILL.md` (especially `allowed-tools` if a new MCP tool is needed).
 - **Add a pattern file** → also register it in `patterns/INDEX.md` so phase workflows can find it.
 

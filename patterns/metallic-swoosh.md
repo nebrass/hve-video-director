@@ -16,12 +16,15 @@ Three things happen during the swoosh window:
 
 In Phase 4, the root composition wires inter-scene transitions in its own timeline. Drop the overlay element next to your scene clips and add the swoosh tweens to the root timeline:
 
+Set `D` from the confirmed `transition_speed` (`quick = 0.4`, `medium = 0.7`, `slow = 1.2`) and
+replace the uppercase duration tokens below with numeric literals before linting.
+
 ```html
 <!-- Two adjacent scene clips in the root composition. Both start invisible if
      they're not the first scene; the swoosh tweens them in/out. -->
 <div data-composition-id="scene-01"
      data-composition-src="scenes/01.html"
-     data-start="0"  data-duration="5.4" data-track-index="1"
+     data-start="0" data-duration="5_PLUS_D" data-track-index="1"
      style="opacity:1"></div>
 
 <div data-composition-id="scene-02"
@@ -33,7 +36,7 @@ In Phase 4, the root composition wires inter-scene transitions in its own timeli
      data-track-index="9" only keeps it on a separate track so it can overlap the
      scene clips without tripping HyperFrames' same-track overlap check. -->
 <div id="swoosh-01-02"
-     data-start="5" data-duration="0.4" data-track-index="9"
+     data-start="5" data-duration="D" data-track-index="9"
      aria-hidden="true"
      style="opacity:0;"></div>
 
@@ -62,18 +65,23 @@ In Phase 4, the root composition wires inter-scene transitions in its own timeli
   // absolute (in seconds) on the root timeline — the swoosh fires at t=5s.
   // window.__timelines["main"] is registered in index.html (see Phase 4).
   const root = window.__timelines["main"];
+  const D = Number("TRANSITION_DURATION_SECONDS");
 
-  // Crossfade: 0.4s starting at t=5s. Fade ONLY the incoming scene 0→1; the
-  // outgoing scene stays opaque underneath until its clip ends at 5.4s. Fading
+  // Fade ONLY the incoming scene 0→1; the outgoing scene stays opaque
+  // underneath until its D-extended clip ends. Fading
   // both at once drops each to ~0.5 opacity at the midpoint, letting the white
   // body bg show through everywhere the shine band isn't — a brightness flash.
   // (Same incoming-only rule as transition-catalog.md / phase-4-production.md.)
-  root.to('[data-composition-id="scene-02"]', { opacity: 1, duration: 0.4, ease: "power2.inOut" }, 5);
+  root.to('[data-composition-id="scene-02"]',
+    { opacity: 1, duration: D, ease: "power2.inOut" }, 5);
 
-  // Shine: pop in, sweep across, fade out — all inside the 0.4s window.
-  root.to("#swoosh-01-02", { opacity: 1, duration: 0.08, ease: "power1.out" }, 5);
-  root.to("#swoosh-01-02", { backgroundPosition: "175% 0", duration: 0.4, ease: "power2.inOut" }, 5);
-  root.to("#swoosh-01-02", { opacity: 0, duration: 0.08, ease: "power1.in" }, 5.32);
+  // Shine: pop in, sweep across, fade out — all inside D.
+  root.to("#swoosh-01-02",
+    { opacity: 1, duration: D * 0.2, ease: "power1.out" }, 5);
+  root.to("#swoosh-01-02",
+    { backgroundPosition: "175% 0", duration: D, ease: "power2.inOut" }, 5);
+  root.to("#swoosh-01-02",
+    { opacity: 0, duration: D * 0.2, ease: "power1.in" }, 5 + D * 0.8);
 </script>
 ```
 

@@ -72,6 +72,7 @@ Upstream explicit rule: *"Things appear; they do not perform."* Reduced motion. 
 | Stagger | 0.05–0.08s |
 | Scene-to-scene transition | Plain crossfade 0.3s, `power2.inOut`. Hard cuts also on-brand. |
 | Section-boundary | Hard cut or 0.3s crossfade. **No flourish.** |
+| Product-shot camera | None — GitHub's anti-decoration stance rules out camera moves; use static product shots with a hard cut or 0.3s crossfade only |
 | Avoid | Spring, bounce, marker highlights, shader transitions, anything decorative |
 
 Of all 10 brands, GitHub has the strongest anti-decoration stance. If you're tempted to add a flourish, you've drifted off-brand.

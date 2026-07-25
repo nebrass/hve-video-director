@@ -2,71 +2,69 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>hve-spielberg — promo</title>
+  <title>blog.nebrass.fr — promo</title>
   <style>
-    /*
-      Body is WHITE, not black. Even with overlapping scene timing (below),
-      a single-frame gap during render would otherwise show the body color
-      and produce a flash. White = safe; all scenes also have white bg.
-    */
+    /* Body white — a single-frame gap during render shows body color; white = safe
+       (every scene also rests on a white/near-white surface). */
     html, body { margin: 0; padding: 0; background: #ffffff; }
   </style>
 </head>
 <body>
   <!--
-    hve-spielberg's own promo.
-    60s, 16:9 1920×1080.
-    Vercel design system (see DESIGN.md, sourced from design-systems/vercel/DESIGN.md).
+    blog.nebrass.fr promo — built by hve-spielberg (the reference build / dogfood).
+    ~53s, 16:9 1920×1080, Vercel design system (light), product_surface: ui.
 
-    TRANSITION MODEL:
-      Each scene's data-duration extends 0.4s past its nominal end. Each subsequent
-      scene's data-start moves 0.4s earlier. So adjacent scenes OVERLAP during the
-      0.4s crossfade window — both render, and the incoming scene fades in on top
-      of the still-fully-opaque outgoing scene. No body-color shows through.
+    The REAL blog is the spine: scenes 0–3 each composite a live Phase-2 capture in a
+    browser frame with a distinct, motivated camera move; scene 4 is the closing text CTA.
 
-      Track indices must be UNIQUE per scene (HyperFrames rejects same-track overlap).
-      DOM order = z-index order — later scenes (in DOM) sit above earlier ones.
+    TRANSITION MODEL: each scene's data-duration extends 0.4s past its nominal end; the next
+    scene's data-start moves 0.4s earlier, so adjacent scenes overlap during the 0.4s
+    crossfade (incoming fades in on top of the still-opaque outgoing scene — no body flash).
+    Track indices are unique per scene; DOM order = z-order.
   -->
   <div id="root"
        data-composition-id="main"
        data-width="1920"
        data-height="1080"
        data-start="0"
-       data-duration="60">
+       data-duration="53">
 
-    <!-- Audio track 0. id required (per `hyperframes lint`). -->
-    <audio id="audio-main" data-start="0" data-duration="60" data-track-index="0"
+    <!-- Audio track 0. Placeholder silence until the mixed VO+music lands (README Phase 5). -->
+    <audio id="audio-main" data-start="0" data-duration="53" data-track-index="0"
            src="voiceover-with-music.mp3"></audio>
 
-    <!-- Scene 0: Hook  (0  → 6.4) — extended 0.4s past nominal end -->
-    <div data-composition-id="scene-00-hero"
-         data-composition-src="scenes/00-hero.html"
-         data-start="0"   data-duration="6.4"  data-track-index="1"></div>
+    <!-- Scene 0: Establishing (0 → 8.4) -->
+    <div id="load-00-establishing"
+         data-composition-id="scene-00-establishing"
+         data-composition-src="scenes/00-establishing.html"
+         data-start="0" data-duration="8.4" data-track-index="1"></div>
 
-    <!-- Scene 1: How  (6  → 16.4) — starts 0.4s early, ends 0.4s late -->
-    <div data-composition-id="scene-01-how"
-         data-composition-src="scenes/01-how.html"
-         data-start="6"   data-duration="10.4" data-track-index="2"
+    <!-- Scene 1: Depth (8 → 20.4) -->
+    <div id="load-01-depth"
+         data-composition-id="scene-01-depth"
+         data-composition-src="scenes/01-depth.html"
+         data-start="8" data-duration="12.4" data-track-index="2"
          style="opacity:0"></div>
 
-    <!-- Scene 2: Pipeline  (16 → 32.4) -->
-    <div data-composition-id="scene-02-pipeline"
-         data-composition-src="scenes/02-pipeline.html"
-         data-start="16"  data-duration="16.4" data-track-index="3"
+    <!-- Scene 2: Breadth (20 → 30.4) -->
+    <div id="load-02-breadth"
+         data-composition-id="scene-02-breadth"
+         data-composition-src="scenes/02-breadth.html"
+         data-start="20" data-duration="10.4" data-track-index="3"
          style="opacity:0"></div>
 
-    <!-- Scene 3: Features  (32 → 47.4) -->
-    <div data-composition-id="scene-03-features"
-         data-composition-src="scenes/03-features.html"
-         data-start="32"  data-duration="15.4" data-track-index="4"
+    <!-- Scene 3: Volume / scroll-within-frame (30 → 42.4) -->
+    <div id="load-03-scroll"
+         data-composition-id="scene-03-scroll"
+         data-composition-src="scenes/03-scroll.html"
+         data-start="30" data-duration="12.4" data-track-index="4"
          style="opacity:0"></div>
 
-    <!-- Scene 4: CTA  (47 → 60) — closing scene: starts 0.4s early, but has no
-         successor to crossfade into, so it does NOT extend 0.4s past the end
-         (unlike scenes 0–3); it holds the final frame to t=60. -->
-    <div data-composition-id="scene-04-cta"
+    <!-- Scene 4: CTA (42 → 53) — closing scene, holds the final frame; no crossfade-out. -->
+    <div id="load-04-cta"
+         data-composition-id="scene-04-cta"
          data-composition-src="scenes/04-cta.html"
-         data-start="47"  data-duration="13"   data-track-index="5"
+         data-start="42" data-duration="11" data-track-index="5"
          style="opacity:0"></div>
   </div>
 
@@ -75,21 +73,12 @@
     window.__timelines = window.__timelines || {};
     const tl = gsap.timeline({ paused: true });
 
-    // Transitions: ONLY animate the incoming scene's opacity 0→1.
-    // The outgoing scene stays at opacity 1 underneath until its data-duration ends.
-    // This avoids the body color ever showing through during the crossfade.
-
-    tl.to('[data-composition-id="scene-01-how"]',
-      { opacity: 1, duration: 0.4, ease: "power2.inOut" }, 6);
-
-    tl.to('[data-composition-id="scene-02-pipeline"]',
-      { opacity: 1, duration: 0.4, ease: "power2.inOut" }, 16);
-
-    tl.to('[data-composition-id="scene-03-features"]',
-      { opacity: 1, duration: 0.4, ease: "power2.inOut" }, 32);
-
-    tl.to('[data-composition-id="scene-04-cta"]',
-      { opacity: 1, duration: 0.4, ease: "power2.inOut" }, 47);
+    // Transitions: only animate the INCOMING scene's opacity 0→1; the outgoing scene stays
+    // opaque underneath until its data-duration ends. No body color shows through.
+    tl.to('[data-composition-id="scene-01-depth"]',   { opacity: 1, duration: 0.4, ease: "power2.inOut" }, 8);
+    tl.to('[data-composition-id="scene-02-breadth"]', { opacity: 1, duration: 0.4, ease: "power2.inOut" }, 20);
+    tl.to('[data-composition-id="scene-03-scroll"]',  { opacity: 1, duration: 0.4, ease: "power2.inOut" }, 30);
+    tl.to('[data-composition-id="scene-04-cta"]',     { opacity: 1, duration: 0.4, ease: "power2.inOut" }, 42);
 
     window.__timelines["main"] = tl;
   </script>

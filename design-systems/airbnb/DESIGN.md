@@ -67,6 +67,7 @@ Airbnb's brand is *warm, rounded, hospitable*. Motion has slight bounce on round
 | Scene-to-scene transition | Soft crossfade 0.5–0.7s, `power2.inOut` |
 | Photo / hero reveal | Image scales 1.04 → 1.00 over 0.8s (slow Ken Burns) |
 | Counter / rating ease | `power1.out` (so the 4.81 settles confidently) |
+| Product-shot camera | Slow Ken Burns 1.04→1.00 over ~1.5s, `power1.out` — warm and unhurried (matches the documented hero-photo reveal) |
 | Avoid | Hard flash transitions, glitch, sharp `expo.out` — wrong tone for hospitality |
 
 The signature animated moment is the **Guest Favorite lockup**: a large centered rating number between two laurel wreaths. In a video, a rating scene should *settle* like this — slow counter, generous hold, no rush.

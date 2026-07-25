@@ -64,6 +64,7 @@ Stripe's brand is *premium-restraint*. Motion is dignified and slow.
 | Stagger | 0.12–0.18s (deliberate, not machine-gun) |
 | Scene-to-scene transition | Plain crossfade 0.5–0.7s, `power2.inOut`. No flash. |
 | Section-boundary transition | Slow gradient wipe (ruby→magenta band), 0.7s |
+| Product-shot camera | Imperceptible 1.04→1.0 drift over ~2s, `power1.inOut` |
 | Avoid | `back.out`, `elastic`, flash transitions, glitch, hard cuts |
 
 The "anti-shout" voice extends to motion: a Stripe video that snaps and pops is off-brand.

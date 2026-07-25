@@ -6,9 +6,10 @@ padding, pads to VIDEO_DURATION, and verifies timing via transcript.
 
 Usage:
     python3 generate_voiceover.py
+    python3 generate_voiceover.py --assemble-only
 
 Environment:
-    ELEVENLABS_API_KEY   — Required. ElevenLabs API key.
+    ELEVENLABS_API_KEY   — Required for generation; not used by --assemble-only.
                            (ELEVEN_LABS_API_KEY also accepted for back-compat.)
 
 Configuration (edit below):
@@ -42,27 +43,16 @@ import subprocess
 import tempfile
 from pathlib import Path
 
-try:
-    import requests
-except ImportError:
-    print("requests not found — auto-installing into the current Python "
-          "environment (Ctrl-C to abort)...", file=sys.stderr)
-    subprocess.check_call([sys.executable, "-m", "pip", "install", "requests"])
-    import requests
-
 # ─── Configuration ────────────────────────────────────────────────────────────
 
 API_KEY = os.environ.get("ELEVENLABS_API_KEY") or os.environ.get("ELEVEN_LABS_API_KEY")
-if not API_KEY:
-    print("Error: ELEVENLABS_API_KEY not set")
-    sys.exit(1)
 
 # Voice IDs:
 #   Matilda: XrExE9yKIg1WjnnlVkGX  — Warm, confident female
 #   Rachel:  21m00Tcm4TlvDq8ikWAM  — Calm, clear female
 #   Daniel:  onwK4e9ZLuTAKqWW03F9  — Authoritative male
 #   Josh:    TxGEqnHWrfWFTfGW9XjX  — Friendly male
-VOICE_ID = "XrExE9yKIg1WjnnlVkGX"  # Matilda (default)
+VOICE_ID = "XrExE9yKIg1WjnnlVkGX"  # Replace from the confirmed Creative Brief
 
 VIDEO_DURATION = 60  # seconds
 
@@ -90,6 +80,14 @@ VOICE_SETTINGS = {
 
 def generate_section(text: str, output_path: str) -> bool:
     """Generate a single voiceover section via ElevenLabs."""
+    try:
+        import requests
+    except ImportError:
+        print("requests not found — auto-installing into the current Python "
+              "environment (Ctrl-C to abort)...", file=sys.stderr)
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "requests"])
+        import requests
+
     response = requests.post(
         ELEVENLABS_URL,
         headers={
@@ -383,28 +381,54 @@ def check_overlaps(segments: list, sections: list) -> list:
 
 # ─── Main ────────────────────────────────────────────────────────────────────
 
-def main():
+def main(argv=None):
+    args = sys.argv[1:] if argv is None else argv
+    if args not in ([], ["--assemble-only"]):
+        print("Usage: generate_voiceover.py [--assemble-only]", file=sys.stderr)
+        return 2
+    assemble_only = args == ["--assemble-only"]
+
     print("hve-spielberg — Voiceover Generation")
     print("=" * 50)
 
-    # Step 1: Generate each section
-    print("\n[1/3] Generating voiceover sections...")
     section_files = []
-    for i, (start, text) in enumerate(sections):
-        print(f"  Section {i + 1}/{len(sections)}: \"{text[:60]}...\"")
-        output = f"vo_section_{i:02d}.mp3"
-        if generate_section(text, output):
+    if assemble_only:
+        print("\n[1/3] Loading externally generated voiceover sections...")
+        for i, (start, _) in enumerate(sections):
+            output = f"vo_section_{i:02d}.mp3"
+            if not Path(output).is_file() or Path(output).stat().st_size == 0:
+                print(
+                    f"Missing or empty section file: {output}",
+                    file=sys.stderr,
+                )
+                return 2
             section_files.append((start, output))
             duration = get_audio_duration(output)
             print(f"    Duration: {duration:.1f}s (starts at {start}s)")
-        else:
-            print("    FAILED — aborting (skipping would leave this scene "
-                  "silent while still reporting success)", file=sys.stderr)
-            sys.exit(2)
+    else:
+        if not API_KEY:
+            print(
+                "Error: confirmed ElevenLabs voice requires "
+                "ELEVENLABS_API_KEY",
+                file=sys.stderr,
+            )
+            return 1
+        print("\n[1/3] Generating voiceover sections...")
+        for i, (start, text) in enumerate(sections):
+            print(f"  Section {i + 1}/{len(sections)}: \"{text[:60]}...\"")
+            output = f"vo_section_{i:02d}.mp3"
+            if generate_section(text, output):
+                section_files.append((start, output))
+                duration = get_audio_duration(output)
+                print(f"    Duration: {duration:.1f}s (starts at {start}s)")
+            else:
+                print("    FAILED — aborting (skipping would leave this scene "
+                      "silent while still reporting success)", file=sys.stderr)
+                return 2
 
     if not section_files:
         print("No sections generated. Check API key and network.")
-        sys.exit(1)
+        return 1
 
     # Step 2: Assemble
     print("\n[2/3] Assembling voiceover...")
@@ -432,7 +456,8 @@ def main():
     print(f"\nDone! Output: voiceover.mp3")
     total_dur = get_audio_duration("voiceover.mp3")
     print(f"Total duration: {total_dur:.1f}s (video: {VIDEO_DURATION}s)")
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

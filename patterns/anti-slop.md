@@ -8,7 +8,7 @@ Distilled from public craft guidance on AI-generated UI (anti-AI-slop convention
 
 ### 1. Default Tailwind indigo / purple gradient hero
 
-Exactly `#6366f1`, `#4f46e5`, `#4338ca`, `#3730a3`, `#8b5cf6`, `#7c3aed`, `#a855f7`. **The textbook AI tell.** Same applies to two-stop "trust gradients": purple→blue, blue→cyan, indigo→pink. A flat surface with intentional type beats this every time. Use the accent from `DESIGN.md`; if `DESIGN.md` doesn't have one, ask before inventing.
+Exactly `#6366f1`, `#4f46e5`, `#4338ca`, `#3730a3`, `#8b5cf6`, `#7c3aed`, `#a855f7`. **The textbook AI tell.** Same applies to two-stop "trust gradients": purple→blue, blue→cyan, indigo→pink. A flat surface with intentional type beats this every time — but the real product, framed with depth, beats both. Use the accent from `DESIGN.md`; if `DESIGN.md` doesn't have one, ask before inventing.
 
 ### 2. Emoji as feature icons
 
@@ -91,7 +91,7 @@ The closing scene determines whether the viewer acts. Three non-negotiables:
 
 Aim for **~80% proven patterns + ~20% distinctive choice.** The 20% lives in:
 
-1. **One bold visual move** — a typography choice (a display serif at 140px with -2% tracking), a single colour decision (no accent at all, just brand-white on brand-black), an unexpected proportion (the hero takes 90% of the frame instead of 60%).
+1. **One bold visual move** — the real product composited in a browser or device frame with motivated, seekable depth (wrapper push-in, static-perspective tilt, inner-wrapper pan), a typography choice (a display serif at 140px with -2% tracking), a single colour decision (no accent at all, just brand-white on brand-black), an unexpected proportion (the hero takes 90% of the frame instead of 60%).
 2. **Voice and microcopy.** A button label that says "Start tracking" beats one that says "Get started". A CTA line that says "Read why this is the worst onboarding video on the internet" beats "Try it free for 14 days".
 3. **One micro-interaction the viewer will remember** — a number that counts up and *overshoots then settles*, a screenshot that floats in then a cursor clicks a real button, a logo whose letters arrive piece-by-piece in the order someone would write them.
 4. **One product-specific detail** that could only be there if you'd used the thing — a real keyboard shortcut hint, a status badge with the actual phrasing the product uses, a real error message styled as a feature.
@@ -100,10 +100,13 @@ Aim for **~80% proven patterns + ~20% distinctive choice.** The 20% lives in:
 
 Take a still frame from any scene in your composition. Show it to someone outside the project. If they can identify which product it's from — you have soul. If they can't — you shipped a template, and the renderer was wasted on it.
 
+The product screenshot is the SUBJECT of the frame, not background texture — frame it with depth; do not relegate it to atmosphere.
+
 ## Cross-references
 
 - **DON'Ts list** (mechanical rules — clipPath, 360° spins, `<img>` dimension animation): see `SKILL.md` § DON'Ts
 - **Easing vocabulary** (`power3.out` vs `back.out(1.4)` vs `expo.out`): `patterns/visual-patterns.md` § Easing Vocabulary
 - **Transition energy matching** (when to use a flash, a swoosh, a crossfade): `patterns/transition-catalog.md`
 - **Marker patterns for emphasis** (instead of emoji): `patterns/marker-highlight.md`
+- **Screenshot presentation** (framing the real product with motivated depth): `patterns/visual-patterns.md` § Screenshot Presentation and § Camera & Depth, with a ready-made scene in `templates/scene-screenshot.html`
 - **Phase 4.7 aesthetic critique** runs these rules against the composition: `workflows/phase-4-production.md` § Step 4.7
