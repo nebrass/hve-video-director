@@ -6,7 +6,7 @@ produced for a real app with a real UI, so **the actual product is on screen** a
 captured live via Chrome DevTools. It still dogfoods the skill (closing "made with
 `/hve-video-director`" sign-off).
 
-> **Why the subject changed (v0.0.4).** The previous flagship promoted hve-video-director *itself* —
+> **Why the subject changed (v0.0.4).** The previous flagship promoted *this skill* itself —
 > a UI-less CLI/prompt skill — so it had no app to film and was built entirely from typography
 > and a simulated terminal. That made the reference build model flat text-on-white ("simple
 > shapes and text"). Re-subjecting it to a real app puts the real product on screen, which is

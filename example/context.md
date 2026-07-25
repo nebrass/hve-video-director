@@ -9,7 +9,7 @@ DevTools in Phase 2. The skill still demonstrates itself — this is a genuine v
 pipeline produced — and signs off with "made with `/hve-video-director`", but the **subject** is
 the blog, not the tool.
 
-> **Why this changed.** The previous flagship promoted `hve-video-director` itself — a UI-less CLI
+> **Why this changed.** The previous flagship promoted *this skill* itself — a UI-less CLI
 > skill — so it (legitimately) had no app to film and was built entirely from typography and a
 > simulated terminal. That made the reference build model flat text-on-white, which read as
 > "simple shapes and text." Re-subjecting the flagship to a real app puts the actual product on

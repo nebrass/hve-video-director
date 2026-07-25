@@ -107,10 +107,11 @@ for home in $SKILL_HOMES; do
   [ -f "$home/hve-video-director/scripts/check_requirements.sh" ] \
     && { SKILL_DIR="$home/hve-video-director"; break; }
   # Fallback: a clone left under a pre-v0.1.0 directory name. Match the skill's
-  # own layout rather than its directory name, so a rename never breaks lookup.
-  for cand in "$home"/*/; do
-    [ -f "$cand/scripts/check_requirements.sh" ] && [ -f "$cand/workflows/phase-5-audio.md" ] \
-      && { SKILL_DIR="${cand%/}"; break 2; }
+  # declared frontmatter identity, not its directory name or file layout, so a
+  # rename never breaks lookup and no unrelated skill can match.
+  for c in "$home"/*/; do
+    [ -f "$c/SKILL.md" ] && grep -q '^name:[[:space:]]*hve-video-director[[:space:]]*$' "$c/SKILL.md" \
+      && { SKILL_DIR="${c%/}"; break 2; }
   done
 done
 IFS=$OLD_IFS

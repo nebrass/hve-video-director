@@ -40,7 +40,7 @@ def search(query: str, min_duration: int, max_duration: int, page_size: int, tok
         "token": token,
     }
     url = f"{API_BASE}/search/text/?" + urllib.parse.urlencode(params)
-    req = urllib.request.Request(url, headers={"User-Agent": "hve-video-director/1.0"})
+    req = urllib.request.Request(url, headers={"User-Agent": "hve-video-director"})
     with urllib.request.urlopen(req, timeout=30) as r:
         return json.loads(r.read().decode())
 
