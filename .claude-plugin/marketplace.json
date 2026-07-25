@@ -1,5 +1,5 @@
 {
-  "name": "hve-spielberg",
+  "name": "hve-video-director",
   "description": "AI-powered video production pipeline skill for Claude Code and GitHub Copilot CLI.",
   "owner": {
     "name": "Nebrass Lamouchi",
@@ -7,11 +7,11 @@
   },
   "plugins": [
     {
-      "name": "hve-spielberg",
+      "name": "hve-video-director",
       "source": "./",
       "description": "End-to-end video production pipeline with design thinking. A 6-phase orchestrator (Discovery → Storytelling → Capture → Design → Production → Audio & Render) that turns your app into a polished promo, showcase, or tutorial video, rendered with HyperFrames (HTML + GSAP). Runs on Claude Code and GitHub Copilot CLI.",
-      "version": "0.0.4",
-      "homepage": "https://github.com/nebrass/hve-spielberg",
+      "version": "0.1.0",
+      "homepage": "https://github.com/nebrass/hve-video-director",
       "license": "MIT",
       "author": {
         "name": "Nebrass Lamouchi",

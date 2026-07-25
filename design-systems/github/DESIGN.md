@@ -93,4 +93,4 @@ Of all 10 brands, GitHub has the strongest anti-decoration stance. If you're tem
 
 ## Source
 
-Informed by studying GitHub's actual product. Original prose authored by hve-spielberg, MIT licensed.
+Informed by studying GitHub's actual product. Original prose authored by hve-video-director, MIT licensed.

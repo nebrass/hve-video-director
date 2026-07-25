@@ -53,12 +53,12 @@ VIDEO_DURATION = 53
 # (start_time_seconds, text)
 # Aligned to scenes in storyboard.md. Each section starts 1s after its
 # scene starts (entry buffer) and ends ≥0.5s before the scene ends.
-# Pronunciation: written as "Aitch Vee Ee Spielberg" — phonetic spelling
+# Pronunciation: written as "Aitch Vee Ee Video Director" — phonetic spelling
 # is the most reliable way to force ElevenLabs to pronounce H-V-E as
 # individual letters. Plain "H V E" gets interpreted as a phonetic blob
 # (the first render produced "Sage V E" — Matilda was running the letters
 # together as a single word). The on-screen wordmark always shows
-# "hve-spielberg" in full, so what the viewer reads and what they hear
+# "hve-video-director" in full, so what the viewer reads and what they hear
 # match (letters spelled out).
 sections = [
     # Scene 0 Establishing (0–8.4s) — VO 1.0–~7  : the blog, framed (real homepage hero).
@@ -84,10 +84,10 @@ sections = [
 
     # Scene 4 CTA (42–53s) — VO 43.0–~52 : URL + made-with sign-off (dogfood hook).
     # Pronunciation: "eff arr" forces the .fr TLD letter-by-letter; "Aitch Vee Ee
-    # Spielberg" forces hve-spielberg as individual letters (plain "H V E" blobs).
+    # Video Director" forces the HVE prefix as individual letters (plain "H V E" blobs).
     (43.0,
      "Find it at blog dot nebrass dot eff arr. "
-     "This whole video? Made with one command — slash Aitch Vee Ee Spielberg."),
+     "This whole video? Made with one command — slash Aitch Vee Ee Video Director."),
 ]
 
 # ─── ElevenLabs TTS ──────────────────────────────────────────────────────────

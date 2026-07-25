@@ -1,11 +1,62 @@
 # Changelog
 
-All notable changes to the **hve-spielberg** skill are documented in this file.
+All notable changes to the **hve-video-director** skill are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [0.1.0] - 2026-07-25
+
+### Changed — BREAKING
+
+- **The skill is renamed `hve-spielberg` → `hve-video-director`.** The previous name
+  referenced a living public figure, which carried trademark and right-of-publicity
+  exposure and implied an endorsement that never existed. The new name describes what the
+  skill actually does, pairing an explicit domain (`video`) with the role it performs
+  (`director`).
+
+  **You must reinstall — `npx skills update` cannot migrate a rename.** The Skills CLI keys
+  the install directory and lock entry off the `SKILL.md` frontmatter `name`, and has no
+  rename or alias mechanism:
+
+  ```bash
+  npx skills remove hve-spielberg --global
+  npx skills add nebrass/hve-video-director --global
+  ```
+
+  See [`MIGRATION.md`](MIGRATION.md) for per-runtime instructions, including `git clone`
+  installs and the Claude Code plugin marketplace.
+
+  | | Before | After |
+  |---|---|---|
+  | Invocation | `/hve-spielberg` | `/hve-video-director` |
+  | Repository | `nebrass/hve-spielberg` | `nebrass/hve-video-director` |
+  | Install dir | `<skills-home>/hve-spielberg/` | `<skills-home>/hve-video-director/` |
+  | Plugin name | `hve-spielberg` | `hve-video-director` |
+
+  **Existing generated video projects are unaffected** — project scaffolding never embedded
+  the skill name (`templates/` contains no reference to it). No phase, workflow, script, CLI
+  flag, or file-format changed.
+
+### Added
+
+- **[`TRADEMARKS.md`](TRADEMARKS.md)** — nominative attribution for every third-party mark the
+  skill references (runtimes, tooling, and the ten `design-systems/` brands), a statement that
+  the design-system presets are original written descriptions rather than copied brand assets,
+  and the licensing terms that attach to generated output.
+- **[`MIGRATION.md`](MIGRATION.md)** — the `0.0.x` → `0.1.0` upgrade guide.
+- **Rename-resilient skill resolution.** The `$SKILL_DIR` probes in `SKILL.md`,
+  `workflows/phase-3-design.md`, and `workflows/phase-5-audio.md` now fall back to matching
+  the skill's own layout when no directory carries the expected name, so a clone left under a
+  pre-`0.1.0` directory name still resolves instead of failing mid-pipeline.
+
+### Note
+
+This release also carries the end-to-end pipeline hardening merged in
+[#22](https://github.com/nebrass/hve-video-director/pull/22), which was not separately
+changelogged.
 
 ## [0.0.4] - 2026-06-23
 
@@ -20,7 +71,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   runs — sudo/system commands**. Exit 1 if any required item is missing. On WSL it flags the
   `--docker` render path. Runs from a local checkout **or directly from GitHub** with no clone —
   `curl -fsSL …/scripts/check_requirements.sh | bash` (append `bash -s -- --fix` to auto-install).
-- **GitHub Copilot CLI support — the skill is now agent-agnostic.** `hve-spielberg`
+- **GitHub Copilot CLI support — the skill is now agent-agnostic.** `hve-video-director`
   runs on both **Claude Code** (`~/.claude/skills/`) and **GitHub Copilot CLI**
   (`~/.copilot/skills/`). A new **Runtime Compatibility** section in `SKILL.md`
   documents the runtime-neutral conventions used throughout the workflows:
@@ -41,7 +92,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the repo root `./` because `SKILL.md` lives at the root, not under `skills/`), plus a root
   `AGENTS.md` pointer. `README.md`, `CLAUDE.md`, and
   `.github/copilot-instructions.md` now lead with
-  `npx skills add nebrass/hve-spielberg [--agent github-copilot] [--global]` and collapse
+  `npx skills add nebrass/hve-video-director [--agent github-copilot] [--global]` and collapse
   the hand-paired `~/.claude` / `~/.copilot` git-clone and `cp -r` install blocks into a
   single CLI path with one manual git-clone fallback — the CLI auto-detects the agent and
   resolves its scanned skills home.
@@ -50,7 +101,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `.claude/skills/`, `~/.claude/skills/`, `.agents/skills/`, `~/.agents/skills/`,
   `.opencode/skills/`, `~/.config/opencode/skills/`; Pi scans `~/.pi/agent/skills/`,
   `~/.agents/skills/`, `.pi/skills/`, and project `.agents/skills/` (once trusted).
-  Since `npx skills add nebrass/hve-spielberg` already installs a `<name>/SKILL.md`
+  Since `npx skills add nebrass/hve-video-director` already installs a `<name>/SKILL.md`
   subdir into a scanned home, no plugin or `package.json` is needed — both pick the
   skill up natively and load it on demand. Documented in `README.md` and `AGENTS.md`.
   Skill *loading* follows each agent's documented convention; a full Phase 0→5 run on
@@ -208,7 +259,7 @@ DevTools screenshots and screencast clips.
 Migrated the rendering engine from **Remotion** (React, server-rendered) to
 **HyperFrames** (HTML + GSAP + headless Chromium) across the whole 6-phase
 pipeline, then extended it with first-class video-clip capture and a new
-tutorial content mode. Released via [PR #2](https://github.com/nebrass/hve-spielberg/pull/2).
+tutorial content mode. Released via [PR #2](https://github.com/nebrass/hve-video-director/pull/2).
 
 ### Changed
 
@@ -284,7 +335,7 @@ tutorial content mode. Released via [PR #2](https://github.com/nebrass/hve-spiel
 
 ## [0.0.1] - 2026-04-28
 
-Initial release of the hve-spielberg skill.
+Initial release of the hve-video-director skill.
 
 ### Added
 
@@ -299,8 +350,9 @@ Initial release of the hve-spielberg skill.
   earlier Pixabay integration.
 - README with install instructions and an MIT license.
 
-[Unreleased]: https://github.com/nebrass/hve-spielberg/compare/v0.0.4...HEAD
-[0.0.4]: https://github.com/nebrass/hve-spielberg/compare/v0.0.3...v0.0.4
-[0.0.3]: https://github.com/nebrass/hve-spielberg/compare/v0.0.2...v0.0.3
-[0.0.2]: https://github.com/nebrass/hve-spielberg/compare/v0.0.1...v0.0.2
-[0.0.1]: https://github.com/nebrass/hve-spielberg/releases/tag/v0.0.1
+[Unreleased]: https://github.com/nebrass/hve-video-director/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/nebrass/hve-video-director/compare/v0.0.4...v0.1.0
+[0.0.4]: https://github.com/nebrass/hve-video-director/compare/v0.0.3...v0.0.4
+[0.0.3]: https://github.com/nebrass/hve-video-director/compare/v0.0.2...v0.0.3
+[0.0.2]: https://github.com/nebrass/hve-video-director/compare/v0.0.1...v0.0.2
+[0.0.1]: https://github.com/nebrass/hve-video-director/releases/tag/v0.0.1

@@ -42,11 +42,16 @@ SKILL_DIR=$(
   OLD_IFS=$IFS
   IFS='|'
   for h in $SKILL_HOMES; do
-    [ -d "$h/hve-spielberg" ] && { echo "$h/hve-spielberg"; break; }
+    [ -d "$h/hve-video-director" ] && { echo "$h/hve-video-director"; break; }
+    # Fallback: a clone left under a pre-v0.1.0 directory name. Match the skill's
+    # own layout rather than its directory name, so a rename never breaks lookup.
+    for c in "$h"/*/; do
+      [ -f "$c/workflows/phase-5-audio.md" ] && { echo "${c%/}"; break 2; }
+    done
   done
   IFS=$OLD_IFS
 )
-[ -n "$SKILL_DIR" ] || { echo "ERROR: hve-spielberg install dir not found — set SKILL_DIR to the skill's path manually" >&2; }
+[ -n "$SKILL_DIR" ] || { echo "ERROR: hve-video-director install dir not found — set SKILL_DIR to the skill's path manually" >&2; }
 cp "$SKILL_DIR/design-systems/<slug>/DESIGN.md" ./DESIGN.md
 ```
 

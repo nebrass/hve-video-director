@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-hve-spielberg — Background Music Search (Freesound)
+hve-video-director — Background Music Search (Freesound)
 
 Searches Freesound APIv2 for CC-licensed music matching mood/genre keywords.
 Filters by duration and license. Returns ready-to-use preview URLs (HQ MP3,
@@ -40,7 +40,7 @@ def search(query: str, min_duration: int, max_duration: int, page_size: int, tok
         "token": token,
     }
     url = f"{API_BASE}/search/text/?" + urllib.parse.urlencode(params)
-    req = urllib.request.Request(url, headers={"User-Agent": "hve-spielberg/1.0"})
+    req = urllib.request.Request(url, headers={"User-Agent": "hve-video-director/1.0"})
     with urllib.request.urlopen(req, timeout=30) as r:
         return json.loads(r.read().decode())
 

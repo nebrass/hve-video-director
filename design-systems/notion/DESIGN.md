@@ -85,4 +85,4 @@ Notion's brand is *editorial-software calm*. Soft eases, generous timing, hand-d
 
 ## Source
 
-Informed by studying VoltAgent/awesome-design-md `design-md/notion/DESIGN.md` and the brand's actual product. Original prose authored by hve-spielberg, MIT licensed.
+Informed by studying VoltAgent/awesome-design-md `design-md/notion/DESIGN.md` and the brand's actual product. Original prose authored by hve-video-director, MIT licensed.

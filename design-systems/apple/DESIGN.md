@@ -84,4 +84,4 @@ The hardware always gets the entrance flourish — never the chrome. In a produc
 
 ## Source
 
-Informed by studying VoltAgent/awesome-design-md `design-md/apple/DESIGN.md` and the brand's actual product. Original prose authored by hve-spielberg, MIT licensed.
+Informed by studying VoltAgent/awesome-design-md `design-md/apple/DESIGN.md` and the brand's actual product. Original prose authored by hve-video-director, MIT licensed.

@@ -1,12 +1,12 @@
 # Example Project — a real promo for blog.nebrass.fr
 
 This is a **real promo video for [blog.nebrass.fr](https://blog.nebrass.fr)**, built by the
-pipeline it ships with. It's hve-spielberg's **reference build**: a genuine video the skill
+pipeline it ships with. It's hve-video-director's **reference build**: a genuine video the skill
 produced for a real app with a real UI, so **the actual product is on screen** as the spine —
 captured live via Chrome DevTools. It still dogfoods the skill (closing "made with
-`/hve-spielberg`" sign-off).
+`/hve-video-director`" sign-off).
 
-> **Why the subject changed (v0.0.4).** The previous flagship promoted hve-spielberg *itself* —
+> **Why the subject changed (v0.0.4).** The previous flagship promoted hve-video-director *itself* —
 > a UI-less CLI/prompt skill — so it had no app to film and was built entirely from typography
 > and a simulated terminal. That made the reference build model flat text-on-white ("simple
 > shapes and text"). Re-subjecting it to a real app puts the real product on screen, which is
@@ -28,7 +28,7 @@ sample. The rendered video and audio are the only things not committed.
 | `scenes/01-depth.html` | 3 | A real post's syntax-highlighted code + diff, push-in toward the code |
 | `scenes/02-breadth.html` | 3 | The categories index (real tag counts), static settle |
 | `scenes/03-scroll.html` | 3 | Full-page homepage, scroll-within-frame down the post list |
-| `scenes/04-cta.html` | 3 | `blog.nebrass.fr` + "made with `/hve-spielberg`" sign-off (closing scene) |
+| `scenes/04-cta.html` | 3 | `blog.nebrass.fr` + "made with `/hve-video-director`" sign-off (closing scene) |
 | `index.html` | 4 | Root 53s composition with 5 sub-comp loaders + incoming-only crossfades |
 | `voiceover.py` | 5 | ElevenLabs TTS (Matilda) + `npx hyperframes transcribe` verification + auto-pad to VIDEO_DURATION |
 | `voiceover.mp3` | 5 | Generated 53s voiceover (5 sections with silence padding) — gitignored, regenerable |
@@ -121,8 +121,8 @@ frame can identify the blog (the `patterns/anti-slop.md` screenshot test).
 
 ## Caveats
 
-- **Voice pronunciation:** ".fr" is spoken as "eff arr" and "hve-spielberg" as "Aitch Vee Ee
-  Spielberg" (phonetic spelling) — space-separated capital letters render as a blob otherwise.
+- **Voice pronunciation:** ".fr" is spoken as "eff arr" and "hve-video-director" as "Aitch Vee Ee
+  Video Director" (phonetic spelling) — space-separated capital letters render as a blob otherwise.
   See `workflows/phase-5-audio.md` § "Pronouncing acronyms".
 - **Music attribution:** the chosen track is CC-BY 4.0, requiring attribution. See `CREDITS.md`.
   To swap for a different track, re-run the Freesound search in Phase 5.2.

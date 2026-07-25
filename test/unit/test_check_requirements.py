@@ -107,7 +107,7 @@ class RequirementsCheckerTestCase(unittest.TestCase):
         })
         ready = self.run_checker(env=env)
         self.assertEqual(ready.returncode, 0, ready.stdout + ready.stderr)
-        self.assertIn("hve-spielberg requirements check", ready.stdout)
+        self.assertIn("hve-video-director requirements check", ready.stdout)
         self.assertIn("Required", ready.stdout)
         self.assertIn("Node.js 22.12.0", ready.stdout)
         self.assertIn("All required dependencies satisfied.", ready.stdout)

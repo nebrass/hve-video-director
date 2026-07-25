@@ -13,7 +13,7 @@ A nonzero exit routes back to the earliest stale phase even when `DESIGN.md` and
 
 ## Step 4.1: Initialize the Project
 
-By the time you reach Phase 4, `{project-dir}/` already has `DESIGN.md` and `scenes/*.html` from Phase 3. `npx hyperframes init {project-dir}` would clobber those files. **The supported flow is to skip `init` for hve-spielberg projects** — author `index.html` directly in the existing directory.
+By the time you reach Phase 4, `{project-dir}/` already has `DESIGN.md` and `scenes/*.html` from Phase 3. `npx hyperframes init {project-dir}` would clobber those files. **The supported flow is to skip `init` for hve-video-director projects** — author `index.html` directly in the existing directory.
 
 You only need three things in the project directory to render:
 
@@ -33,9 +33,9 @@ npm install hyperframes                  # installs into node_modules/
 
 After that, both CLI subcommands and bundled scripts work. The local install is optional — skip it if you don't plan to run animation-map.
 
-### Starter templates (reference only; not used in the hve-spielberg flow)
+### Starter templates (reference only; not used in the hve-video-director flow)
 
-If you're building a HyperFrames project *outside* hve-spielberg from scratch, `npx hyperframes init <dir>` supports `--example <name>` to seed with a richer starter than `blank`:
+If you're building a HyperFrames project *outside* hve-video-director from scratch, `npx hyperframes init <dir>` supports `--example <name>` to seed with a richer starter than `blank`:
 
 | Template | Best for |
 |---|---|
@@ -55,7 +55,7 @@ These are useful as reference compositions to study. **Don't run `init` against 
 
 HyperFrames ships a **catalog of pre-built, drop-in blocks** that handle the most common motion-design needs. Pulling a block via `npx hyperframes add <name>` copies a ready-to-wire sub-composition into your project. This is the conventional path used by first-party HyperFrames templates — composing catalog blocks is usually faster and more polished than authoring transitions and effects from scratch.
 
-Most useful blocks for hve-spielberg productions:
+Most useful blocks for hve-video-director productions:
 
 | Block | What it is | Use For |
 |---|---|---|

@@ -110,4 +110,4 @@ Arc's voice: smooth, generous, frosted-glass elegant. Motion never snaps.
 
 ## Source
 
-Informed by studying Arc's actual product. Original prose authored by hve-spielberg, MIT licensed.
+Informed by studying Arc's actual product. Original prose authored by hve-video-director, MIT licensed.

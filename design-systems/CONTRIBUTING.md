@@ -12,7 +12,7 @@ Not every brand is worth vendoring. Use the criteria below:
 | The brand's motion DNA is *observable* — real product, real marketing video, real animation choices to study | ✅ |
 | You can name at least 3 brand-specific anti-patterns (things to avoid that would betray the brand) | ✅ |
 | Open-design has the upstream `DESIGN.md` in `design-systems/<slug>/` OR you can author equivalent web-spec content | ✅ |
-| The brand is something hve-spielberg users would *plausibly* want as a preset for a product video | ✅ |
+| The brand is something hve-video-director users would *plausibly* want as a preset for a product video | ✅ |
 
 **If any of these fails: don't add it.** The 10 vendored brands are deliberately curated. A larger catalogue with weaker entries dilutes the choice.
 
@@ -167,7 +167,7 @@ Example:
 ```markdown
 ## Source
 
-Informed by studying VoltAgent/awesome-design-md `design-md/<slug>/DESIGN.md` and the brand's actual product. Original prose authored by hve-spielberg, MIT licensed.
+Informed by studying VoltAgent/awesome-design-md `design-md/<slug>/DESIGN.md` and the brand's actual product. Original prose authored by hve-video-director, MIT licensed.
 ```
 
 If your file ports an explicit Motion section from a source, name that source on the same line.

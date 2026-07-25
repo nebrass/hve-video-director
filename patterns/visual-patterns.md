@@ -1,6 +1,6 @@
 # Visual Patterns — Animation Toolkit
 
-Reference for animation choices in hve-spielberg productions. The renderer is **HyperFrames** (HTML + GSAP). Times are in **seconds**, not frames. All motion is authored as GSAP tweens on a paused timeline; HyperFrames drives playback.
+Reference for animation choices in hve-video-director productions. The renderer is **HyperFrames** (HTML + GSAP). Times are in **seconds**, not frames. All motion is authored as GSAP tweens on a paused timeline; HyperFrames drives playback.
 
 ## Easing Vocabulary
 

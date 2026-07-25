@@ -89,4 +89,4 @@ The signature animated moment is **bento-grid reveal**: a 2×3 grid of cards eac
 
 ## Source
 
-Informed by studying Bento's actual product. Original prose authored by hve-spielberg, MIT licensed.
+Informed by studying Bento's actual product. Original prose authored by hve-video-director, MIT licensed.

@@ -85,4 +85,4 @@ The "anti-shout" voice extends to motion: a Stripe video that snaps and pops is 
 
 ## Source
 
-Informed by studying VoltAgent/awesome-design-md `design-md/stripe/DESIGN.md` and the brand's actual product. Original prose authored by hve-spielberg, MIT licensed.
+Informed by studying VoltAgent/awesome-design-md `design-md/stripe/DESIGN.md` and the brand's actual product. Original prose authored by hve-video-director, MIT licensed.

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate and fingerprint an hve-spielberg creative brief.
+"""Validate and fingerprint an hve-video-director creative brief.
 
 The generated project's ``project-plan.md`` must contain the exact two-column
 ``## Creative Brief`` table documented in ``templates/project-plan.md``.
@@ -1089,7 +1089,7 @@ def command_stamp(project_dir: Path, phase: str, as_json: bool) -> int:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Validate and fingerprint an hve-spielberg Creative Brief."
+        description="Validate and fingerprint an hve-video-director Creative Brief."
     )
     parser.add_argument(
         "--project-dir",

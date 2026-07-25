@@ -88,4 +88,4 @@ The brand is "approachable competence." Motion is confident without showing off.
 
 ## Source
 
-Informed by studying VoltAgent/awesome-design-md `design-md/cal/DESIGN.md` and the brand's actual product. Original prose authored by hve-spielberg, MIT licensed.
+Informed by studying VoltAgent/awesome-design-md `design-md/cal/DESIGN.md` and the brand's actual product. Original prose authored by hve-video-director, MIT licensed.

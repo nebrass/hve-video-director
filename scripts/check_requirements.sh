@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# check_requirements.sh — inspect the hve-spielberg toolchain and optionally
+# check_requirements.sh — inspect the hve-video-director toolchain and optionally
 # apply explicitly consented, user-scoped fixes.
 #
 # Exit status: 0 when every required check is ready, 1 when a required check
@@ -16,7 +16,7 @@ FIX_IDS=""
 
 usage() {
   printf '%s\n' \
-    'check_requirements.sh — verify the hve-spielberg toolchain and optionally fix' \
+    'check_requirements.sh — verify the hve-video-director toolchain and optionally fix' \
     'safe, user-scoped gaps.' \
     '' \
     'Usage:' \
@@ -907,7 +907,7 @@ render_json() {
 render_plan() {
   local phase_text index
   calculate_summary
-  printf 'hve-spielberg Setup plan (%s)\n' "$PLATFORM"
+  printf 'hve-video-director Setup plan (%s)\n' "$PLATFORM"
   printf 'No changes will be made.\n'
   for ((index = 0; index < CHECK_COUNT; index++)); do
     load_check "$index"
@@ -931,7 +931,7 @@ render_plan() {
 render_human() {
   local last_group="" index
   calculate_summary
-  printf '%shve-spielberg requirements check%s  (%s%s%s)\n' \
+  printf '%shve-video-director requirements check%s  (%s%s%s)\n' \
     "$BOLD" "$RST" "$DIM" "$PLATFORM" "$RST"
   for ((index = 0; index < CHECK_COUNT; index++)); do
     load_check "$index"
