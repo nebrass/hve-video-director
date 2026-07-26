@@ -80,7 +80,7 @@ near-white radial surface with a layered elevation shadow. Per-scene:
 - **Depth (`01-depth`):** a post's syntax-highlighted code + diff; gentle push-in (1.0→1.06) toward the code block.
 - **Breadth (`02-breadth`):** the categories index; **no** camera move — a deliberate beat of stillness for rhythm.
 - **Volume (`03-scroll`):** the full-page homepage panned inside a fixed frame (scroll-within-frame — timeline-driven `translateY` on the inner wrapper, never `scrollTop`).
-- **CTA (`04-cta`):** closing text scene — `blog.nebrass.fr` in Geist 600 + a `/hve-spielberg` sign-off pill on `#ffffff`, held to the end.
+- **CTA (`04-cta`):** closing text scene — `blog.nebrass.fr` in Geist 600 + a `/hve-video-director` sign-off pill on `#ffffff`, held to the end.
 
 ## 7. Avoid
 
@@ -91,4 +91,4 @@ near-white radial surface with a layered elevation shadow. Per-scene:
 
 ## Source
 
-Informed by studying VoltAgent/awesome-design-md `design-md/vercel/DESIGN.md` and the brand's actual product. Original prose authored by hve-spielberg, MIT licensed.
+Informed by studying VoltAgent/awesome-design-md `design-md/vercel/DESIGN.md` and the brand's actual product. Original prose authored by hve-video-director, MIT licensed.

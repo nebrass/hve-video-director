@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-hve-spielberg — Caption Sidecar Generator
+hve-video-director — Caption Sidecar Generator
 
 Reads the word-timing transcript produced in Phase 5. The legacy invocation
 still emits ASR draft subtitles:

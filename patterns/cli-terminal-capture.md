@@ -1,6 +1,6 @@
 # CLI / Terminal Capture — asciinema + agg
 
-How to produce a **professional terminal clip** for a hve-spielberg CLI scene
+How to produce a **professional terminal clip** for a hve-video-director CLI scene
 when the storyboard calls for *real* command output (a deploy log, a build
 spinner, an interactive prompt). For the dependency-free fallback, see the
 "authored terminal" path documented inline in

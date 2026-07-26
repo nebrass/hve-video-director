@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) — and GitHub Copil
 
 ## What this repo is
 
-This repo **is an agent skill** (`hve-spielberg`) that runs on both **Claude Code** and **GitHub Copilot CLI**, not a typical application. The "source" is prompt content (markdown) plus Python helper scripts. There is no build system or lint config; pure-stdlib helper tests live under `test/`. The skill is consumed by future agent sessions that invoke `/hve-spielberg <project-dir>` (a slash command on Claude Code; invoked by name/intent on Copilot CLI). The `SKILL.md` frontmatter uses the Claude Code skill schema; Copilot CLI loads the skill from `name`/`description` and harmlessly ignores the Claude-only fields.
+This repo **is an agent skill** (`hve-video-director`) that runs on both **Claude Code** and **GitHub Copilot CLI**, not a typical application. The "source" is prompt content (markdown) plus Python helper scripts. There is no build system or lint config; pure-stdlib helper tests live under `test/`. The skill is consumed by future agent sessions that invoke `/hve-video-director <project-dir>` (a slash command on Claude Code; invoked by name/intent on Copilot CLI). The `SKILL.md` frontmatter uses the Claude Code skill schema; Copilot CLI loads the skill from `name`/`description` and harmlessly ignores the Claude-only fields.
 
 The renderer is **HyperFrames** (HTML + GSAP, rendered via headless Chromium). React/Remotion are no longer used.
 
@@ -79,10 +79,10 @@ python3 scripts/capture_screen.py --duration 6 --region 100,80,1280,720 \
 python3 scripts/stitch_clip.py raw.mp4 -o public/clips/scene-02-dashboard.mp4
 
 # Validate/confirm the stable Creative Brief and phase fingerprints
-python3 /path/to/hve-spielberg/scripts/validate_brief.py \
+python3 /path/to/hve-video-director/scripts/validate_brief.py \
   --project-dir /path/to/generated-project status --json
 # Legacy plans only, after explicit user consent
-python3 /path/to/hve-spielberg/scripts/validate_brief.py \
+python3 /path/to/hve-video-director/scripts/validate_brief.py \
   --project-dir /path/to/generated-project migrate
 
 # Music search (from inside a generated project) — query is a required argument
@@ -134,17 +134,17 @@ These are enforced verbally in the `## DON'Ts` section of `SKILL.md`. If you mod
 
 ```bash
 # Recommended — the skills CLI auto-detects the agent and resolves its skills home:
-npx skills add nebrass/hve-spielberg                                   # project install
-npx skills add nebrass/hve-spielberg --global                         # global (Claude Code default)
-npx skills add nebrass/hve-spielberg --agent github-copilot --global  # global for Copilot CLI
+npx skills add nebrass/hve-video-director                                   # project install
+npx skills add nebrass/hve-video-director --global                         # global (Claude Code default)
+npx skills add nebrass/hve-video-director --agent github-copilot --global  # global for Copilot CLI
 
 # Fallback — manual git clone into the agent's skills home:
-git clone https://github.com/nebrass/hve-spielberg.git ~/.claude/skills/hve-spielberg
+git clone https://github.com/nebrass/hve-video-director.git ~/.claude/skills/hve-video-director
 ```
 
 The repo ships a Claude Code plugin manifest at root (`.claude-plugin/plugin.json` + `marketplace.json`, source `./`) plus a root `AGENTS.md`. Other agents (GitHub Copilot CLI, OpenCode, Pi, Codex, Cursor) need no manifest — they discover the skill by directory convention from the homes `npx skills add` writes into (`.agents/skills/`, `.claude/skills/`, etc.). See `AGENTS.md` for the per-agent scan paths.
 
-When testing skill changes locally, the global install path is `~/.claude/skills/hve-spielberg/` (Claude Code) or `~/.copilot/skills/hve-spielberg/` (GitHub Copilot CLI).
+When testing skill changes locally, the global install path is `~/.claude/skills/hve-video-director/` (Claude Code) or `~/.copilot/skills/hve-video-director/` (GitHub Copilot CLI).
 
 ## Git / release conventions
 

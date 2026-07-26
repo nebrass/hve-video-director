@@ -1,6 +1,6 @@
 # Patterns Index — Wayfinding
 
-Quick map: *"I need to do X"* → *"read this file."* hve-spielberg leans on the `hyperframes` skill for deep authoring guidance; this index keeps you from re-discovering which HF reference covers which situation.
+Quick map: *"I need to do X"* → *"read this file."* hve-video-director leans on the `hyperframes` skill for deep authoring guidance; this index keeps you from re-discovering which HF reference covers which situation.
 
 ## Local patterns (in this directory)
 

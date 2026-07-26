@@ -88,4 +88,4 @@ The signature animated moment is the **Guest Favorite lockup**: a large centered
 
 ## Source
 
-Informed by studying VoltAgent/awesome-design-md `design-md/airbnb/DESIGN.md` and the brand's actual product. Original prose authored by hve-spielberg, MIT licensed.
+Informed by studying VoltAgent/awesome-design-md `design-md/airbnb/DESIGN.md` and the brand's actual product. Original prose authored by hve-video-director, MIT licensed.

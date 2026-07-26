@@ -90,4 +90,4 @@ crossfade.
 
 ## Source
 
-Informed by studying VoltAgent/awesome-design-md `design-md/vercel/DESIGN.md` and the brand's actual product. Original prose authored by hve-spielberg, MIT licensed.
+Informed by studying VoltAgent/awesome-design-md `design-md/vercel/DESIGN.md` and the brand's actual product. Original prose authored by hve-video-director, MIT licensed.

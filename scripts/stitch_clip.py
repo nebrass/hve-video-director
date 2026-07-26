@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-hve-spielberg — Clip Normalizer / Stitcher
+hve-video-director — Clip Normalizer / Stitcher
 
 Canonical, reviewed helper that turns raw capture(s) into the Phase-2 clip
 contract the seek-driven `<video>` sync requires: constant 30fps, H.264

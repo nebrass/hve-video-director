@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-hve-spielberg — Voiceover Generation Pipeline
+hve-video-director — Voiceover Generation Pipeline
 Generates timed voiceover using ElevenLabs TTS, assembles with silence
 padding, pads to VIDEO_DURATION, and verifies timing via transcript.
 
@@ -388,7 +388,7 @@ def main(argv=None):
         return 2
     assemble_only = args == ["--assemble-only"]
 
-    print("hve-spielberg — Voiceover Generation")
+    print("hve-video-director — Voiceover Generation")
     print("=" * 50)
 
     section_files = []

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-hve-spielberg — Native Screen Capture Orchestrator
+hve-video-director — Native Screen Capture Orchestrator
 
 Capture a desktop or region with a platform-native adapter, then invoke the
 sibling stitch_clip.py normalizer. The destination is replaced atomically only

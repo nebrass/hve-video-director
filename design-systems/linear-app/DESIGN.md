@@ -86,4 +86,4 @@ The brand voice is "things work because they're well-built, not because they loo
 
 ## Source
 
-Informed by studying VoltAgent/awesome-design-md `design-md/linear.app/DESIGN.md` and the brand's actual product. Original prose authored by hve-spielberg, MIT licensed.
+Informed by studying VoltAgent/awesome-design-md `design-md/linear.app/DESIGN.md` and the brand's actual product. Original prose authored by hve-video-director, MIT licensed.

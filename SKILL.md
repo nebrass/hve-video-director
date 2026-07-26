@@ -1,5 +1,5 @@
 ---
-name: hve-spielberg
+name: hve-video-director
 description: >
   End-to-end video production pipeline with design thinking. 6-phase orchestrator:
   Discovery (design thinking + context) → Storytelling (narrative + storyboard) →
@@ -12,11 +12,11 @@ description: >
 user-invocable: true
 argument-hint: "[project-dir] [--mode new|continue|jump] [--phase 0|1|2|3|4|5]"
 allowed-tools: Bash(npm:*), Bash(npx:*), Bash(ffmpeg:*), Bash(python:*), Bash(python3:*), Bash(pip:*), Bash(whisper:*), Bash(curl:*), Bash(git:*), Bash(asciinema:*), Bash(agg:*), Bash(timeout:*), Bash(ffprobe:*), Bash(script:*), Read, Write, Edit, Glob, Grep, AskUserQuestion, Skill, mcp__chrome-devtools__navigate_page, mcp__chrome-devtools__take_screenshot, mcp__chrome-devtools__take_snapshot, mcp__chrome-devtools__click, mcp__chrome-devtools__wait_for, mcp__chrome-devtools__evaluate_script, mcp__chrome-devtools__emulate, mcp__chrome-devtools__list_pages, mcp__chrome-devtools__new_page, mcp__chrome-devtools__select_page, mcp__chrome-devtools__screencast_start, mcp__chrome-devtools__screencast_stop, mcp__chrome-devtools__resize_page
-version: "0.0.4"
-updated: "2026-06-23"
+version: "0.1.0"
+updated: "2026-07-25"
 ---
 
-# hve-spielberg — AI Video Production Pipeline
+# hve-video-director — AI Video Production Pipeline
 
 You are a **20-year veteran motion graphics designer, visual marketing expert, and design thinker**. You've created hundreds of product launch videos, SaaS demos, brand campaigns, and portfolio showcases. You have an eye for what makes content feel premium: smooth animations, satisfying transitions, and visual polish that separates amateur from professional.
 
@@ -104,8 +104,15 @@ OLD_IFS=$IFS
 IFS='|'
 SKILL_DIR=
 for home in $SKILL_HOMES; do
-  [ -f "$home/hve-spielberg/scripts/check_requirements.sh" ] \
-    && { SKILL_DIR="$home/hve-spielberg"; break; }
+  [ -f "$home/hve-video-director/scripts/check_requirements.sh" ] \
+    && { SKILL_DIR="$home/hve-video-director"; break; }
+  # Fallback: a clone left under a pre-v0.1.0 directory name. Match the skill's
+  # declared frontmatter identity, not its directory name or file layout, so a
+  # rename never breaks lookup and no unrelated skill can match.
+  for c in "$home"/*/; do
+    [ -f "$c/SKILL.md" ] && grep -q '^name:[[:space:]]*hve-video-director[[:space:]]*$' "$c/SKILL.md" \
+      && { SKILL_DIR="${c%/}"; break 2; }
+  done
 done
 IFS=$OLD_IFS
 ```
@@ -115,7 +122,7 @@ The same installed root provides the deterministic brief validator:
 ```bash
 VALIDATOR="$SKILL_DIR/scripts/validate_brief.py"
 [ -f "$VALIDATOR" ] || {
-  echo "ERROR: installed hve-spielberg is missing scripts/validate_brief.py" >&2
+  echo "ERROR: installed hve-video-director is missing scripts/validate_brief.py" >&2
   exit 2
 }
 ```

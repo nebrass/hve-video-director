@@ -3,13 +3,13 @@
 ## What this video is
 
 A ~50-second promo for **blog.nebrass.fr** — Nebrass Lamouchi's software-engineering blog —
-**built by `hve-spielberg`**. The flagship is now a *real product video for a real app with a
+**built by `hve-video-director`**. The flagship is now a *real product video for a real app with a
 real UI*: the blog's actual screens are the spine of the video, captured live via Chrome
 DevTools in Phase 2. The skill still demonstrates itself — this is a genuine video the
-pipeline produced — and signs off with "made with `/hve-spielberg`", but the **subject** is
+pipeline produced — and signs off with "made with `/hve-video-director`", but the **subject** is
 the blog, not the tool.
 
-> **Why this changed.** The previous flagship promoted `hve-spielberg` itself — a UI-less CLI
+> **Why this changed.** The previous flagship promoted *this skill* itself — a UI-less CLI
 > skill — so it (legitimately) had no app to film and was built entirely from typography and a
 > simulated terminal. That made the reference build model flat text-on-white, which read as
 > "simple shapes and text." Re-subjecting the flagship to a real app puts the actual product on
@@ -32,7 +32,7 @@ search. Public, no auth. Captured screens (`public/screenshots/`):
 
 - Developers who read engineering blogs and might subscribe / share
 - Peers and recruiters discovering Nebrass's work
-- (Meta) Claude Code users seeing what a real `hve-spielberg` output looks like with the
+- (Meta) Claude Code users seeing what a real `hve-video-director` output looks like with the
   product on screen
 
 ## Goal

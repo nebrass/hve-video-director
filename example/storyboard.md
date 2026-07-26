@@ -2,7 +2,7 @@
 
 **Duration:** ~53s | **Canvas:** 1920×1080 (16:9) | **Renderer:** HyperFrames
 **Mode:** promo | **Theme:** light (Vercel-style)
-**Product surface:** ui   *(real captures are the spine; built by hve-spielberg, signs off with the tool)*
+**Product surface:** ui   *(real captures are the spine; built by hve-video-director, signs off with the tool)*
 **Capture plan:** 4 bound screenshots
 
 5 scenes. The **real blog is the spine**: scenes 0–3 each composite a live Phase-2 capture in
@@ -108,11 +108,11 @@ VO timing discipline (per `workflows/phase-5-audio.md`):
 
 **Visual:**
 - URL on a clean canvas: `blog.nebrass.fr` (Geist, large), with a hairline rule.
-- Sign-off line: "made with `/hve-spielberg`" (the dogfood hook survives).
+- Sign-off line: "made with `/hve-video-director`" (the dogfood hook survives).
 - Held final 2s (no exit; closing scene).
 
 **Voiceover (43.0s → ~51.0s):**
-> "Find it at blog dot nebrass dot eff arr. And this whole video? Made with one command — slash Aitch Vee Ee Spielberg."
+> "Find it at blog dot nebrass dot eff arr. And this whole video? Made with one command — slash Aitch Vee Ee Video Director."
 
 **Animation:** URL `fromTo({y:40, autoAlpha:0} → {y:0, autoAlpha:1}, 0.6s, expo.out)` at 0.3s; hairline width 0→540 at 0.9s; sign-off line at 1.6s; held from ~2.2s.
 
