@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.1.0] - 2026-07-25
+## [0.1.0] - 2026-07-26
 
 ### Changed — BREAKING
 
@@ -48,9 +48,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and the licensing terms that attach to generated output.
 - **[`MIGRATION.md`](MIGRATION.md)** — the `0.0.x` → `0.1.0` upgrade guide.
 - **Rename-resilient skill resolution.** The `$SKILL_DIR` probes in `SKILL.md`,
-  `workflows/phase-3-design.md`, and `workflows/phase-5-audio.md` now fall back to matching
-  the skill's own layout when no directory carries the expected name, so a clone left under a
-  pre-`0.1.0` directory name still resolves instead of failing mid-pipeline.
+  `workflows/phase-3-design.md`, and `workflows/phase-5-audio.md` now fall back to matching the
+  skill's declared frontmatter `name` when no directory carries the expected name, so a clone left
+  under a pre-`0.1.0` directory name still resolves instead of failing mid-pipeline. Matching
+  identity rather than file layout means no unrelated skill sharing a skills home can be selected.
 
 ### Note
 
