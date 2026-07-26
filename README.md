@@ -18,6 +18,10 @@ The current reproducible reference build is a **53-second promo for
 [blog.nebrass.fr](https://blog.nebrass.fr)** under [`example/`](example/). It uses four real
 Chrome DevTools captures as the product spine, followed by a closing CTA.
 
+▶ **[Download the current 53-second reference build](https://github.com/nebrass/hve-video-director/releases/download/v0.1.0/hve-video-director-example-v0.1.0.mp4)**
+(1920×1080, H.264 + AAC, 18 MB) — attached to the [v0.1.0 release](https://github.com/nebrass/hve-video-director/releases/tag/v0.1.0)
+and reproducible from [`example/`](example/) (see [§ Reproducing the render](example/README.md#reproducing-the-render)).
+
 [![Watch the legacy 60-second promo](https://img.youtube.com/vi/tIsQabrczRs/maxresdefault.jpg)](https://www.youtube.com/watch?v=tIsQabrczRs)
 
 ▶ **[Watch the legacy 60-second promo](https://www.youtube.com/watch?v=tIsQabrczRs)**.
@@ -454,9 +458,9 @@ hve-video-director/
 │   └── check_requirements.sh      # JSON/plan preflight + consent-scoped safe fixes
 ├── test/
 │   ├── run.sh                     # stdlib unit/integration test entrypoint
-│   └── unit/                       # caption, capture, requirements, onboarding, and brief tests
+│   └── unit/                       # caption, capture, requirements, onboarding, brief, and resolver tests
 ├── example/                       # The skill's own promo, built by the skill itself
-│   ├── (out/final.mp4)           # 60s rendered demo (1920×1080, 3.4 MB) — not committed; regenerable build artifact (demo on YouTube)
+│   ├── (out/final.mp4)           # 53s rendered demo (1920×1080, 18 MB) — not committed; regenerable build artifact (attached to the v0.1.0 release)
 │   ├── voiceover.py               # Project-local script with the actual VO timing config
 │   ├── index.html                 # Phase 4 root composition
 │   ├── scenes/*.html              # Phase 3 scene templates

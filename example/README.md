@@ -34,7 +34,7 @@ sample. The rendered video and audio are the only things not committed.
 | `voiceover.mp3` | 5 | Generated 53s voiceover (5 sections with silence padding) — gitignored, regenerable |
 | `background-music.mp3` | 5 | "Spark of Inspiration" by ViraMiller (Freesound, CC-BY 4.0) — gitignored, fetch via Step 3 |
 | `voiceover-with-music.mp3` | 5 | ffmpeg-mixed final audio: music normalized + EQ'd + sidechain-ducked under the voice — gitignored, regenerable |
-| `out/final.mp4` | 5 | **The rendered video.** `npx hyperframes render` output — not committed; regenerable build artifact. |
+| `out/final.mp4` | 5 | **The rendered video.** `npx hyperframes render` output — not committed; regenerable build artifact, also [attached to the v0.1.0 release](https://github.com/nebrass/hve-video-director/releases/download/v0.1.0/hve-video-director-example-v0.1.0.mp4). |
 | `CREDITS.md` | — | CC-BY attribution for the music + capture provenance + voiceover provenance |
 
 The source files (`.html`, `.md`, `.py`) **and the real screenshots** (`public/screenshots/*.png`)
