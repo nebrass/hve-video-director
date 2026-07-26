@@ -17,9 +17,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   skill actually does, pairing an explicit domain (`video`) with the role it performs
   (`director`).
 
-  **You must reinstall — `npx skills update` cannot migrate a rename.** The Skills CLI keys
-  the install directory and lock entry off the `SKILL.md` frontmatter `name`, and has no
-  rename or alias mechanism:
+  **You must remove the old install — `npx skills update` does not complete the rename.**
+  Because the old repository URL redirects, `update` resolves the new `SKILL.md`, keys it by
+  its frontmatter `name`, and installs `hve-video-director` *alongside* `hve-spielberg`. It
+  reports `✓ Updated 1 skill(s)` but never removes the old directory or its lock entry, so you
+  are left with both — a live 0.1.0 and a stale 0.0.4 that still declares the old name and
+  remains loadable by your agent. It also never converges: every later `update` reports the
+  same pending update again.
 
   ```bash
   npx skills remove hve-spielberg --global

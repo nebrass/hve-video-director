@@ -8,8 +8,9 @@ pipeline remains unverified.
 /hve-video-director
 ```
 
-> **Renamed in v0.1.0** — this skill was previously `hve-spielberg`. `npx skills update`
-> **cannot** migrate a rename; you must remove the old install and add the new one. See
+> **Renamed in v0.1.0** — this skill was previously `hve-spielberg`. `npx skills update` does
+> **not** complete the rename: it installs the new skill *alongside* the old one and leaves the
+> stale `hve-spielberg` behind. Remove the old install explicitly. See
 > [`MIGRATION.md`](MIGRATION.md).
 
 ## Reference build

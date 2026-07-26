@@ -3,7 +3,8 @@
 **Version 0.1.0 renames this skill.** The pipeline, phases, workflows, scripts, and
 generated-project layout are unchanged — only the name changed.
 
-> **You must reinstall.** `npx skills update` does **not** migrate a renamed skill. See
+> **You must remove the old install.** `npx skills update` does **not** complete the rename —
+> it installs the new skill alongside the old one and leaves the stale copy behind. See
 > [Why `update` is not enough](#why-update-is-not-enough).
 
 ## Why the rename
@@ -76,13 +77,35 @@ Remove and re-add the plugin; the plugin name changed from `hve-spielberg` to
 
 ## Why `update` is not enough
 
-The Skills CLI derives the install directory and its lock-file key from the `name` field in
-`SKILL.md` frontmatter, not from the repository slug. `npx skills update hve-spielberg`
-re-resolves the *old* name and has no rename or alias mechanism, so it cannot carry you across
-a rename. Removing and re-adding is the only supported path.
+The Skills CLI keys each install directory and lock entry by the `name` field in `SKILL.md`
+frontmatter, not by the repository slug. Because the old repository URL redirects to the new one,
+`npx skills update` *does* resolve the renamed skill — it fetches the new `SKILL.md`, reads
+`name: hve-video-director`, and installs it under that new key.
 
-If you skip the removal step you will end up with **both** versions installed, and your agent
-may load the stale one.
+What it does **not** do is remove what it replaced. The old `hve-spielberg` directory and its lock
+entry both survive, so a single `update` leaves you with two installs:
+
+```
+$ npx skills update -g -y
+Checking skills from source: nebrass/hve-spielberg
+Found 1 global update(s)
+Updating hve-spielberg…
+  ✓ Updated hve-spielberg
+✓ Updated 1 skill(s)
+
+$ ls ~/.claude/skills/
+hve-spielberg          # 0.0.4, still declares `name: hve-spielberg`
+hve-video-director     # 0.1.0
+```
+
+Two consequences:
+
+- **Your agent can load the stale one.** Both directories contain a valid `SKILL.md`, so both are
+  discoverable, and the 0.0.4 copy still answers to the old name.
+- **It never converges.** The stale lock entry stays pending forever — every subsequent
+  `npx skills update` reports the same `✓ Updated 1 skill(s)` again.
+
+Removing the old install explicitly is the only way to reach a clean state.
 
 ## Verifying the upgrade
 
