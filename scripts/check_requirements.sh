@@ -433,6 +433,29 @@ whisper_available() {
   [ -n "$hf" ] && "$hf" transcribe --help >/dev/null 2>&1
 }
 
+# Evidence that a HeyGen credential exists on this machine, printed as a short
+# human phrase. Presence only: this never contacts a provider, never runs the
+# heygen CLI, and cannot tell a valid credential from an expired one. A project
+# `.env` is deliberately not walked — the checker runs from an arbitrary cwd and
+# a cwd-dependent answer is worse than an honest "not found here".
+heygen_credential_source() {
+  local path
+  if [ -n "${HEYGEN_API_KEY:-}" ]; then
+    printf 'HEYGEN_API_KEY is set'
+    return 0
+  fi
+  if [ -n "${HYPERFRAMES_API_KEY:-}" ]; then
+    printf 'HYPERFRAMES_API_KEY is set'
+    return 0
+  fi
+  path="${HEYGEN_CONFIG_DIR:-$HOME/.heygen}/credentials"
+  if [ -f "$path" ]; then
+    printf 'stored credential at %s' "$path"
+    return 0
+  fi
+  return 1
+}
+
 # ---------------------------------------------------------------------------
 # Consent-scoped fixes. These are the only commands this script may execute
 # that install or download anything.
@@ -715,16 +738,55 @@ collect_checks() {
       "gsap skill — not found (recommended)"
   fi
 
+  capture_exact found find_skill_home media-use 2>/dev/null || found=""
+  if [ -n "$found" ]; then
+    add_check media-use-skill "media-use skill" recommended ready "5" \
+      "found in $found; the delegated audio engine (voiceover, music bed, and effects in one request, with word timestamps) is available" \
+      "" manual-online "" \
+      "npx --yes skills add heygen-com/hyperframes --global --yes" \
+      "Companion skills (Phase 5 audio)" "media-use skill ($found)"
+  else
+    add_check media-use-skill "media-use skill" recommended degraded "5" \
+      "not found in any canonical skill home; Phase 5 falls back to the deprecated scripts/generate_voiceover.py and scripts/search_music.py" \
+      "" manual-online "" \
+      "npx --yes skills add heygen-com/hyperframes --global --yes" \
+      "Companion skills (Phase 5 audio)" \
+      "media-use skill — not found (Phase 5 falls back to the deprecated local audio scripts)"
+  fi
+
+  capture_exact found heygen_credential_source 2>/dev/null || found=""
+  if [ -n "$found" ]; then
+    add_check heygen-credential "HeyGen credential" recommended ready "5" \
+      "$found; validity and provider reachability are never probed in report modes" \
+      "" manual-download "" \
+      "Sign in with: heygen auth login --oauth" Recommended \
+      "HeyGen credential found ($found; not verified against the provider)"
+  elif command -v heygen >/dev/null 2>&1; then
+    command_path path heygen
+    add_check heygen-credential "HeyGen credential" recommended degraded "5" \
+      "heygen CLI found at $path but no credential is visible in the environment or the credential file; the delegated engine cannot use its free TTS/music/effects path" \
+      "" manual-download "" \
+      "Sign in with: heygen auth login --oauth" Recommended \
+      "HeyGen CLI found but no credential — run: heygen auth login --oauth"
+  else
+    add_check heygen-credential "HeyGen credential" recommended degraded "5" \
+      "no heygen CLI and no stored credential; the delegated audio engine skips its first TTS route and has no catalog music/effects retrieval" \
+      "" manual-download "" \
+      "Install the HeyGen CLI (https://developers.heygen.com/cli), then sign in with: heygen auth login --oauth" \
+      Recommended \
+      "HeyGen credential not found — delegated TTS falls back to ElevenLabs, then to local Kokoro on explicit confirmation"
+  fi
+
   if [ -n "${ELEVENLABS_API_KEY:-}" ] || [ -n "${ELEVEN_LABS_API_KEY:-}" ]; then
     add_check elevenlabs-key "ELEVENLABS_API_KEY" recommended ready "5" \
-      "set; high-quality TTS is available" "" manual-env "" \
-      "export ELEVENLABS_API_KEY=<key>" Recommended \
-      "ELEVENLABS_API_KEY set (high-quality TTS)"
+      "set; it serves both the delegated audio engine's ElevenLabs TTS route and the deprecated scripts/generate_voiceover.py fallback" \
+      "" manual-env "" "export ELEVENLABS_API_KEY=<key>" Recommended \
+      "ELEVENLABS_API_KEY set (ElevenLabs TTS route, delegated or local)"
   else
     add_check elevenlabs-key "ELEVENLABS_API_KEY" recommended degraded "5" \
-      "not set; ElevenLabs voice choices are unavailable until a key is configured" "" \
+      "not set; the delegated audio engine skips its ElevenLabs route and scripts/generate_voiceover.py cannot run" "" \
       manual-env "" "export ELEVENLABS_API_KEY=<key>" Recommended \
-      "ELEVENLABS_API_KEY not set — choose Kokoro explicitly for local TTS or configure the key before confirming ElevenLabs"
+      "ELEVENLABS_API_KEY not set — ElevenLabs voices unavailable; choose Kokoro explicitly for local TTS or configure the key"
   fi
 
   if command -v whisper >/dev/null 2>&1; then
@@ -746,14 +808,14 @@ collect_checks() {
 
   if [ -n "${FREESOUND_API_KEY:-}" ]; then
     add_check freesound-key "FREESOUND_API_KEY" optional ready "5" \
-      "set; Creative Commons music search is available" "" manual-env "" \
-      "export FREESOUND_API_KEY=<key>" Optional \
-      "FREESOUND_API_KEY set (CC music search)"
+      "set; the deprecated scripts/search_music.py fallback can search Creative Commons music" \
+      "" manual-env "" "export FREESOUND_API_KEY=<key>" Optional \
+      "FREESOUND_API_KEY set (deprecated Creative Commons music fallback)"
   else
     add_check freesound-key "FREESOUND_API_KEY" optional degraded "5" \
-      "not set; music search is disabled but user-provided music still works" "" \
+      "not set; only the deprecated Freesound fallback is unavailable — delegated music retrieval and user-provided tracks are unaffected" "" \
       manual-env "" "export FREESOUND_API_KEY=<key>" Optional \
-      "FREESOUND_API_KEY not set — music search disabled (user-provided music still works)"
+      "FREESOUND_API_KEY not set — deprecated Freesound fallback unavailable (delegated music and user-provided tracks still work)"
   fi
 
   if command -v espeak-ng >/dev/null 2>&1; then

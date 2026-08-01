@@ -50,7 +50,7 @@ hve-video-director is an Agent Skill that orchestrates end-to-end video producti
 3. **Captures your app** automatically via Chrome DevTools, including an explicitly selected already-authenticated Chrome tab
 4. **Authors HTML scene templates** matching your brand DNA — pick from [10 curated design systems](design-systems/) (Stripe, Linear, Apple, Notion, Vercel, Airbnb, GitHub, Cal, Arc, Bento), 8 HyperFrames named styles, or derive from screenshots
 5. **Produces the video** in HyperFrames (HTML + GSAP, headless-Chromium rendered)
-6. **Adds voiceover, music, and reviewed closed captions** with the explicitly chosen ElevenLabs or local Kokoro-82M voice, `npx hyperframes transcribe`, Freesound music, and audio-fingerprinted SRT/VTT delivery
+6. **Adds voiceover, music, SFX, and reviewed closed captions** through the `media-use` audio engine — the explicitly chosen voice (ElevenLabs, local Kokoro-82M, or a HeyGen voice once you sign in), a music bed whose exact track you confirm before any mix, word timestamps (HeyGen route) or `npx hyperframes transcribe` for timing, and audio-fingerprinted SRT/VTT delivery
 
 ### Three Modes
 
@@ -70,9 +70,9 @@ Phase 0: DISCOVERY         Phase 1: STORYTELLING       Phase 2: CAPTURE
 └ Goal/audience analysis   └ Script outline             └ Bound capture artifacts
 
 Phase 3: DESIGN            Phase 4: PRODUCTION         Phase 5: AUDIO & RENDER
-├ HyperFrames skills       ├ HyperFrames root index     ├ ElevenLabs TTS
-├ DESIGN.md (brand+motion) ├ Sub-composition wiring     ├ Whisper verification
-├ Scene HTML templates     ├ GSAP transitions           ├ Freesound Music API
+├ HyperFrames skills       ├ HyperFrames root index     ├ media-use audio engine
+├ DESIGN.md (brand+motion) ├ Sub-composition wiring     ├ Reviewed captions
+├ Scene HTML templates     ├ GSAP transitions           ├ Confirmed track + mix
 └ Per-scene preview        └ lint + check gates         └ npx hyperframes render
 ```
 
@@ -123,9 +123,10 @@ less check_requirements.sh && bash check_requirements.sh --plan
 | HyperFrames companion skills | Phases 3–5 | `npx skills add heygen-com/hyperframes` — installs the `hyperframes` router *and* the domain family it dispatches to |
 | `chrome-headless-shell` | Yes | Used by `npx hyperframes render` for frame capture. System Chrome causes 120s render hangs. Install once: `npx puppeteer browsers install chrome-headless-shell` (one-time, ~170MB, cached). Verify with `npx hyperframes doctor`. |
 | Chrome DevTools MCP | For web capture | Required only when the storyboard requests web screenshots/screencasts. Configure it in the active agent; capability names are resolved per runtime. For an already-authenticated tab, use Chrome 144+ remote debugging plus MCP `--autoConnect` (preferred), or the documented dedicated-profile `--browser-url` fallback. |
-| `ELEVENLABS_API_KEY` | For an ElevenLabs voice | [elevenlabs.io](https://elevenlabs.io) — required when the confirmed voice uses ElevenLabs. Choose Kokoro explicitly for no-key local TTS; providers are never substituted automatically. |
-| `FREESOUND_API_KEY` | No | [freesound.org/apiv2/apply](https://freesound.org/apiv2/apply/) — enables CC music search |
-| Whisper | Recommended | `pip install openai-whisper` — voiceover timing verification |
+| HeyGen credential | Recommended | `heygen auth login --oauth` (or `HEYGEN_API_KEY`) — unlocks the `media-use` engine's HeyGen voice route, the only route that returns word timestamps, plus catalog music/SFX. The checker reports it as `heygen-credential` and degrades gracefully without it. Phase 5 never substitutes a confirmed provider; it does not currently prompt for HeyGen sign-in. |
+| `ELEVENLABS_API_KEY` | For an ElevenLabs voice | [elevenlabs.io](https://elevenlabs.io) — required when the confirmed voice uses ElevenLabs, on either audio path. This route returns no word timestamps, so caption timing comes from transcription. Choose Kokoro explicitly for no-key local TTS; providers are never substituted automatically. |
+| `FREESOUND_API_KEY` | No | [freesound.org/apiv2/apply](https://freesound.org/apiv2/apply/) — CC music search for the deprecated local music fallback; the primary music bed comes from the `media-use` engine |
+| Whisper | Recommended | `pip install openai-whisper` — voiceover timing verification when neither word timestamps nor `npx hyperframes transcribe` are available |
 | `espeak-ng` | Optional | `brew install espeak-ng` / `apt install espeak-ng` — only needed for non-English voiceover via a confirmed Kokoro voice |
 | `--experimentalScreencast` (chrome-devtools MCP) | No | Enables `screencast` web-clip capture; without it, web scenes fall back to screenshots. |
 | `asciinema` + `agg` | No | Optional true terminal-clip recording for CLI scenes; without them, CLI scenes use the authored-terminal path. Install: `brew install asciinema agg` (macOS) · `apt install asciinema && cargo install --git https://github.com/asciinema/agg` (Debian/Ubuntu). See [`patterns/cli-terminal-capture.md`](patterns/cli-terminal-capture.md) for the full recording workflow. |
@@ -203,7 +204,7 @@ hve-video-director depends on the **HyperFrames companion agent skills** plus th
 |-----------|------|---------|---------|
 | `hyperframes` skill | Agent skill | The intent **router**: it dispatches to whichever domain skill owns the topic. Load it first; it is no longer a monolith that carries the authoring rules itself. | `npx skills add heygen-com/hyperframes` |
 | `hyperframes-core`, `hyperframes-animation`, `hyperframes-creative`, `hyperframes-cli`, `hyperframes-registry` | Agent skills | The domain family the router points at — composition contract and `data-*` timing (core), GSAP choreography such as eases, timelines, stagger and the transition catalog (animation), visual style/typography/data-in-motion (creative), gates and render commands (cli), catalog blocks (registry). Loaded on demand across Phases 3–5, never wholesale. | Installed by the same `npx skills add heygen-com/hyperframes` |
-| `media-use`, `motion-doctrine` | Agent skills | Audio, captions and transcripts (`media-use`, Phase 5); seam/transition law that supersedes local transition guidance where the two disagree (`motion-doctrine`, Phase 4). | Installed by the same `npx skills add heygen-com/hyperframes` |
+| `media-use`, `motion-doctrine` | Agent skills | **`media-use` owns Phase-5 audio generation today** — one engine producing voiceover, music bed and SFX from a single request, plus transcription and caption data. This skill keeps only the governance around it: the exact-track confirmation, caption review, the verified mix, and render approval. `motion-doctrine` owns the seam/transition law that supersedes local transition guidance where the two disagree (Phase 4). | Installed by the same `npx skills add heygen-com/hyperframes` |
 | `hyperframes` npm package | CLI | `init`, `add` (pull catalog blocks, Phase 4), `lint` (fast iteration), `preview`, `check` (the required final gate — `inspect`, `validate` and `layout` are deprecated aliases it subsumes), `render`, `doctor` (render diagnostics), `transcribe` (Phase 5's preferred timing verifier, with standalone Whisper as fallback), `tts` (confirmed local Kokoro voices) | `npx hyperframes <command>` (auto-fetches; package: [`hyperframes`](https://www.npmjs.com/package/hyperframes), repo: [github.com/heygen-com/hyperframes](https://github.com/heygen-com/hyperframes)) |
 
 Skill *names* are the ecosystem's stable API; the file paths *inside* them churn, so every path this
@@ -291,8 +292,13 @@ existing skill directories for `SKILL.md` changes; other agents may require a re
 1. **Set API keys** as needed:
    ```bash
    export ELEVENLABS_API_KEY=your_key_here    # required only if you confirm an ElevenLabs voice
-   export FREESOUND_API_KEY=your_key_here     # Phase 5 falls back to user-provided / no music if unset
+   export FREESOUND_API_KEY=your_key_here     # deprecated music fallback; Phase 5 works without it
    ```
+
+   Optional, and never done for you: sign in to HeyGen (`heygen auth login --oauth`, or set
+   `HEYGEN_API_KEY`). It unlocks the `media-use` engine's HeyGen voice route — the one that
+   returns word timestamps — plus catalog music and SFX.
+   `./scripts/check_requirements.sh` reports it as `heygen-credential` and degrades without it.
 
 2. **Start the skill:**
    ```
@@ -351,19 +357,35 @@ Use the invocation syntax from the compatibility table above.
 | Daniel | Authoritative male | `onwK4e9ZLuTAKqWW03F9` |
 | Josh | Friendly, conversational male | `TxGEqnHWrfWFTfGW9XjX` |
 
-**Local option (Kokoro-82M):** choose Kokoro during Phase 1 for no-key local TTS with 54 voices across 8 languages (e.g. `af_nova`, `af_heart`). List them with `npx hyperframes tts --list`; the full catalog is the `media-use` skill's TTS_LOCAL capability (resolved through [`compat/ecosystem.md`](compat/ecosystem.md)). A missing ElevenLabs key never changes a confirmed provider.
+These four ElevenLabs voices remain the user-facing voice contract. Phase 5 synthesizes them
+through the `media-use` audio engine's ElevenLabs route (the deprecated local script is the
+offline fallback); that route returns no word timestamps, so caption timing comes from
+transcription.
+
+**Local option (Kokoro-82M):** choose Kokoro during Phase 1 for no-key local TTS with 54 voices across 8 languages (e.g. `af_nova`, `af_heart`). List them with `npx hyperframes tts --list`; the full catalog is the `media-use` skill's TTS_LOCAL capability (resolved through [`compat/ecosystem.md`](compat/ecosystem.md)). A missing ElevenLabs key never changes a confirmed provider — and neither does the presence or absence of a HeyGen sign-in.
 
 ## Music Strategy
 
-No bundled audio files. Three-tier approach:
+No bundled audio files. Three confirmable sources, plus a delegated path not yet confirmable:
 
-1. **Freesound API** — Search Creative Commons music by mood/genre, filter by duration and license, use the `preview-hq-mp3` URL directly (requires `FREESOUND_API_KEY`, free at [freesound.org/apiv2/apply](https://freesound.org/apiv2/apply/)). Attribute CC-BY tracks in `CREDITS.md`.
+1. **Freesound API** — the confirmed music source today: search Creative Commons
+   music by mood/genre, filter by duration and license, use the `preview-hq-mp3` URL directly
+   (requires `FREESOUND_API_KEY`, free at
+   [freesound.org/apiv2/apply](https://freesound.org/apiv2/apply/)). Attribute CC-BY tracks in
+   `CREDITS.md`.
 2. **User-provided** — Bring your own MP3 or URL
 3. **No music** — Voiceover only
 
-The strategy is confirmed with the story brief. Phase 5 separately confirms the exact track
-(title, project path, source, and license) or explicit `none`; no track is mixed or rendered before
-that confirmation.
+The `media-use` audio engine can also retrieve or generate a bed, and Phase 5 uses it for
+narration and SFX today — but it cannot yet be the *confirmed* music source. The Creative Brief
+pins a music track to an exact Freesound URL or the literal `user-provided`, and a delegated
+track satisfies neither, so it cannot pass the audio gate. Widening that vocabulary is a brief
+change (**M4**); until then music routes through the strategy you actually confirmed.
+
+The strategy is confirmed with the story brief. Whatever produced the candidate — catalog
+retrieval, local generation, Freesound, or your own file — Phase 5 separately confirms the exact
+track (title, project path, source, and license) or explicit `none`; no track is mixed or rendered
+before that confirmation. A generated or retrieved suggestion is a candidate, never the answer.
 
 ## Creative Brief validation
 
@@ -411,10 +433,10 @@ my-video-project/
 │   ├── 01-pain-point.html
 │   └── ...
 ├── index.html                # Phase 4 root HyperFrames composition
-├── voiceover.mp3             # ElevenLabs TTS output
-├── transcript.json           # `npx hyperframes transcribe` timing data
+├── voiceover.mp3             # narration (media-use audio engine, or the deprecated local script)
+├── transcript.json           # word timings for captions
                               # (or voiceover.json if you used standalone whisper)
-├── background-music.mp3      # Freesound or user-provided
+├── background-music.mp3      # the confirmed music bed (engine, Freesound, or user-provided)
 ├── voiceover-with-music.mp3  # Mixed track wired into index.html
 ├── captions-review.json      # Human-reviewed speech/speaker/sound cue source
 └── out/
@@ -467,16 +489,18 @@ hve-video-director/
 │   ├── apple/DESIGN.md
 │   └── …                          # notion, vercel, airbnb, github, cal, arc, bento
 ├── scripts/
-│   ├── generate_voiceover.py      # ElevenLabs TTS + transcript verification + auto-pad
+│   ├── generate_voiceover.py      # section assembly (both paths) + deprecated ElevenLabs fallback
 │   ├── caption_gen.py             # ASR drafts → reviewed, audio-bound final caption sidecars
 │   ├── capture_screen.py          # native screen/region capture orchestrator (silent)
 │   ├── stitch_clip.py             # normalize/stitch captures to the CFR30 clip contract
 │   ├── validate_brief.py           # Creative Brief validation + fingerprint state
-│   ├── search_music.py            # Freesound CC music search
+│   ├── search_music.py            # deprecated fallback (removed in M6): Freesound CC music search
 │   └── check_requirements.sh      # JSON/plan preflight + consent-scoped safe fixes
 ├── test/
 │   ├── run.sh                     # stdlib unit/integration test entrypoint
-│   └── unit/                       # caption, capture, requirements, onboarding, brief, resolver, and pointer-validity tests
+│   └── unit/                      # caption, capture, requirements, onboarding, brief and resolver tests, plus:
+│       ├── test_compat_pointers.py # pointer validity — compat/ecosystem.md is the only holder of upstream paths
+│       └── test_director_keys.py  # docs-as-contract — director keys + the capability-tag vocabulary
 ├── example/                       # The skill's own promo, built by the skill itself
 │   ├── (out/final.mp4)           # 53s rendered demo (1920×1080, 18 MB) — not committed; regenerable build artifact (attached to the v0.1.0 release)
 │   ├── voiceover.py               # Project-local script with the actual VO timing config

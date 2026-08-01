@@ -2,8 +2,14 @@
 
 Generate voiceover, mix music, and render the final video.
 
-Before generating final audio, require the accepted composition to match the current story
-fingerprint:
+**Division of labour.** *Acquisition* is delegated: the `media-use` skill's audio engine
+(`AUDIO_ENGINE`) synthesizes narration, retrieves or generates a music bed (`BGM`), resolves sound
+effects (`SFX`), and returns word timings. *Governance stays here* — the confirmed voice, the
+exact-track music confirmation, the reviewed captions, the verified mix recipes, and render
+approval. Delegation moves the search and the synthesis; it never moves a choice (ADR-001).
+
+Resolve the tool paths in Step 5.0 first, then require the accepted composition to match the current
+story fingerprint before generating any final audio:
 
 ```bash
 python3 "$SKILL_DIR/scripts/validate_brief.py" \
@@ -13,86 +19,9 @@ python3 "$SKILL_DIR/scripts/validate_brief.py" \
 A nonzero exit routes back to the earliest stale phase. A changed exact music track does not stale
 Phase 1–4, so it returns here to Phase 5.
 
-## Step 5.1: Generate Voiceover
+## Step 5.0: Resolve the tools this phase runs
 
-**The voiceover must match the visuals.** This is non-negotiable.
-
-Read the exact confirmed `voice` from the Creative Brief. Its prefix is binding:
-
-- `elevenlabs:<name>:<voice-id>` → use ElevenLabs with that exact ID.
-- `kokoro:<voice-id>` → use HyperFrames local TTS with that exact ID.
-
-Do not choose a provider from environment-variable availability. Do not replace the confirmed
-voice with a default, and do not silently fall back between providers. An invalid value routes
-back to Phase 1.
-
-### Extract Scene Timings
-
-Read the main composition file to extract exact scene timings and content. Build a timing table:
-
-```
-Scene              | Start | End  | Duration | Visual Content
--------------------|-------|------|----------|---------------
-Hook               | 0s    | 5s   | 5s       | "Title text" + stat
-Pain Point 1       | 5s    | 9s   | 4s       | "Pain title" + icon
-...
-```
-
-### Write Aligned Script
-
-For each scene, write voiceover text that:
-- References what's visually on screen
-- Starts 1s after scene start (buffer)
-- Ends 0.5s before scene end (buffer)
-- Matches the spoken stat to the visual stat
-
-#### Pronouncing acronyms and brand abbreviations
-
-ElevenLabs voices (and most current TTS models) run space-separated capital letters together as a phonetic blob, not as spelled letters. Writing "H V E" in a script can render as "Sage V E" or similar — the model treats it as a single syllable.
-
-**Always write acronyms phonetically** when you want them spelled out:
-
-| Want spoken | Write in script |
-|---|---|
-| H V E video director | `Aitch Vee Ee Video Director` |
-| AI | `A I` *(spelled)* or `aye eye` *(emphasized)* |
-| API | `A P I` *(spelled)* or `ay pee eye` *(emphasized)* |
-| SaaS | `sass` *(natural word)* or `S A A S` *(spelled)* |
-| URL | `U R L` *(spelled)* or `earl` *(natural)* |
-
-Periods between letters (`H. V. E.`) work in some TTS but cause sentence-end pauses in others — phonetic spelling is the most reliable. Test the section once and inspect the output before generating the rest.
-
-#### Voice timing is non-linear with word count
-
-Word count is a weak proxy for spoken duration. Comma density matters more — Matilda (and most TTS voices) take ~0.3–0.5s of pause at each comma. A 22-word sentence with 5 commas can run 15 seconds; the same idea in 26 commaless words takes 10 seconds.
-
-When a section overruns budget, **drop commas before dropping words**. Restructure with fewer subclauses and more direct phrasing. Same information, half the commas, same content density:
-
-```
-❌ Longer — "Discover the product, using design thinking. Write the narrative, scene by scene. Capture the live app via Chrome DevTools."
-✅ Shorter — "Discover with design thinking. Storyboard the narrative. Capture via Chrome DevTools."
-```
-
-Each comma you remove saves ~0.3–0.5s. A 5-comma rewrite can reclaim 2+ seconds without cutting meaning.
-
-`scripts/generate_voiceover.py` catches this for you at assembly time: when a section's audio overruns its slot it prints a stderr warning like `WARNING: section N audio overruns its Xs slot by Ys — every later section starts early and desyncs from its scene. Shorten this section's text.` **Watch stderr** — a single overrun cascades into every later section, so fix the flagged one (drop commas first) and re-run before moving on.
-
-### Clip scenes and VO timing
-
-For clip scenes the scene window is footage-derived (Phase 4), not VO-derived.
-Write that scene's VO to fit the existing window (start ~1s in, end ≥0.5s before
-the window ends) exactly as for any scene — do not stretch the clip. Captions for
-footage use the existing Whisper VO transcript (`auto`).
-**Clip-own audio is opt-in.** Default is `Clip audio: none` (clips muted, only
-`voiceover-with-music.mp3` plays). A scene that sets `Clip audio: <volume>` gets its sound
-mixed in with the VO ducked under it — see Step 5.3a.
-
-### Prepare the canonical timing assembler
-
-Copy the canonical script into the project first, then edit the **project-local
-copy** — never edit the shared skill install. Editing `$SKILL_DIR`'s script
-would bake this project's config into every future project, and two projects
-could not run concurrently.
+Shell state does not survive between calls; re-state this block whenever a later call needs it.
 
 ```bash
 # $SKILL_HOMES is the canonical home list defined in SKILL.md § Runtime Compatibility.
@@ -115,164 +44,231 @@ SKILL_DIR=$(
   IFS=$OLD_IFS
 )
 [ -n "$SKILL_DIR" ] || { echo "ERROR: hve-video-director install dir not found — set SKILL_DIR to the skill's path manually" >&2; }
+
+# The delegated audio engine ships in `media-use`, resolved from the same homes.
+MEDIA_SKILL_DIR=$(
+  OLD_IFS=$IFS
+  IFS='|'
+  for h in $SKILL_HOMES; do
+    [ -d "$h/media-use" ] && { echo "$h/media-use"; break; }
+  done
+  IFS=$OLD_IFS
+)
+# ENGINE = $MEDIA_SKILL_DIR + the AUDIO_ENGINE path registered in compat/ecosystem.md. Read that
+# row and substitute the skill-relative path; when upstream moves it, only the map changes.
+ENGINE="$MEDIA_SKILL_DIR/<AUDIO_ENGINE skill-relative path from compat/ecosystem.md>"
+```
+
+**When the delegated path is unavailable.** An empty `$MEDIA_SKILL_DIR` (skill not installed), or a
+provider the user declines to authenticate, routes to the local fallbacks:
+`scripts/generate_voiceover.py` for voiceover and `scripts/search_music.py` for music. Both are
+**deprecated as acquisition paths** (planned removal **M6**, once the delegated path has proven
+itself in real projects) and both still work unchanged. Say which path you took; never switch
+silently. `generate_voiceover.py` has a second role that is **not** deprecated: `--assemble-only` is
+the canonical timeline assembler for either path — it places each section at its exact start time,
+pads to `VIDEO_DURATION`, and warns on overrun.
+
+## Step 5.1: Generate Voiceover
+
+**The voiceover must match the visuals.** This is non-negotiable.
+
+Read the exact confirmed `voice` from the Creative Brief. Its prefix is binding:
+
+- `elevenlabs:<name>:<voice-id>` → ElevenLabs with that exact ID.
+- `kokoro:<voice-id>` → local Kokoro TTS (`TTS_LOCAL`) with that exact ID, even if an ElevenLabs
+  key is available.
+
+Do not choose a provider from environment-variable availability. Do not replace the confirmed voice
+with a default, and do not silently fall back between providers — including inside the engine:
+always pass an explicit provider, never its auto mode, which picks by whichever credential happens
+to be present. An invalid value routes back to Phase 1.
+
+### Write the aligned script
+
+Read the main composition for each scene's exact start, end, and on-screen content, then write one
+section per scene: reference what is on screen, start ~1s after the scene starts, end ~0.5s before
+it ends, and speak the same stat the visual shows. Two failure modes cost real re-renders here:
+
+- **Acronyms.** TTS runs space-separated capitals together as a phonetic blob — "H V E" renders as
+  "Sage V E". Write them phonetically: `Aitch Vee Ee`, `A I`, `ay pee eye`, `sass`, `earl`. Periods
+  between letters (`H. V. E.`) work in some voices and add sentence-end pauses in others. Generate
+  one section and listen before doing the rest.
+- **Duration is not word count.** Comma density dominates — most voices pause ~0.3–0.5s per comma,
+  so 22 words with 5 commas can run 15s while the same idea in 26 commaless words takes 10s. When a
+  section overruns, **drop commas before dropping words**. The assembler prints a stderr warning
+  naming any section that overruns its slot; **watch stderr**, because one overrun starts every
+  later section early.
+
+For a clip scene the window is footage-derived (Phase 4), not VO-derived: fit the VO to the existing
+window, never stretch the clip. **Clip-own audio is opt-in** — default `Clip audio: none` (clips
+muted, only `voiceover-with-music.mp3` plays); a scene that sets `Clip audio: <volume>` gets its
+sound mixed in with the VO ducked under it (Step 5.3a).
+
+### Prepare the canonical timing assembler
+
+Copy the assembler in and edit the **project-local copy** — editing `$SKILL_DIR`'s copy would bake
+this project's config into every future project, and two projects could not run concurrently. In
+`./voiceover.py`, set the `sections` list of `(start_time, text)` pairs (one per scene beat) and
+`VIDEO_DURATION` to the composition length.
+
+```bash
 cp "$SKILL_DIR/scripts/generate_voiceover.py" ./voiceover.py
 ```
 
-Edit the project-local `./voiceover.py`:
-- Set `sections` list with `(start_time, text)` pairs
-- Set `VIDEO_DURATION` to match composition
+### Synthesize through the delegated engine
 
-### Confirmed provider: ElevenLabs
+Write `audio_request.json` in the project directory: one `lines[]` entry per `sections` entry, same
+order, **`id` = the zero-padded section index**. That id is what joins returned audio to its slot.
 
-Run this branch only when `voice` starts with `elevenlabs:`. Set `VOICE_ID` in
-`./voiceover.py` to the exact third field of the confirmed value. Require
-`ELEVENLABS_API_KEY` (or the backward-compatible `ELEVEN_LABS_API_KEY`) before generation:
-
-```bash
-python3 ./voiceover.py    # writes vo_section_NN.mp3 + voiceover.mp3 into the project dir
+```json
+{
+  "provider": "elevenlabs",
+  "voice": "<voice-id from the confirmed value>",
+  "lang": "en",
+  "speed": 1.0,
+  "lines": [
+    { "id": "00", "text": "First section text." },
+    { "id": "01", "text": "Second section text." }
+  ]
+}
 ```
 
-If the key is missing or the selected ID fails, stop. Let the user configure the key, choose
-another ElevenLabs voice, or return to Phase 1 and explicitly reconfirm Kokoro. Never continue with
-a substituted provider or voice.
+| Confirmed prefix | `provider` | `voice` |
+|---|---|---|
+| `elevenlabs:<name>:<voice-id>` | `elevenlabs` | the exact third field |
+| `kokoro:<voice-id>` | `kokoro` | the exact ID after the prefix |
 
-### Confirmed provider: Kokoro local
-
-Run this branch only when `voice` starts with `kokoro:`. Use the exact ID after the prefix even if
-an ElevenLabs key is available. Generate one file per configured `sections` entry, preserving its
-zero-based number:
+`lang` is load-bearing. The engine derives its internal transcription model from it, and the default
+English model **translates** non-English audio instead of transcribing it — the
+`TRANSCRIBE_MODEL_DEFAULT` probe in `compat/ecosystem.md`, documented upstream under `TRANSCRIBE`.
+Set it to the narration's actual language every time.
 
 ```bash
-# Repeat with each exact section text and the confirmed voice ID.
-npx hyperframes tts "First section text." --voice af_nova --output vo_section_00.mp3
-npx hyperframes tts "Second section text." --voice af_nova --output vo_section_01.mp3
-
-# Assemble at the configured section start times and pad to VIDEO_DURATION.
-python3 ./voiceover.py --assemble-only
+# Reuse $ENGINE from Step 5.0. --only tts keeps this call to narration.
+node "$ENGINE" --request ./audio_request.json --hyperframes . --out ./audio_meta.json --only tts
 ```
 
-Voice naming convention: `<lang><gender>_<name>` (e.g. `af_nova` = American female "Nova", `bm_george` = British male "George"). For non-English narration, install `espeak-ng` system-wide (`brew install espeak-ng` / `apt-get install espeak-ng`).
+`audio_meta.json` carries `voices[]` — per line: file path, duration, word timings.
 
-Before assembly, require every expected `vo_section_NN.mp3` to exist and be non-empty; the
-canonical script fails rather than skipping a missing section. Whisper verification (next step)
-is renderer-agnostic and works identically for either provider.
+**The engine exits 0 with a missing line.** A failed synthesis is a non-fatal anomaly and the run
+still succeeds, so check before assembling: `voices[]` must hold one entry per section and the
+printed `anomalies` block must be empty. A short count is a provider problem — with `elevenlabs`,
+usually a missing `ELEVENLABS_API_KEY` or local `elevenlabs` Python package; with `kokoro`,
+non-English narration also needs `espeak-ng` system-wide (`brew install espeak-ng` /
+`apt-get install espeak-ng`; `AUDIO_REQUIREMENTS` lists the rest). Fix the cause or take the
+fallback; never assemble a short set.
+
+The assembler concatenates against mono 44.1 kHz MP3 silence spacers, so transcode each line to that
+shape under the name it expects:
+
+```bash
+# One per section; NN matches the request id.
+ffmpeg -y -i "assets/voice/00.wav" -ac 1 -ar 44100 -c:a libmp3lame -q:a 2 vo_section_00.mp3
+
+python3 ./voiceover.py --assemble-only    # places each section, pads to VIDEO_DURATION
+```
+
+The pad is not cosmetic: a voiceover shorter than the composition leaves the render with no audio
+for the trailing frames, and it may truncate.
+
+**Deprecated fallback.** With no engine (or when the user wants their ElevenLabs key driven
+directly), set `VOICE_ID` in `./voiceover.py` and run `python3 ./voiceover.py`, which generates and
+assembles in one pass. For a confirmed Kokoro voice, `npx hyperframes tts "<section text>" --voice
+<id> --output vo_section_NN.mp3` per section, then `--assemble-only`. Kokoro IDs read
+`<lang><gender>_<name>` (`af_nova` = American female "Nova"); `TTS_LOCAL` has the catalog.
 
 ### Verify timing (CRITICAL — do not skip!)
 
-Prefer `hyperframes transcribe` (bundled with HyperFrames, no separate install):
+Transcribe the **assembled** `voiceover.mp3`, not the per-line files: the engine's per-line `words[]`
+are relative to each line's own audio, while captions and this check need composition-absolute
+times. Pass `--model` explicitly here too.
 
 ```bash
-npx hyperframes transcribe voiceover.mp3 --model tiny
-cat transcript.json | python3 -m json.tool | head -30
+npx hyperframes transcribe voiceover.mp3 --model small.en        # known English
+# ... --model small --language <iso>                             # known non-English
+# ... --model small                                              # unknown language
+python3 -m json.tool transcript.json | head -30
 ```
 
-Falls back to standalone `whisper` (use `--output_format json` so the timing data is consumable by `scripts/generate_voiceover.py` — SRT is a presentation format, not a parsing target; add `--word_timestamps True` so segments carry per-word timing, which the overlap check needs — sentence-level segments produce false positives):
+Standalone `whisper` remains a fallback: use `--output_format json` (SRT is a presentation format,
+not a parsing target) plus `--word_timestamps True`, which writes `voiceover.json`. Sentence-level
+segments produce false positives in the overlap check.
 
-```bash
-whisper voiceover.mp3 --model tiny --output_format json --word_timestamps True --output_dir .
-cat voiceover.json | python3 -m json.tool | head -30
-```
-
-**Whisper tiny-model timestamps drift ±0.5s** because the model extends word boundaries into trailing silence. For precise per-section gap analysis, use `ffmpeg silencedetect` instead — it's exact:
+**Small-model timestamps drift ±0.5s** — the model extends word boundaries into trailing silence.
+For exact per-section gaps use `silencedetect`:
 
 ```bash
 ffmpeg -i voiceover.mp3 -af "silencedetect=noise=-40dB:d=0.3" -f null - 2>&1 | grep silence
 ```
 
-Output gives precise `silence_start` / `silence_end` timestamps for every gap ≥0.3s of silence below -40dB. Compare these against your section timings to verify each section ends within its scene's window.
-
-Compare timestamps against scene timings. If ANY overlap detected:
-
-1. **Drop commas before dropping words** — comma pauses inflate duration significantly (see "Voice timing is non-linear" above)
-2. **Shorten text** — make it punchier, cut filler words
-3. **Increase gaps** — push next section's start time 1-2s later
-4. **Add pauses** — insert "..." in text
-5. **Regenerate and verify again**
-
-**Repeat until ZERO overlaps. Do NOT ask the user — just fix it.**
+Compare the reported `silence_start` / `silence_end` against your section timings. On ANY overlap:
+drop commas first, then shorten text, then push the next section's start 1–2s later, then add "..."
+pauses; regenerate and re-verify. **Repeat until ZERO overlaps. Do NOT ask the user — just fix it.**
 
 ### Captions (REQUIRED in tutorial mode)
 
-If the content-mode is `tutorial`, on-screen VO captions are **mandatory on every footage
-segment** (spec §7.2) and this **intentionally overrides** the default-optional policy in
-`patterns/INDEX.md`. Silence-only segments (no VO words in the window) are exempt, as are
-segments whose on-screen copy already renders the spoken line verbatim (e.g. a recap beat or
-step title card where the visible text IS the narration) — in that case mark `Captions: carried`
-on the storyboard scene so the skip is a recorded, deliberate choice rather than an oversight.
-In promo/showcase captions stay optional.
+If the content-mode is `tutorial`, on-screen VO captions are **mandatory on every footage segment**
+(spec §7.2) and this **intentionally overrides** the default-optional policy in `patterns/INDEX.md`.
+Silence-only segments are exempt, as are segments whose on-screen copy already renders the spoken
+line verbatim (a recap beat, a step title card) — mark those `Captions: carried` on the storyboard
+scene so the skip is a recorded choice, not an oversight. In promo/showcase captions stay optional.
 
-Captions are a HyperFrames caption sub-comp synced to `transcript.json` — see
-`media-use` → `CAPTIONS_AUTHORING` (GROUPS mechanism; path in `compat/ecosystem.md`) and the Phase-3 caption-track recipe. Each
-footage scene whose storyboard `Captions:` is `auto` must carry a caption track wired over
-its window in `index.html`.
+Captions are a HyperFrames caption sub-comp synced to `transcript.json` — see `media-use` →
+`CAPTIONS_AUTHORING` (the GROUPS mechanism) and `TRANSCRIPT_HANDLING` for turning word timings into
+cues, plus the Phase-3 caption-track recipe.
 
 Orchestrator enforcement before render (tutorial mode) — do not advance until all hold:
 1. `transcript.json` exists and passed the timing check.
 2. Every footage scene with VO has a caption track, UNLESS its storyboard marks `Captions: carried`
-   (on-screen copy already shows the spoken line) or the window is silence-only. A bare
-   `Captions: auto` scene with VO and no track still blocks.
-3. Each caption group has a hard `tl.set(... {opacity:0, visibility:"hidden"}, group.end)` kill
-   (the same `media-use` → `CAPTIONS_AUTHORING` `[caption-lint]` self-check logs
-   warnings otherwise).
-There is no programmatic gate; a true build-time rule would be upstream `hyperframes` lint work (spec §14).
+   or the window is silence-only. A bare `Captions: auto` scene with VO and no track still blocks.
+3. Each caption group has a hard `tl.set(... {opacity:0, visibility:"hidden"}, group.end)` kill (the
+   `CAPTIONS_AUTHORING` `[caption-lint]` self-check warns otherwise).
 
-### Caption transcript preparation
+There is no programmatic gate; a build-time rule would be upstream `hyperframes` lint work (§14).
 
-Keep `transcript.json` (or `voiceover.json`) as the speech-timing source for every mode. Do not
-finalize delivery captions here: music and opt-in clip audio have not been mixed yet, so any audio
-fingerprint or non-speech review would immediately become stale. Step 5.3b creates the draft after
-the final soundtrack exists, requires human review of speech/speakers/meaningful sounds, and emits
-the delivery-ready sidecars.
-
-### Pad voiceover to VIDEO_DURATION
-
-The voiceover audio must match the composition's total duration exactly. If it's shorter, HyperFrames render finds no audio for trailing frames and may truncate. Pad with `apad`. Use the same `VIDEO_DURATION` the composition uses (from `project-plan.md`); the literal `60` below is just an example for a 60s spot — replace it with your project's duration:
-
-```bash
-VIDEO_DURATION=60   # match the duration chosen in Phase 1
-ffmpeg -y -i voiceover.mp3 -af "apad=whole_dur=${VIDEO_DURATION}" -c:a libmp3lame -q:a 2 voiceover-padded.mp3
-mv voiceover-padded.mp3 voiceover.mp3
-```
-
-(`scripts/generate_voiceover.py` does this automatically using `VIDEO_DURATION`, including
-`--assemble-only`.)
+`transcript.json` (or `voiceover.json`) stays the speech-timing source for every mode, but do not
+finalize delivery captions here: music and clip audio are not mixed yet, so any audio fingerprint
+would go stale immediately. Step 5.3b drafts them against the finished soundtrack.
 
 ## Step 5.2: Background Music
 
-Follow the user's confirmed `music_strategy`. Do not silently fall back to another strategy. If the
-chosen strategy cannot run (for example, `freesound` without `FREESOUND_API_KEY`), return to the
-Phase-1 music-strategy prompt, update the Creative Brief, and reconfirm the story. Because music
-strategy is a story field, changing it intentionally stales Phase 1–5.
+Follow the user's confirmed `music_strategy`; never silently fall back to another. If the chosen
+strategy cannot run, return to the Phase-1 music prompt, update the Creative Brief, and reconfirm
+the story — music strategy is a story field, so changing it stales Phase 1–5.
+
+Whatever finds the candidate, the user confirms the exact track before anything is copied, mixed,
+encoded, or rendered.
+
+### Delegated retrieval — available, not yet recordable
+
+`media-use` → `BGM` is the intended acquisition route: one bed per composition, retrieved from the
+provider catalog when credentialed and generated locally otherwise, driven by the same engine and
+request as the voiceover (`bgm: { mode, query }`, run with `--only bgm`).
+
+**It cannot be the confirmed source yet, and the blocker is local.** `music_strategy` accepts only
+`freesound | user-provided | none`, and `scripts/validate_brief.py` pins a `freesound` track to an
+exact `freesound.org` URL carrying its numeric sound ID, and a `user-provided` track to the literal
+source `user-provided`. A delegated track satisfies neither, so it cannot be written to
+`final_music_track` and cannot pass the audio gate. Do **not** record one as `user-provided`: that
+repurposes a Phase-1 answer the user gave before any candidate existed and erases the only
+machine-checked provenance the brief carries. Unblocking it is a brief-vocabulary change (Phase-1
+prompt + `templates/project-plan.md` + `scripts/validate_brief.py` + its tests, moved together) —
+**M4**, the brief milestone. Until then, route by the strategy the user actually confirmed.
 
 ### Freesound strategy
 
-Freesound provides a real, public CC-licensed audio search API. Get a key at <https://freesound.org/apiv2/apply>. Authentication uses a `token` query parameter; previews require no OAuth2.
-
-Derive mood/genre keywords from the storytelling phase (e.g., "cinematic corporate uplifting loop"). Filter by `duration` so you don't pick a 10-minute ambient drone for a 45s spot, and by `license` so you stay on safe ground (CC0 or CC-BY).
+Freesound is a public CC-licensed audio search API; get a key at
+<https://freesound.org/apiv2/apply> (`FREESOUND_API_KEY`). Derive mood keywords from the
+storytelling phase; the script filters by duration and to CC0 / CC-BY:
 
 ```bash
-QUERY="cinematic corporate uplifting"
-DURATION_S=42  # match your video duration
-
-curl -sG "https://freesound.org/apiv2/search/text/" \
-  --data-urlencode "query=${QUERY}" \
-  --data-urlencode "filter=duration:[${DURATION_S} TO 180] license:(\"Creative Commons 0\" OR \"Attribution\")" \
-  --data-urlencode "fields=id,name,duration,license,username,previews,url" \
-  --data-urlencode "page_size=10" \
-  --data-urlencode "token=${FREESOUND_API_KEY}" \
-| python3 -c "
-import json, sys
-data = json.load(sys.stdin)
-for r in data.get('results', []):
-    print(f\"  [{r['id']}] {r['name']} ({r['duration']:.1f}s) — {r['license']} by {r['username']}\")
-    print(f\"      page:    {r['url']}\")
-    print(f\"      preview: {r.get('previews', {}).get('preview-hq-mp3') or r.get('previews', {}).get('preview-lq-mp3', '')}\")
-"
+FREESOUND_API_KEY=... python3 "$SKILL_DIR/scripts/search_music.py" \
+  "cinematic corporate uplifting" --min-duration 42
 ```
 
-Each hit has a high-quality MP3 preview URL usable as the soundtrack. Present ranked candidates
-as native prompts in pages of at most three tracks plus a **More candidates** option, so no prompt
-exceeds four options. For example:
+Each hit prints title, author, duration, license, its track page URL, and a high-quality MP3 preview
+URL usable as the soundtrack. Present ranked candidates in pages of at most three tracks plus a
+**More candidates** option, so no prompt exceeds four:
 
 ```json
 {
@@ -290,19 +286,16 @@ exceeds four options. For example:
 }
 ```
 
-This candidate choice is provisional until the exact-track confirmation below. Do not download or
-mix it yet.
+This choice is provisional until the exact-track confirmation below. Do not download or mix it yet.
 
-### User-provided strategy
+### User-provided and no-music strategies
 
-Ask for the exact audio path. Verify that it exists and is a non-empty readable file. Collect a
-human-readable title and record the source as `user-provided`; record the license as `user-owned`
-or another explicit license the user supplies. Do not copy or mix it before exact confirmation.
+**User-provided:** ask for the exact audio path and verify it exists and is a non-empty readable
+file. Collect a human-readable title, record the source as `user-provided`, and record the license
+as `user-owned` or another license the user states. Do not copy or mix before exact confirmation.
 
-### No-music strategy
-
-Set the candidate to the exact value `none`. This is still a user-owned final choice and requires
-the explicit no-music confirmation below.
+**No music:** set the candidate to the exact value `none`. That is still a user-owned final choice
+and needs the explicit no-music confirmation below.
 
 ### Confirm the final exact music choice
 
@@ -356,24 +349,16 @@ Any nonzero exit blocks all track download/copy, mixing, encoding, and rendering
 changes only `final_music_track`, the audio fingerprint changes and only the Phase-5 stamp becomes
 stale; Phase 1–4 remain fresh.
 
-Only after `require audio` passes, materialize the confirmed track:
-
-```bash
-# Freesound:
-curl -sL "<confirmed-preview-hq-mp3-url>" -o background-music.mp3
-
-# User-provided:
-cp "<confirmed-user-path>" background-music.mp3
-```
-
-**Attribution:** If the confirmed track is CC-BY (not CC0), write `CREDITS.md`:
+Only after `require audio` passes, materialize the confirmed track — `curl -sL
+"<confirmed-preview-hq-mp3-url>" -o background-music.mp3` for Freesound (previews are sufficient for
+a soundtrack; full-quality downloads need OAuth2), or `cp "<confirmed-user-path>"
+background-music.mp3` for a user-provided file. If the confirmed track is CC-BY rather than CC0,
+write `CREDITS.md`:
 
 ```
 Background music: "<track name>" by <username> (Freesound, <license>)
 URL: <track page URL>
 ```
-
-Full-quality original downloads require OAuth2; previews are sufficient for video soundtracks.
 
 ## Step 5.3: Audio Mixing
 
@@ -387,11 +372,11 @@ ffmpeg -y -i voiceover.mp3 -af "loudnorm=I=-16:TP=-1.5:LRA=11" voiceover-normali
 
 ### Mix music (if using background music)
 
-The music is a **subtle bed under the voice**, not a soundtrack — it should be *felt more than
-heard* while words play, and only noticeable in its absence. Three things make it behave:
-(1) normalize the music to a **known base level** so the balance doesn't depend on how hot the
-source file happens to be, (2) **EQ space** around the voice, and (3) **sidechain-duck the music
-under the voiceover** so it dips while words play and breathes back in the gaps.
+The music is a **subtle bed under the voice**, not a soundtrack — *felt more than heard* while words
+play, noticeable only in its absence. Three things make it behave: normalize the music to a **known
+base level** so the balance does not depend on how hot the source file is, **EQ space** around the
+voice, and **sidechain-duck the music under the voiceover** so it dips while words play and breathes
+back in the gaps.
 
 ```bash
 # DURATION = video length in seconds (from Phase 1 / project-plan.md).
@@ -417,143 +402,121 @@ ffmpeg -y -i voiceover-normalized.mp3 -i background-music.mp3 \
   voiceover-with-music.mp3
 ```
 
-What each stage does — tune by ear, the numbers are starting points, not targets:
+Each stage, and why it is what it is — the numbers are starting points, tune by ear:
 
-- **`loudnorm=I=-30` (music base level)** — normalizes the bed to ~-30 LUFS, ~14 LU under the
-  -16 LUFS voice, so the mix no longer depends on the track's mastered level. This replaces the
-  old fixed `volume=0.22`, which scaled an *un-normalized* download and gave unpredictable
-  loudness. If the music vanishes under speech, raise toward -28/-26; if it competes, lower toward -32.
-- **`highpass=f=100` + `equalizer=f=2500…g=-3` (music EQ)** — strips sub-100 Hz rumble (product
-  demos rarely need deep bass) and dips ~3 dB around 2.5 kHz to carve room for speech clarity.
+- **`loudnorm=I=-30` (music base level)** — puts the bed ~14 LU under the -16 LUFS voice so the mix
+  no longer depends on the track's mastered level. It replaces a fixed `volume=0.22`, which scaled an
+  *un-normalized* download and gave unpredictable loudness. Bed vanishing under speech: raise toward
+  -28/-26. Bed competing: lower toward -32.
+- **`highpass=f=100` + `equalizer=f=2500…g=-3` (music EQ)** — strips sub-100 Hz rumble (product demos
+  rarely need deep bass) and dips ~3 dB around 2.5 kHz to carve room for speech.
 - **`sidechaincompress` keyed by the voice (`[key]`)** — the core move: the music ducks ~3–6 dB
-  whenever the voiceover plays (attack 150 ms, release 900 ms = smooth, not pumping) and returns
-  in pauses. Same filter the clip-audio path uses in Step 5.3a, here applied to the *music* with
-  the *voice* as the trigger. If it pumps, lower `ratio` or lengthen `release`; if the first
-  words are masked, drop `attack` toward 100.
-- **`alimiter=limit=0.89` (master ≈ -1 dBFS ceiling)** — a peak limiter, *not* a loudness
-  normalizer. The voiceover is already at -16 LUFS (normalize step) and dominates the mix, so a
-  -30 LUFS bed only nudges integrated loudness ~+0.2 LU — the mix lands ≈-15.8 LUFS on its own,
-  in-spec. This matches the guide's master chain ("limiter, ceiling -1 dB").
-  **Do not add a dynamic `loudnorm` master here.** Single-pass `loudnorm` rides gain, so it boosts
-  the bed in the intro, outro, and every VO pause (chasing -16 when only the quiet music is present),
-  which *undoes the sidechain duck and fights the fades* — verified: with a dynamic master the music
-  measures **louder** under speech than in the gaps. If you need to hit -16 LUFS more exactly,
-  correct with a **constant** gain after validation (below), never a dynamic pass.
+  whenever the VO plays (attack 150 ms, release 900 ms = smooth, not pumping) and returns in pauses.
+  If it pumps, lower `ratio` or lengthen `release`; if the first words are masked, drop `attack`
+  toward 100. Step 5.3a applies the same filter with the roles swapped.
+- **`alimiter=limit=0.89` (master ≈ -1 dBFS ceiling)** — a peak limiter, *not* a loudness normalizer.
+  The VO already sits at -16 LUFS and dominates, so a -30 LUFS bed nudges integrated loudness only
+  ~+0.2 LU and the mix lands ≈-15.8 LUFS, in-spec. **Do not add a dynamic `loudnorm` master here.**
+  It rides gain, boosting the bed in the intro, the outro, and every VO pause (chasing -16 when only
+  quiet music is present), which *undoes the duck and fights the fades* — verified: with a dynamic
+  master the music measures **louder** under speech than in the gaps. Correct loudness with a
+  **constant** gain after validation instead.
 - **`aformat=…:channel_layouts=stereo` on both legs (not `aresample`)** — `sidechaincompress`
-  requires its two inputs to share sample format, rate, **and channel layout**; ElevenLabs (and the
-  `hyperframes tts` fallback) often emit a **mono** voiceover, and mixing a mono key against a stereo
-  music bed makes the filter abort with `Error reinitializing filters! Failed to inject frame into
-  filter network`. `aformat` forces both legs to stereo/44.1k/fltp up front — a superset of the old
-  `aresample=44100` (which fixed only the rate). The music-branch `loudnorm` can also internally
-  switch to 192 kHz, so pinning the rate here keeps the `amix`/MP3 encoder happy too.
-
-**Critical:** keep `amix … normalize=0`. The default `normalize=1` divides each input by the input
-count (a hidden -6 dB per track), which would gut the already-quiet bed. Set level via the music
-base (`loudnorm=I=-30`) plus the VO's own -16 LUFS normalization, not `amix` normalization.
+  requires its inputs to share sample format, rate, **and channel layout**. Cloud TTS and the local
+  Kokoro path often emit a **mono** voiceover, and a mono key against a stereo bed aborts the filter
+  with `Error reinitializing filters! Failed to inject frame into filter network`. `aformat` pins
+  both legs to stereo/44.1k/fltp — a superset of the old `aresample=44100`, which fixed only the
+  rate. The music-branch `loudnorm` can also switch internally to 192 kHz, so pinning the rate keeps
+  `amix` and the MP3 encoder happy too.
+- **`amix … normalize=0` (critical)** — the default `normalize=1` divides each input by the input
+  count, a hidden -6 dB per track that would gut the already-quiet bed.
 
 ### No-music path (voiceover only)
 
-If the user chose "No music" in Step 5.2, **you still need to produce `voiceover-with-music.mp3`** — the root composition's `<audio>` element references that filename. Without it, the rendered video has no audio.
-
-Two equivalent options. Pick whichever is more readable in your project:
+If the user chose "No music", **you still need `voiceover-with-music.mp3`** — the root composition's
+`<audio>` element references that filename, and without it the render has no audio.
 
 ```bash
-# Option A: re-encode the normalized voiceover to the canonical output name
-ffmpeg -y -i voiceover-normalized.mp3 -c:a libmp3lame -q:a 2 voiceover-with-music.mp3
-
-# Option B: hard-link / copy (faster, identical content)
 cp voiceover-normalized.mp3 voiceover-with-music.mp3
 ```
 
-Then proceed to Step 5.4 — the render step doesn't care whether music was mixed in or not, as long as `voiceover-with-music.mp3` exists and is the full composition duration.
+### Validate the mix
 
-Validate with `ebur128`: integrated loudness should land around -16 LUFS, and the reported true peak should come in at or under -1 dBTP. `alimiter` caps *sample* peaks, not inter-sample/true peaks, so treat -1 dBTP as a target to **verify** — if `ebur128` reports a true peak above -1 dBTP, lower the Step 5.3 limiter ceiling (e.g. `alimiter=limit=0.79`, ≈ -2 dBFS) and re-render.
+Integrated loudness should land around -16 LUFS with true peak at or under -1 dBTP. `alimiter` caps
+*sample* peaks, not inter-sample peaks, so -1 dBTP is a target to **verify**: if `ebur128` reports
+above it, lower the ceiling (e.g. `alimiter=limit=0.79`, ≈ -2 dBFS) and re-render.
 
 ```bash
 ffmpeg -hide_banner -i voiceover-with-music.mp3 -af ebur128=peak=true -f null - 2>&1 | tail -16
 ```
 
-If integrated loudness lands outside -16 ±1.5 LUFS (e.g. a sparse, pause-heavy VO drags it low),
-nudge it with a **constant** gain — `volume=<delta>dB` shifts the whole mix uniformly, so it
-preserves the duck and the fades, unlike a dynamic `loudnorm` — then re-cap the peak:
+If loudness lands outside -16 ±1.5 LUFS (a sparse, pause-heavy VO drags it low), correct with a
+**constant** gain — `volume=<delta>dB` shifts the whole mix uniformly and so preserves the duck and
+the fades, unlike a dynamic `loudnorm` — then re-cap the peak:
 
 ```bash
 ffmpeg -y -i voiceover-with-music.mp3 -af "volume=1.5dB,alimiter=limit=0.89" \
-  -c:a libmp3lame -q:a 2 voiceover-with-music.fixed.mp3
-mv voiceover-with-music.fixed.mp3 voiceover-with-music.mp3
+  -c:a libmp3lame -q:a 2 fixed.mp3
+mv fixed.mp3 voiceover-with-music.mp3
 ```
+
+### Optional: sound-effect cues
+
+Skip this unless a storyboard beat asks for an effect or the user requests one. Never add effects on
+your own initiative; a missing effect never blocks a render.
+
+`media-use` → `SFX` resolves named cues from the same engine and request: attach names to the line
+whose scene carries them (`"sfx": ["whoosh", "ui click"]`) and run with `--only sfx`. It retrieves
+from the provider catalog when credentialed, otherwise matches an offline bundled library whose
+manifest carries each file's duration — so a cue's length is known without playing it, which is what
+lets a long riser *land* on a beat. `audio_meta.sfx[]` records each cue's `file`, `duration_s`, and a
+`volume` that already sits under voice and music. Placement is yours: every cue is recorded at
+offset 0.
+
+```bash
+CUE=assets/sfx/whoosh.mp3       # audio_meta.sfx[].file
+AT_MS=18500                     # scene data-start (from index.html), in milliseconds
+SFX_VOL=0.35                    # audio_meta.sfx[].volume
+
+ffmpeg -y -i voiceover-with-music.mp3 -i "$CUE" \
+  -filter_complex "
+    [0:a]aformat=sample_fmts=fltp:sample_rates=44100:channel_layouts=stereo[base];
+    [1:a]volume=${SFX_VOL},adelay=${AT_MS}|${AT_MS},
+         aformat=sample_fmts=fltp:sample_rates=44100:channel_layouts=stereo[fx];
+    [base][fx]amix=inputs=2:duration=first:dropout_transition=0:normalize=0,
+              alimiter=limit=0.89[out]" \
+  -map "[out]" -c:a libmp3lame -q:a 2 mixed.mp3
+mv mixed.mp3 voiceover-with-music.mp3
+```
+
+`duration=first` preserves the master length; re-run `ebur128` after the last cue. Any effect audible
+in the final soundtrack is a meaningful sound for caption purposes — Step 5.3b reviews it.
 
 ## Step 5.3a: Clip-own audio (opt-in)
 
-Run only when a storyboard scene sets `Clip audio: <volume>` (not `none`). Per clip you need:
-clip path (`Clip:`), the scene `data-start` (`CW`, from index.html), `Clip in/out`, `Speed`, `<volume>`.
+Run only when a storyboard scene sets `Clip audio: <volume>` (not `none`). Per clip you need the
+clip path (`Clip:`), the scene `data-start` (from `index.html`), `Clip in/out`, `Speed`, and the
+`<volume>`.
 
 ```bash
 CLIP=public/clips/scene-03-demo.mp4       # storyboard `Clip:`
-CIN=2.0 ; COUT=8.0 ; SPEED=1.0            # `Clip in/out` + `Speed` — CIN must equal the
-                                           # scene <video>'s data-media-start or A/V desync
-CW=18.5                                    # scene data-start in index.html
-VOL=0.6                                    # `Clip audio` value
+CIN=2.0 ; COUT=8.0                        # `Clip in/out` — CIN MUST equal the scene <video>'s
+                                          # data-media-start, or audio desyncs from picture
+SPEED=1.0                                 # storyboard `Speed`
+AT_MS=18500                               # scene data-start, in milliseconds
+VOL=0.6                                   # `Clip audio` value
 DURATION=$(ffprobe -v error -show_entries format=duration -of csv=p=0 \
-  voiceover-with-music.mp3)                # derive; never hard-code 30/60/90
-read -r DELAY PLAY_DURATION ATEMPO <<EOF
-$(python3 - "$CW" "$CIN" "$COUT" "$SPEED" <<'PY'
-import sys
+  voiceover-with-music.mp3)               # derive; never hard-code 30/60/90
 
-cw, cin, cout, speed = map(float, sys.argv[1:])
-if cw < 0 or cin < 0 or cout <= cin or not 0.1 <= speed <= 5.0:
-    raise SystemExit(
-        "invalid clip timing: require CW/CIN >= 0, COUT > CIN, 0.1 <= SPEED <= 5.0"
-    )
-
-# atempo filters outside 0.5–2.0 are chained so arbitrary positive speeds remain valid.
-remaining = speed
-factors = []
-while remaining > 2.0:
-    factors.append(2.0)
-    remaining /= 2.0
-while remaining < 0.5:
-    factors.append(0.5)
-    remaining /= 0.5
-factors.append(remaining)
-
-delay_ms = round(cw * 1000)
-play_duration = (cout - cin) / speed
-atempo = ",".join(f"atempo={factor:.8g}" for factor in factors)
-print(delay_ms, f"{play_duration:.6f}", atempo)
-PY
-)
-EOF
-python3 - "$DURATION" <<'PY'
-import sys
-
-duration = float(sys.argv[1])
-if duration <= 0:
-    raise SystemExit("voiceover-with-music.mp3 has no usable duration")
-PY
-
-# 1. Extract+trim clip audio, apply the storyboard Speed, cap it to the footage-derived
-#    scene duration, loudness-normalize, scale by VOL, then delay it to start at CW.
+# 1. Trim to the clip window, apply Speed, normalize, scale by VOL, place at the scene start.
+#    `atempo` takes one factor per stage; if Speed falls outside what a single stage accepts,
+#    chain stages whose product is Speed (e.g. `atempo=2.0,atempo=1.5` for 3.0).
 ffmpeg -y -ss "$CIN" -to "$COUT" -i "$CLIP" \
-  -af "${ATEMPO},atrim=duration=${PLAY_DURATION},loudnorm=I=-18:TP=-2:LRA=11,volume=${VOL},adelay=${DELAY}|${DELAY}" \
+  -af "atempo=${SPEED},loudnorm=I=-18:TP=-2:LRA=11,volume=${VOL},adelay=${AT_MS}|${AT_MS}" \
   -ac 2 clip-audio-03.mp3
 
-# Fail before mixing if the generated clip-audio window exceeds the footage-derived budget.
-ACTUAL_DURATION=$(ffprobe -v error -show_entries format=duration -of csv=p=0 clip-audio-03.mp3)
-python3 - "$ACTUAL_DURATION" "$CW" "$PLAY_DURATION" <<'PY'
-import sys
-
-actual, start, budget = map(float, sys.argv[1:])
-expected_end = start + budget
-actual_end = actual  # adelay is already included in the encoded file duration
-if actual_end > expected_end + 0.1:
-    raise SystemExit(
-        f"clip audio ends at {actual_end:.3f}s, beyond scene budget {expected_end:.3f}s"
-    )
-PY
-
-# 2. Duck the VO+music under the clip (sidechain), then mix the clip on top. Keep the
-#    canonical output filename — Step 5.4 reads it unchanged.
+# 2. Duck the VO+music under the clip (sidechain), then mix the clip on top. Keep the canonical
+#    output filename — Step 5.4 reads it unchanged.
 ffmpeg -y -i voiceover-with-music.mp3 -i clip-audio-03.mp3 \
   -filter_complex "
     [1:a]asplit=2[clip][key-raw];
@@ -561,40 +524,30 @@ ffmpeg -y -i voiceover-with-music.mp3 -i clip-audio-03.mp3 \
     [0:a][key]sidechaincompress=threshold=0.05:ratio=8:attack=20:release=300[ducked];
     [ducked][clip]amix=inputs=2:duration=first:dropout_transition=0:normalize=0,
                   alimiter=limit=0.89[out]" \
-  -map "[out]" -c:a libmp3lame -q:a 2 voiceover-with-music.tmp.mp3
+  -map "[out]" -c:a libmp3lame -q:a 2 mixed.mp3
 
-MIXED_DURATION=$(ffprobe -v error -show_entries format=duration -of csv=p=0 \
-  voiceover-with-music.tmp.mp3)
-python3 - "$DURATION" "$MIXED_DURATION" <<'PY'
-import sys
-
-source, mixed = map(float, sys.argv[1:])
-if abs(source - mixed) > 0.25:
-    raise SystemExit(
-        f"clip-audio mix changed soundtrack duration: source={source:.3f}s mixed={mixed:.3f}s"
-    )
-PY
-mv voiceover-with-music.tmp.mp3 voiceover-with-music.mp3
+# 3. The mix must not change the soundtrack's length. Compare against $DURATION before replacing.
+ffprobe -v error -show_entries format=duration -of csv=p=0 mixed.mp3
+mv mixed.mp3 voiceover-with-music.mp3
 ```
 
-Repeat per opt-in clip (each pass overwrites the canonical file). Re-validate:
-```bash
-ffmpeg -hide_banner -i voiceover-with-music.mp3 -af ebur128=peak=true -f null - 2>&1 | tail -16
-```
-Expected: integrated loudness ≈ -16 LUFS, with true peak at or under -1 dBTP; the ducked window is audibly quieter under the clip's sound. As in Step 5.3, `alimiter` caps sample peaks — verify the true peak with `ebur128` and lower the limiter ceiling if it reports above -1 dBTP.
+If step 3 differs from `$DURATION` by more than ~0.25s the mix is wrong: do **not** replace the
+canonical file — re-check `AT_MS` and the clip window. Repeat per opt-in clip (each pass overwrites
+the canonical file), then re-run the `ebur128` check. Expected: ≈ -16 LUFS, true peak at or under
+-1 dBTP, and the ducked window audibly quieter under the clip's sound.
 
 ## Step 5.3b: Reviewed Closed-Caption Delivery (all modes)
 
-Run this after **all** music and opt-in clip audio has been mixed into the canonical
-`voiceover-with-music.mp3`. WCAG captions represent the information in the complete soundtrack,
-not speech alone: correct every spoken line, identify a speaker when the identity is not obvious,
-and include meaningful music/sound-effect cues. This is mandatory in promo, showcase, and tutorial
-modes; burned-in tutorial captions remain a separate in-frame layer.
+Run this after **all** music, effects, and opt-in clip audio have been mixed into the canonical
+`voiceover-with-music.mp3`. WCAG captions represent the information in the complete soundtrack, not
+speech alone: correct every spoken line, identify a speaker when the identity is not obvious, and
+include meaningful music/sound-effect cues. Mandatory in promo, showcase, and tutorial modes;
+burned-in tutorial captions remain a separate in-frame layer.
 
 ### 1. Create an audio-bound review draft
 
 ```bash
-# Reuse $SKILL_DIR resolved earlier in this phase.
+# Reuse $SKILL_DIR resolved in Step 5.0.
 python3 "$SKILL_DIR/scripts/caption_gen.py" draft \
   --audio voiceover-with-music.mp3 \
   --manifest captions-review.json \
@@ -602,19 +555,17 @@ python3 "$SKILL_DIR/scripts/caption_gen.py" draft \
   --vtt voiceover.vtt
 ```
 
-This writes backward-compatible ASR drafts plus `captions-review.json`. The manifest records the
-final soundtrack's SHA-256 and duration, starts with `reviewed: false`, and leaves
-`speech_review`, `speaker_review`, and `sound_review` pending. It is the human-review source; do not treat
-`voiceover.srt`/`.vtt` as final captions.
-
-If `captions-review.json` already exists, `draft` fails instead of overwriting review work. When
-the audio changed, preserve the prior manifest as `captions-review.previous.json`; only use
-`--force` to replace the canonical manifest after the user explicitly approves that replacement.
+This writes backward-compatible ASR drafts plus `captions-review.json`, which records the final
+soundtrack's SHA-256 and duration, starts with `reviewed: false`, and leaves `speech_review`,
+`speaker_review`, and `sound_review` pending. It is the human-review source; `voiceover.srt`/`.vtt`
+are never final captions. If it already exists, `draft` fails instead of overwriting review work:
+when the audio changed, preserve the prior manifest as `captions-review.previous.json`, and use
+`--force` only after the user explicitly approves replacing the canonical one.
 
 ### 2. Review the complete soundtrack
 
-Compare every speech cue to the approved narration and show the user the full timestamped cue
-list. Correct ASR words, punctuation, timing, and line breaks. Each manifest cue has:
+Compare every speech cue to the approved narration and show the user the full timestamped cue list.
+Correct ASR words, punctuation, timing, and line breaks. Each manifest cue has:
 
 ```json
 {
@@ -626,12 +577,10 @@ list. Correct ASR words, punctuation, timing, and line breaks. Each manifest cue
 }
 ```
 
-`speaker` is optional when one narrator is visually/aurally obvious. `sound` is a meaningful
-non-speech cue rendered as `[Upbeat electronic music begins]`; it may share a cue with speech so
-simultaneous narration and sound stay in one two-line caption. Add standalone sound-only cues when
-they fit between speech cues. Review clip-own audio as well as music.
-
-Present all three review decisions:
+`speaker` is optional when one narrator is obvious. `sound` is a meaningful non-speech cue rendered
+as `[Upbeat electronic music begins]`; it may share a cue with speech so simultaneous narration and
+sound stay in one two-line caption, and standalone sound-only cues fit between speech cues. Review
+effects and clip-own audio as well as music. Present all three review decisions:
 
 ```json
 {
@@ -670,11 +619,9 @@ Present all three review decisions:
 ```
 
 Map the accepted answers to `speech_review: verified`,
-`speaker_review: single-obvious | included`, and `sound_review: none-meaningful | included`.
-Any **Needs edits** response leaves
-`reviewed: false`.
-
-After the user has read the complete cue list, ask for final approval:
+`speaker_review: single-obvious | included`, and `sound_review: none-meaningful | included`. Any
+**Needs edits** response leaves `reviewed: false`. After the user has read the complete cue list,
+ask for final approval:
 
 ```json
 {
@@ -698,10 +645,10 @@ python3 "$SKILL_DIR/scripts/caption_gen.py" approve \
   --manifest captions-review.json
 ```
 
-The command validates the three completed review decisions, sets `reviewed: true`, and stores an
-approval fingerprint over the exact audio, language, cue list, and review decisions. Any later cue
-or decision edit invalidates approval and requires showing the revised list to the user again.
-Never run `approve` from the narration script or ASR output without that explicit user answer.
+It validates the three review decisions, sets `reviewed: true`, and fingerprints the exact audio,
+language, cue list, and decisions. Any later cue or decision edit invalidates approval and requires
+showing the revised list again. Never run `approve` from the narration script or ASR output without
+that explicit user answer.
 
 ### 3. Finalize and validate delivery sidecars
 
@@ -723,101 +670,96 @@ python3 "$SKILL_DIR/scripts/caption_gen.py" validate \
 
 `finalize` rejects unapproved or changed review content, missing speech/speaker/sound decisions,
 stale audio, overlapping or out-of-range cues, more than two lines, lines over 42 characters, and
-reading speed above 25 characters/second. It stages the same-basename sidecars and deterministic
-state before publication and restores the prior delivery set if any replacement fails.
-`validate` rechecks the exact state schema and regenerates expected state and sidecar content in
-memory; any soundtrack, manifest, state, or output change routes back to this step for review and
-finalization.
+reading speed above 25 characters/second; it stages the sidecars and deterministic state before
+publication and restores the prior delivery set if any replacement fails. `validate` rechecks the
+state schema and regenerates expected state and sidecar content in memory; any soundtrack, manifest,
+state, or output change routes back to this step.
 
 ## Step 5.4: Final Render
 
-The HyperFrames composition (`index.html`) already references `voiceover-with-music.mp3` via an `<audio>` clip on track 0 (see Phase 4). A single render command produces the final MP4 with embedded audio — no separate mux step.
+`index.html` already references `voiceover-with-music.mp3` via an `<audio>` clip on track 0 (Phase
+4). One render command produces the final MP4 with embedded audio — no separate mux step.
 
-### Pre-flight gates
-
-Re-run the composition gate after wiring the audio clip, in case any caption sub-composition overlaps a visual element:
-
-```bash
-npx hyperframes check . --samples 10      # reruns lint (flags "audio element has no id" — the silent-video failure mode)
-```
-
-### Render
+Re-run the composition gate first (`CHECK_GATE`), in case a caption sub-composition overlaps a
+visual element:
 
 ```bash
+npx hyperframes check . --samples 10      # reruns lint (flags "audio element has no id")
+
 mkdir -p out
 npx hyperframes render . --output out/final.mp4
+
+ffprobe -v error -select_streams a -show_entries stream=codec_name,duration \
+  -of default=nw=1 out/final.mp4
 ```
 
-```bash
-ffprobe -v error -select_streams a -show_entries stream=codec_name,duration -of default=nw=1 out/final.mp4
-```
-Expected: `codec_name=aac` + duration ≈ composition length — the end-to-end proof the (ducked) clip audio reached `out/final.mp4`, since footage is muted in the composition.
+Expected: `codec_name=aac` and duration ≈ composition length — the end-to-end proof the (ducked)
+clip audio reached `out/final.mp4`, since footage is muted in the composition. HyperFrames renders
+via headless Chromium and muxes in the same pass; output is H.264 + AAC at the canvas size chosen in
+Phase 1.
 
-HyperFrames renders via headless Chromium and muxes audio in the same pass. Output is an MP4 (H.264 + AAC) at the canvas size chosen in Phase 1 (1920×1080 / 1080×1920 / 1080×1080 / 1080×1350).
-
-### If you need a silent video first (rarely)
-
-Render without the audio clip wired up, then mux separately with ffmpeg:
+If you need a silent video first (rarely), render without the audio clip wired and mux after:
 
 ```bash
-mkdir -p out
 npx hyperframes render . --output out/video-silent.mp4
 ffmpeg -y -i out/video-silent.mp4 -i voiceover-with-music.mp3 \
-  -c:v copy -c:a aac -map 0:v:0 -map 1:a:0 -shortest \
-  out/final.mp4
+  -c:v copy -c:a aac -map 0:v:0 -map 1:a:0 -shortest out/final.mp4
 ```
 
-### Verify
+Finally, confirm the delivered captions still match the shipped soundtrack:
+
 ```bash
-ffprobe out/final.mp4 2>&1 | grep -E "Duration|Video|Audio"
 python3 "$SKILL_DIR/scripts/caption_gen.py" validate \
   --audio voiceover-with-music.mp3 \
   --manifest captions-review.json \
-  --srt out/final.srt \
-  --vtt out/final.vtt \
-  --state .hve/captions-state.json
+  --srt out/final.srt --vtt out/final.vtt --state .hve/captions-state.json
 ```
 
 ### Troubleshooting render failures
 
-If `npx hyperframes render` hangs, errors, or produces an unexpected output, **always run `npx hyperframes doctor` first**:
+**Environment failures are `doctor`'s job, not this file's** (ADR-003). If the render hangs, errors,
+or produces unexpected output, run it first — it diagnoses Node, FFmpeg, the Chromium binary, and
+the capture path in use, and prints the fix for whatever is broken. `DOCTOR` documents its coverage;
+do not build a parallel diagnostic here, and never branch on a CLI version.
 
 ```bash
 npx hyperframes doctor
 ```
 
-`doctor` checks Node version, FFmpeg, Chromium binary, and reports which capture path will be used. It prints actionable fix instructions for anything broken.
+Two failures belong to the *composition*, so `doctor` passes while the output is still wrong:
 
-Known issues:
+- **Render succeeds but the output is silent** — the `<audio>` element in `index.html` has no `id`.
+  Without one the audio is silently dropped during render; `lint` (inside `check`) flags it.
+- **Scenes look blank during transitions** — adjacent scenes must OVERLAP during the crossfade
+  window. See `patterns/transition-catalog.md` § Hard Rules.
 
-- **`HeadlessExperimental.beginFrame' wasn't found`** — Chromium 147+ removed this protocol. The HyperFrames CLI from v0.4.2 onwards auto-detects and falls back to screenshot mode. If you're on a pinned older CLI, set the escape hatch: `export PRODUCER_FORCE_SCREENSHOT=true` before render.
-- **`Protocol error (Page.captureScreenshot): Unable to capture screenshot`** — the host's headless Chrome can't screenshot (observed on WSL2; can also hit sandboxed/container hosts). `doctor` passes and the composition compiles, but capture dies. Render in Docker instead — the CLI ships a containerized path: `npx hyperframes render . --output out/final.mp4 --docker` (needs Docker running; the first run pulls the image). On machines with ≤8 GB RAM the CLI auto-enables low-memory mode, which *forces the same screenshot capture* and can fail again inside Docker too — add `--no-low-memory-mode` to switch back to `beginframe` capture: `npx hyperframes render . --output out/final.mp4 --docker --no-low-memory-mode`. Output is identical.
-- **Render hangs ~120 seconds then times out** — HyperFrames is trying to use system Chrome instead of `chrome-headless-shell`. Fix:
-  ```bash
-  npx puppeteer browsers install chrome-headless-shell
-  ```
-  Re-run `npx hyperframes doctor` to confirm the chrome-headless-shell binary is now detected. This is the same binary the `setup.sh` step in README's prerequisites should have installed.
-- **Render succeeds but output is silent** — verify the `<audio>` element in `index.html` has an `id` attribute (HyperFrames `lint` requires this — without an `id`, the audio is silently dropped during render).
-- **Some scenes look blank during transitions** — adjacent scenes need to OVERLAP during the crossfade window. See `patterns/transition-catalog.md` § Hard Rules.
+If capture itself dies on the host (sandboxed containers, WSL2), re-run through the containerized
+path with `--docker`; on low-RAM hosts the CLI auto-enables low-memory mode, which forces screenshot
+capture — add `--no-low-memory-mode` to switch back. Output is identical either way.
 
 ## Output
 
 - `out/final.mp4` — Final video with voiceover and music
-- `voiceover.mp3` — Raw voiceover (padded to `VIDEO_DURATION`)
-- `voiceover-normalized.mp3` — Loudness-normalized voiceover (input to the mix step)
-- `background-music.mp3` — Selected Freesound track (if Step 5.2 ran)
-- `voiceover-with-music.mp3` — Voiceover + music mix; **the file `index.html`'s `<audio src>` references — render is silent without it**
-- `transcript.json` — Word-level timing from `npx hyperframes transcribe` (default), OR `voiceover.json` if you used the standalone-whisper fallback (`--output_format json`)
+- `out/final.srt` / `out/final.vtt` — Reviewed, toggleable caption sidecars beside the MP4
+- `voiceover-with-music.mp3` — Final soundtrack; **the file `index.html`'s `<audio src>` references
+  — render is silent without it**
+- `audio_request.json` / `audio_meta.json` + `assets/voice/`, `assets/bgm/`, `assets/sfx/` —
+  Delegated engine request, result (durations, per-line word timings, music and effect cues), and
+  the source audio it wrote
+- `vo_section_NN.mp3` → `voiceover.mp3` → `voiceover-normalized.mp3` — Per-section narration, the
+  assembled + `VIDEO_DURATION`-padded voiceover, and its normalized form (input to the mix)
+- `background-music.mp3` — The confirmed music track (if Step 5.2 ran)
+- `transcript.json` — Composition-absolute word timings from `npx hyperframes transcribe`, or
+  `voiceover.json` from the standalone-whisper fallback
 - `voiceover.srt` / `voiceover.vtt` — Regenerable ASR drafts; never ship as reviewed captions
-- `captions-review.json` — Human-reviewed speech/speaker/meaningful-sound cue source bound to the final audio
-- `out/final.srt` / `out/final.vtt` — Reviewed, toggleable closed-caption sidecars beside the MP4
-- `.hve/captions-state.json` — Final-audio, review-manifest, and sidecar fingerprints used by resume validation
+- `captions-review.json` + `.hve/captions-state.json` — Human-reviewed cue source bound to the final
+  audio, and the fingerprints resume validation checks
 
 ## Checkpoint
 
 After the confirmed audio choice is mixed (or the confirmed no-music path is prepared), reviewed
-caption validation passes against the final soundtrack, the render passes verification, and the
-user accepts the result, stamp Phase 5:
+caption validation passes against the final soundtrack, the render passes verification, and the user
+accepts the result, stamp Phase 5:
 
 ```bash
 python3 "$SKILL_DIR/scripts/validate_brief.py" \
@@ -827,17 +769,13 @@ python3 "$SKILL_DIR/scripts/validate_brief.py" \
 A nonzero exit means the exact track or an earlier story field changed; do not report completion
 until the stale phase is rerun and stamped.
 
-Surface the **absolute** output path (issue #21) so the user never has to hunt for the file:
+Surface the **absolute** output paths (issue #21) so the user never has to hunt for the file:
 
 ```bash
-FINAL="$(cd "$(dirname out/final.mp4)" && pwd)/final.mp4"   # absolute path to the render
-FINAL_SRT="$(cd "$(dirname out/final.srt)" && pwd)/final.srt"
-FINAL_VTT="$(cd "$(dirname out/final.vtt)" && pwd)/final.vtt"
-PROJECT_DIR="$(pwd)"                                        # absolute path to the project folder
+FINAL="$(cd out && pwd)/final.mp4"     # absolute paths to the render and its sidecars
 echo "Final video:    $FINAL"
-echo "Captions (SRT): $FINAL_SRT"
-echo "Captions (VTT): $FINAL_VTT"
-echo "Project folder: $PROJECT_DIR"
+echo "Captions:       ${FINAL%.mp4}.srt | ${FINAL%.mp4}.vtt"
+echo "Project folder: $(pwd)"
 ```
 
 > "Video rendered! 🎬
@@ -851,15 +789,8 @@ echo "Project folder: $PROJECT_DIR"
 > Watch it and let me know if you'd like any adjustments."
 
 **Offer to open the result — consent-gated, never auto-launch.** Ask (native prompt) whether to open
-the project folder or the file; only after the user says yes, run the matching launcher **directly**
-(argv only — no `eval`, no `sh -c`, no shell interpolation of the path):
-
-| Platform | Open folder | Open in VS Code |
-|---|---|---|
-| macOS | `open "<project-dir>"` | `code "<project-dir>"` |
-| Windows | `explorer "<project-dir>"` | `code "<project-dir>"` |
-| Linux | `xdg-open "<project-dir>"` | `code "<project-dir>"` |
-| WSL | `wslview "<project-dir>"` (or `explorer.exe .`) | `code "<project-dir>"` |
-
-Recompute these machine-specific absolute paths from the CWD each run — never persist them into a
-committed artifact.
+the project folder or the file. Only after the user says yes, run the platform's own opener
+**directly** on the project dir — `open` (macOS), `explorer` (Windows), `xdg-open` (Linux),
+`wslview` (WSL), or `code` for VS Code — passing the path as an argv element, never through `eval`,
+`sh -c`, or any shell interpolation. Recompute these machine-specific absolute paths from the CWD
+each run; never persist them into a committed artifact.

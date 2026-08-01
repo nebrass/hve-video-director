@@ -25,7 +25,9 @@ SKILL.md (orchestrator)
   ├─ workflows/phase-2-capture.md       → produces public/screenshots/ (via Chrome DevTools MCP)
   ├─ workflows/phase-3-design.md        → produces DESIGN.md + scenes/*.html (via hyperframes skill)
   ├─ workflows/phase-4-production.md    → produces root index.html composition (via hyperframes skill)
-  └─ workflows/phase-5-audio.md         → produces voiceover.mp3 + background-music.mp3 + out/final.mp4 (npx hyperframes render)
+  └─ workflows/phase-5-audio.md         → narration + music bed + SFX via the media-use audio engine,
+                                          then the confirmed-track mix, reviewed captions,
+                                          and out/final.mp4 (npx hyperframes render)
 ```
 
 **`reasoning/` and `grammar/` are first-class skill directories, not documentation.** They hold the
@@ -56,16 +58,17 @@ call (ADR-005), and a user's explicit creative instruction still overrides any d
 **External dependencies the skill calls out to:**
 - `mcp__chrome-devtools__*` for app capture (Phase 2)
 - The `hyperframes` skill for HTML/GSAP authoring rules (Phases 3 + 4)
+- The `media-use` skill for **all** Phase-5 audio generation — `AUDIO_ENGINE` runs TTS, the music bed (BGM) and SFX from one request, and `TRANSCRIBE` / `CAPTIONS_AUTHORING` / `TRANSCRIPT_HANDLING` supply caption data. Word timestamps come back only from its HeyGen voice route; the ElevenLabs and local Kokoro routes still need a transcription pass. Delegation stops at generation: the exact-track confirmation, the caption review state machine, the verified mix recipes, and render approval stay here (ADR-001)
 - There is **no** `gsap` companion skill — it is not installed in any skills home and is not an ecosystem skill. GSAP choreography guidance (timeline registration, the property contract, ease families, stagger) is `GSAP_ADAPTER` + `EASING_AND_STAGGER` in `hyperframes-animation`. `scripts/check_requirements.sh` still probes for a `gsap` skill and reports it as a `recommended` check that degrades gracefully when absent, which is harmless; do not re-add it to prose.
 - `npx hyperframes` CLI for `init`, `add` (pull catalog blocks, Phase 4), `lint`, `preview`, `check` (required final gate; `inspect`/`validate`/`layout` are deprecated aliases), `render`, `doctor` (render-environment diagnostics, Phase 5), `transcribe` (preferred voiceover-timing verifier in Phase 5; falls back to standalone Whisper if unavailable), and `tts` (used in Phase 5 when the user explicitly confirms a local Kokoro voice)
 - `mcp__chrome-devtools__screencast_*` + `resize_page` for Phase-2 web-clip capture (experimental, feature-detected — needs `--experimentalScreencast=true`; falls back to screenshots), and optional `asciinema`+`agg` for CLI clip recording (otherwise the authored-terminal path)
 - `mcp__chrome-devtools__list_pages` + `select_page` for the explicit authenticated-session path. The user must first connect the MCP to running Chrome with Chrome 144+ `--autoConnect` (preferred) or the dedicated-profile `--browser-url` fallback; attached capture never navigates and follows `patterns/authenticated-browser-capture.md`.
-- `scripts/generate_voiceover.py` → ElevenLabs API + optional Whisper transcription (Phase 5)
+- `scripts/generate_voiceover.py` → two roles, only one deprecated. `--assemble-only` is the canonical voiceover-section assembler for **both** audio paths (exact start times, pad to duration, overrun warning) and is **not** deprecated. Generating with the ElevenLabs API + optional Whisper transcription is the **deprecated acquisition fallback** (removed in M6) used only when the `media-use` engine is unavailable
 - `scripts/caption_gen.py` → preserves legacy ASR `voiceover.srt`/`.vtt` drafts and implements the Phase-5 `draft` → human review → `approve` → `finalize` → `validate` contract. Approval fingerprints the exact speech/speaker/meaningful-sound cues; final sidecars and deterministic state publish as one rollback-protected set. Pure stdlib with required `ffprobe`.
 - `scripts/capture_screen.py` → fixed-duration, silent native desktop/region capture orchestrator (pure stdlib). Uses macOS `screencapture`, Windows `gdigrab`, X11 `x11grab`, or feature-detected Wayland `wf-recorder`; WSL and unavailable Wayland return explicit recording handoffs. It trims through sibling `stitch_clip.py`, validates duration/frame count within one frame, and uses `<clip>.capture.pending` + fingerprinted `<clip>.capture.json` state so failed retakes preserve prior valid media but cannot count as complete.
 - `scripts/stitch_clip.py` → canonical normalizer/stitcher for raw captures (CFR30, H.264 High/yuv420p, even dimensions, no audio, `+faststart`) via the ffmpeg concat filter (pure stdlib)
 - `scripts/validate_brief.py` → parses the exact `project-plan.md` Creative Brief table, consent-migrates legacy plans with empty placeholders, confirms revision-bound story/audio fingerprints, atomically writes `.hve/brief-state.json`, stamps phases, and rejects stale prerequisites (pure stdlib)
-- `scripts/search_music.py` → Freesound API for CC music (Phase 5)
+- `scripts/search_music.py` → **deprecated fallback** (removed in M6): Freesound API for CC music, used in Phase 5 only when the `media-use` engine is unavailable. Whatever produces the candidate, the exact-track confirmation still gates the mix
 - `scripts/check_requirements.sh` → verifies the toolchain (node/python/ffmpeg/chrome-headless-shell/hyperframes CLI + companion skills + env vars). Default, `--json`, and `--plan` are side-effect-free; report modes never use online `npx` probes. `--fix=<id,id>` runs only selected safe user-scoped actions (`chrome-shell`, `hyperframes-skill`, `whisper`), while bare `--fix` retains all-safe behavior. System/sudo/environment actions are printed, never run. Its `SKILL_HOMES` line must stay in lock-step with the canonical list in `SKILL.md` (same parity rule as the Phase 3/5 resolvers).
 
 `templates/` files are copied into generated projects. `patterns/` files are referenced for visual techniques — `metallic-swoosh.md` documents *why* clipPath transitions are banned (black-sliver artifacts), and `cli-terminal-capture.md` documents the `asciinema` + `agg` workflow for the optional real-terminal-clip path (the dependency-free authored-terminal path uses `templates/scene-terminal.html`; the asciinema clip path uses `templates/scene-terminal-clip.html`).
@@ -73,15 +76,28 @@ call (ADR-005), and a user's explicit creative instruction still overrides any d
 ## Working with the skill scripts
 
 The media scripts run inside generated video projects; `validate_brief.py` runs from the installed
-skill against a generated project via `--project-dir`. `generate_voiceover.py` and
-`search_music.py` self-install `requests` via pip on first run; `caption_gen.py`,
+skill against a generated project via `--project-dir`.
+
+**`generate_voiceover.py` and `search_music.py` are deprecated *acquisition* fallbacks.** Phase 5's
+primary audio path is the `media-use` engine (`AUDIO_ENGINE`); these two are what the workflow falls
+back to when that skill is missing or the user declines to authenticate a provider. They stay in the
+tree — with their tests green — until **M6**, so a delegated path that is not yet installed
+everywhere can never strand a project mid-render. Do not extend them; fix the delegated path
+instead. Exception: `generate_voiceover.py --assemble-only` is the shared timeline assembler for
+both paths and is not going anywhere at M6 — only the generation half is.
+
+`generate_voiceover.py` and `search_music.py` self-install `requests` via pip on first run; `caption_gen.py`,
 `capture_screen.py`, `stitch_clip.py`, and `validate_brief.py` are pure standard library (the
 capture/clip helpers invoke platform tools and `ffmpeg`/`ffprobe` with argv, while
 `caption_gen.py` invokes `ffprobe` for the final-audio duration; none invokes a shell).
 
 ```bash
-# Voiceover generation (from inside a generated project)
+# Voiceover generation — DEPRECATED acquisition fallback (from inside a generated
+# project); the primary path is the media-use audio engine
 ELEVENLABS_API_KEY=... python3 scripts/generate_voiceover.py
+
+# Section assembly — NOT deprecated; used by both audio paths
+python3 scripts/generate_voiceover.py --assemble-only
 
 # Reviewed caption delivery (after the final soundtrack exists)
 python3 scripts/caption_gen.py draft           # ASR drafts + captions-review.json
@@ -103,7 +119,7 @@ python3 /path/to/hve-video-director/scripts/validate_brief.py \
 python3 /path/to/hve-video-director/scripts/validate_brief.py \
   --project-dir /path/to/generated-project migrate
 
-# Music search (from inside a generated project) — query is a required argument
+# Music search — DEPRECATED fallback (from inside a generated project); query is required
 FREESOUND_API_KEY=... python3 scripts/search_music.py "cinematic corporate uplifting"
 ```
 
@@ -129,7 +145,17 @@ These are enforced verbally in the `## DON'Ts` section of `SKILL.md`. If you mod
 
 ## Common edits
 
-- **Add a voice** → update both the `## ElevenLabs Voice IDs` table in `SKILL.md` and the `## Voices` table in `README.md` (the two tables must stay in sync).
+- **Add a voice** → update both the `## ElevenLabs Voice IDs` table in `SKILL.md` and the `## Voices` table in `README.md` (the two tables must stay in sync). Those IDs are the user-facing voice contract for **both** audio paths — the `media-use` engine's ElevenLabs route and the deprecated `generate_voiceover.py` — so they outlive M6.
+- **Change the audio path** → Phase 5's primary *generator* is the `media-use` audio engine, wired in
+  `workflows/phase-5-audio.md`. Its capabilities (`AUDIO_ENGINE`, `BGM`, `SFX`, `TRANSCRIBE`,
+  `TTS_LOCAL`, `CAPTIONS_AUTHORING`, `TRANSCRIPT_HANDLING`) are cited by symbol and resolved through
+  `compat/ecosystem.md`, so an upstream relayout is a one-row edit there, never a workflow edit.
+  The delegation seam is fixed: generation may move, but the exact-track music confirmation,
+  `scripts/caption_gen.py`'s review contract, the verified mix recipes, and render approval are
+  this skill's governance (ADR-001) and are never handed to the engine. `generate_voiceover.py` +
+  `search_music.py` are the deprecated **acquisition** fallback until **M6** (assembly via
+  `--assemble-only` survives); if that milestone moves, update the deprecation note in `SKILL.md`,
+  `README.md`, `workflows/phase-5-audio.md`, both script headers, and this file together.
 - **Change phase logic** → edit the relevant `workflows/phase-N-*.md`; update the prerequisite list in `SKILL.md` if a new required file is introduced.
 - **Change the Creative Brief schema** → update `templates/project-plan.md`,
   `scripts/validate_brief.py`, `example/project-plan.md`, workflow field names, and validator tests

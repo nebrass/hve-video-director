@@ -29,15 +29,25 @@ Two contracts, plus a bound:
 3. **The key set stays bounded.** Key sprawl is this milestone's named risk. The
    bound is derived, not chosen — see `KeySetIsClosed.test_key_set_is_bounded`.
 
-And one vocabulary contract, from ADR-005: every capability tag declared by a
-`grammar/` entry must be defined in `reasoning/capability-catalog.md`, which owns
-and versions that vocabulary. Q11's derivation is the *union of the tags declared
-by every grammar entry a frame cites*; an undefined tag therefore enters a
-frame's capability set, matches no runtime row, and stops the derivation being
-mechanical — silently, because no gate reads these tables.
+And two vocabulary contracts:
 
-Everything is derived from the four files themselves. Nothing here restates a
-key name, a tag name, or a budget number.
+4. **Capability tags** (ADR-005). Every tag declared by a `grammar/` entry must
+   be defined in `reasoning/capability-catalog.md`, which owns and versions that
+   vocabulary. Q11's derivation is the *union of the tags declared by every
+   grammar entry a frame cites*; an undefined tag therefore enters a frame's
+   capability set, matches no runtime row, and stops the derivation being
+   mechanical — silently, because no gate reads these tables.
+5. **Closed value vocabularies.** Two keys take their value from a grammar
+   column instead of an inline enum: `camera:` from the Key column of
+   `grammar/camera.md` (D1) and `metaphor:` from the Concept column of
+   `grammar/metaphors.md` (D2). Every value the template demonstrates, and every
+   value Phase 1 names, must resolve against the owning column. This is the check
+   that catches a *derived* literal — the template once told authors to lowercase
+   the Title-Case Move name, which yields `exploded-view` for a file that defines
+   `exploded` / `exploded-3d`.
+
+Everything is derived from the six files themselves. Nothing here restates a key
+name, a tag name, a camera literal, a concept, or a budget number.
 """
 
 import re
@@ -51,6 +61,8 @@ CATALOG = ROOT / "reasoning" / "capability-catalog.md"
 TEMPLATE = ROOT / "templates" / "storyboard.md"
 PHASE_1 = ROOT / "workflows" / "phase-1-storytelling.md"
 GRAMMAR = sorted((ROOT / "grammar").glob("*.md"))
+CAMERA_GRAMMAR = ROOT / "grammar" / "camera.md"
+METAPHOR_GRAMMAR = ROOT / "grammar" / "metaphors.md"
 
 # The two section headings that own the key contract. Matched by prefix so the
 # em-dash subtitle of the second one can be reworded without breaking the parse.
@@ -98,9 +110,70 @@ CLOSED_SET_COUNT = re.compile(r"\b([A-Za-z]+) key names\b")
 # verdict, which is a consent fact, not an answer to a question.
 OVERRIDE_KEY = "user_directed:"
 
+# --- Closed value vocabularies (D1 `camera:`, D2 `metaphor:`) ---------------
+#
+# Two keys take their value from a column of a grammar file rather than from an
+# inline enum in the contract table:
+#
+#   `camera:`   — the slug column of grammar/camera.md, which spells the exact
+#                 literal a storyboard writes. Before that column existed the
+#                 template *guessed* the literal by lowercasing the Move name,
+#                 which silently disagreed with the file ("exploded-view" vs the
+#                 "exploded" / "exploded-3d" pair camera.md actually defines).
+#   `metaphor:` — the Concept column of grammar/metaphors.md. The Concept is the
+#                 row identifier; the Metaphor cell is the picture it maps to,
+#                 and "one concept → one metaphor" only parses if the key names
+#                 the concept.
+#
+# Nothing about either vocabulary is restated here: both are read out of the
+# column that owns them, so adding a move or a concept needs no edit in this
+# file, and a renamed one turns red on the next run.
+CAMERA_KEY = "camera:"
+METAPHOR_KEY = "metaphor:"
+
+# A `- key: value` bullet as a frame actually writes it. The optional `>`
+# prefixes matter: the template's *filled example* — the only place a real value
+# is ever demonstrated — sits inside a blockquote, and an extractor that misses
+# it would check the placeholder rows and nothing else.
+VALUE_BULLET = re.compile(
+    r"^[ \t]*(?:>[ \t]*)*[-*][ \t]+([a-z][a-z0-9_]*):[ \t]*(\S.*?)[ \t]*$"
+)
+# The same pair written inline as prose — `` `camera: push-in` ``. This is the
+# form the template's own guidance uses, and the form the guessed-slug bug lived
+# in, so it is not optional to collect.
+VALUE_SPAN = re.compile(r"^([a-z][a-z0-9_]*):[ \t]+(\S.*)$")
+# A trailing `*(editorial note)*` on a template bullet is annotation, not value.
+BULLET_ANNOTATION = re.compile(r"[ \t]*\*\([^)]*\)\*[ \t]*$")
+# A placeholder value — `{a move name from …}` — is the shape of the template,
+# not a demonstrated value, and resolves against nothing.
+PLACEHOLDER = "{"
+
+# The column headers that carry each vocabulary. Matched on the concept rather
+# than one spelling, the same posture as TAG_COLUMN above: a `Slug` column, a
+# `Key` column and a `` `camera:` value `` column are the same contract. Header
+# text is backtick-stripped before matching, so `camera:` is written bare here.
+SLUG_COLUMN = re.compile(r"\bslugs?\b|\bkeys?\b|camera:")
+CONCEPT_COLUMN = re.compile(r"\bconcepts?\b")
+# A camera literal: lowercase, hyphen-joined, no spaces. `exploded`, `push-in`,
+# `exploded-3d`.
+SLUG = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")
+# A Key cell spells one literal or a Tier-A/Tier-B pair; both separators are in
+# use across this repo's tables.
+KEY_SPLIT = re.compile(r"[·/,;]")
+
 
 def rel(path):
     return str(Path(path).resolve().relative_to(ROOT))
+
+
+def normalize(value):
+    """Fold a value for comparison: collapse whitespace, ignore case.
+
+    Capitalization of a concept drifts between a heading, a table cell and a
+    frame; the row identity does not. Dashes and punctuation are left exactly as
+    written — a swapped em dash is real drift, not a spelling variant.
+    """
+    return " ".join(value.split()).casefold()
 
 
 def read(path):
@@ -282,6 +355,135 @@ def declared_tags(path):
     return found
 
 
+def column_cells(path, predicate):
+    """Yield (cell, lineno) for every table column of `path` whose header matches.
+
+    Structural, not positional: it walks the parsed tables of the whole file, so
+    a reordered column, a renamed section heading, an added table and reflowed
+    prose around any of them all leave it working. That is not hypothetical —
+    the one parse bug this suite has already shipped was a line-scoped read of a
+    sentence that later wrapped, which silently collected half a vocabulary.
+    """
+    for headers, rows in tables(iter_lines(path)):
+        for index, header in enumerate(headers):
+            if not predicate(header):
+                continue
+            for cells, number in rows:
+                if index < len(cells):
+                    yield cells[index], number
+
+
+def camera_slugs():
+    """The closed `camera:` vocabulary — the Key column of grammar/camera.md.
+
+    D1: the literal a storyboard writes is stated explicitly and never derived
+    from the Move display name. Lowercasing "Exploded View" yields
+    `exploded-view`, which the file does not define — it defines the `exploded` /
+    `exploded-3d` pair. That mismatch is the bug this vocabulary closes, and the
+    reason nothing here reconstructs a literal from anything else.
+
+    A Key cell holds one slug, or a Tier-A/Tier-B pair separated by `·` or `/`.
+    Segments are matched whole: a segment that is not a bare slug is dropped
+    rather than mined for tokens, so a Key cell that grows prose narrows the
+    accepted vocabulary (a loud failure downstream) instead of widening it.
+    Backticked or bare is immaterial — the strip covers both.
+
+    Returns {slug: lineno}; first occurrence wins, so the reported line is
+    stable when a slug legitimately appears twice.
+    """
+    values = {}
+    for cell, number in column_cells(CAMERA_GRAMMAR, SLUG_COLUMN.search):
+        for segment in KEY_SPLIT.split(cell):
+            token = segment.strip().strip("*_` ").strip()
+            if SLUG.fullmatch(token):
+                values.setdefault(token, number)
+    return values
+
+
+def metaphor_concepts():
+    """The closed `metaphor:` vocabulary — the Concept column of metaphors.md.
+
+    D2: the value is the **Concept**, not the Metaphor. The Concept is the row
+    identifier; the Metaphor cell is the picture that explains it. The budget
+    rule reads "one concept → one metaphor" and counts distinct `metaphor:`
+    values, which only parses if the key on the frame names the concept.
+
+    A concept is the whole cell — it is a phrase, not a token list, so nothing
+    here splits on `/` or `,` (that would shred "Before / after", "CI/CD" and
+    "3D structure (molecule, mesh, model)" into fragments no frame can write).
+    """
+    values = {}
+    for cell, number in column_cells(METAPHOR_GRAMMAR, CONCEPT_COLUMN.search):
+        concept = cell.strip().strip("*_` ").strip()
+        if concept and concept != "—":
+            values.setdefault(concept, number)
+    return values
+
+
+def sentinel_values(key):
+    """The non-grammar literals the contract table allows for `key`.
+
+    `camera:` allows `static` and `metaphor:` allows `none — real product` — a
+    frame that answers no viewer question, and a beat that binds a real capture.
+    Both are read out of the Allowed-values cell of the closed-contract table
+    rather than typed here, so scene-analysis.md stays the single source and a
+    reworded sentinel is caught instead of being quietly accepted.
+
+    Three kinds of backticked span in that cell are not values: a file pointer
+    (`grammar/camera.md`), another key (`motion:`), and a suffix marker (`-3d`)
+    — a marker describes how a literal is formed, it is not a literal a frame
+    may write on its own.
+    """
+    for headers, rows in tables(section(SCENE_ANALYSIS, CONTRACT_SECTION)):
+        if headers[:2] != ["key", "required"]:
+            continue
+        for cells, _number in rows:
+            if cells[0].strip("` ") != key or len(cells) < 3:
+                continue
+            return {
+                token.strip()
+                for token in INLINE_CODE.findall(cells[2])
+                if "/" not in token
+                and not token.endswith(":")
+                and not token.startswith("-")
+            }
+    return set()
+
+
+def demonstrated_values(path):
+    """Director-key values a file actually writes, as {key: [(value, lineno)]}.
+
+    Two forms, both load-bearing:
+
+    * a frame bullet — ``- camera: exploded`` — including inside a blockquote,
+      which is where templates/storyboard.md keeps its *filled example*, the one
+      place a real value is ever demonstrated;
+    * an inline span — ``` `camera: push-in` ``` — the form the template's own
+      guidance uses and the form the guessed-slug bug lived in.
+
+    Placeholder bullets (``- camera: {a move name from …}``) are the shape of the
+    template rather than a value and are skipped; so is a trailing
+    ``*(editorial note)*``.
+    """
+    hits = {}
+    for number, line, inside in iter_lines(path):
+        if inside:
+            continue
+        bullet = VALUE_BULLET.match(line)
+        if bullet:
+            value = BULLET_ANNOTATION.sub("", bullet.group(2)).strip()
+            if value and not value.startswith(PLACEHOLDER):
+                hits.setdefault(f"{bullet.group(1)}:", []).append((value, number))
+        for span in INLINE_CODE.findall(line):
+            pair = VALUE_SPAN.match(span.strip())
+            if not pair:
+                continue
+            value = pair.group(2).strip()
+            if value and not value.startswith(PLACEHOLDER):
+                hits.setdefault(f"{pair.group(1)}:", []).append((value, number))
+    return hits
+
+
 class KeySetIsClosed(unittest.TestCase):
     def test_the_contract_table_parses(self):
         """A silently-empty parse would make every assertion below vacuous."""
@@ -339,12 +541,15 @@ class KeySetIsClosed(unittest.TestCase):
         )
 
         match = CLOSED_SET_COUNT.search(read(SCENE_ANALYSIS))
-        self.assertIsNotNone(
-            match,
-            f"{rel(SCENE_ANALYSIS)}: the closed-set sentence no longer states how "
-            f"many key names there are, so the prose can drift from the table "
-            f"unnoticed",
-        )
+        # `fail`, not `assertIsNotNone`: the next two lines read `match.group(1)`,
+        # so a reworded sentence has to stop here with the actionable message
+        # rather than raise AttributeError on None one line later.
+        if match is None:
+            self.fail(
+                f"{rel(SCENE_ANALYSIS)}: the closed-set sentence no longer states "
+                f"how many key names there are, so the prose can drift from the "
+                f"table unnoticed"
+            )
         word = match.group(1).lower()
         self.assertIn(
             word,
@@ -443,6 +648,117 @@ class TheThreeFilesAgree(unittest.TestCase):
                 f"that file; without the pointer the reader has no way to reach "
                 f"the full list",
             )
+
+
+class ValueVocabulariesAreClosed(unittest.TestCase):
+    """`camera:` and `metaphor:` take their values from a grammar column.
+
+    Every other key in the contract table carries its allowed values inline —
+    `calm | build | peak | resolve` — so a wrong value is visible in the one
+    file that defines it. These two do not: their vocabularies are tables in
+    `grammar/`, and the value written on a frame is a literal copied out of a
+    column. Nothing downstream reads either key yet (Phase 3 becomes a reader in
+    M5), so a literal that resolves against nothing is invisible until a builder
+    asks for a move that does not exist.
+
+    It has already happened once. The template derived the literal by lowercasing
+    the Title-Case Move name, which produced `exploded-view` while camera.md
+    defined the `exploded` / `exploded-3d` pair — a guess that read as a rule and
+    disagreed with the file. D1 closes that by making the Key column explicit;
+    this class is the check that would have caught it. D2 does the same for
+    `metaphor:`, whose value is the **Concept** column — the row identifier, and
+    the unit the metaphor-consistency budget counts.
+    """
+
+    def demonstrated(self, key):
+        """Every value of `key` the template writes or Phase 1 names.
+
+        Phase 1 deliberately names no values today — it delegates to the two
+        owning files, the same posture `test_phase_1_names_no_stale_key` holds it
+        to. It is scanned anyway so the day it does name one, the value is
+        checked rather than trusted. Its empty contribution is why the vacuity
+        guard below is asserted on the template.
+        """
+        sites = []
+        for path in (TEMPLATE, PHASE_1):
+            for value, number in demonstrated_values(path).get(key, []):
+                sites.append((value, f"{rel(path)}:{number}"))
+        return sites
+
+    def test_the_grammar_columns_parse(self):
+        """A silently-empty column would make both resolution checks vacuous."""
+        self.assertTrue(
+            camera_slugs(),
+            f"{rel(CAMERA_GRAMMAR)}: no table column names the literal a "
+            f"storyboard writes, so the `camera:` vocabulary is not closed and "
+            f"every value below resolves against nothing. The Key column is the "
+            f"contract (D1) — it was renamed, dropped, or its header no longer "
+            f"matches SLUG_COLUMN",
+        )
+        self.assertTrue(
+            metaphor_concepts(),
+            f"{rel(METAPHOR_GRAMMAR)}: no table column is headed Concept, so the "
+            f"`metaphor:` vocabulary is not closed. The Concept column is the row "
+            f"identifier and the value a frame writes (D2)",
+        )
+
+    def test_the_template_demonstrates_both_values(self):
+        """The extractor has to see the filled example, or it checks nothing.
+
+        The template's real values live in a blockquote (`> - camera: exploded`)
+        and in backticked prose (`` `camera: push-in` ``); its top-level bullets
+        are placeholders. An extractor that reads only one of those forms passes
+        while checking a fraction of the surface, which is the failure mode this
+        guard exists for.
+        """
+        for key in (CAMERA_KEY, METAPHOR_KEY):
+            self.assertTrue(
+                self.demonstrated(key),
+                f"{rel(TEMPLATE)}: no `{key}` value is demonstrated anywhere — "
+                f"either the filled example lost the key, or the template was "
+                f"reflowed into a shape `demonstrated_values` no longer reads. "
+                f"Both leave the closed-vocabulary checks passing vacuously",
+            )
+
+    def test_camera_values_resolve_against_the_key_column(self):
+        slugs = camera_slugs()
+        allowed = {normalize(v) for v in slugs} | {
+            normalize(v) for v in sentinel_values(CAMERA_KEY)
+        }
+        violations = [
+            f"{where}: `camera: {value}`"
+            for value, where in self.demonstrated(CAMERA_KEY)
+            if normalize(value) not in allowed
+        ]
+        self.assertFalse(
+            violations,
+            f"these `camera:` values are in neither the Key column of "
+            f"{rel(CAMERA_GRAMMAR)} nor the contract table's sentinel set. Copy "
+            f"the Key cell verbatim — never lowercase the Title-Case Move name, "
+            f"which is a display name and does not match ({len(slugs)} literals "
+            f"are defined):\n  " + "\n  ".join(violations),
+        )
+
+    def test_metaphor_values_resolve_against_the_concept_column(self):
+        concepts = metaphor_concepts()
+        # Case-insensitive on purpose: prose capitalization of a concept drifts
+        # between a heading, a cell and a frame; the row identity does not.
+        # Dashes and spacing are compared as written — a swapped dash is drift.
+        allowed = {normalize(v) for v in concepts} | {
+            normalize(v) for v in sentinel_values(METAPHOR_KEY)
+        }
+        violations = [
+            f"{where}: `metaphor: {value}`"
+            for value, where in self.demonstrated(METAPHOR_KEY)
+            if normalize(value) not in allowed
+        ]
+        self.assertFalse(
+            violations,
+            f"these `metaphor:` values name no row of {rel(METAPHOR_GRAMMAR)}. "
+            f"The value is the **Concept** column — the row identifier — not the "
+            f"Metaphor cell that describes the picture ({len(concepts)} concepts "
+            f"are defined):\n  " + "\n  ".join(violations),
+        )
 
 
 class CapabilityVocabulary(unittest.TestCase):

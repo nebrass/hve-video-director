@@ -439,8 +439,10 @@ Three things this step must not get wrong:
 
 - **Q1–Q10 are judgment; Q11 is a derivation.** A frame's `capabilities:` is the union of the tags
   declared by every grammar entry it cites in Q8–Q10 (`grammar/camera.md`, `grammar/metaphors.md`,
-  `grammar/motion.md`), plus asset and subject realities, plus additions that each carry a stated
-  reason on the frame. Never a taste call and never an invented tag — the vocabulary is owned by
+  `grammar/motion.md`), *starting from the baseline capability every scene implies* — that rule is
+  owned and stated by `reasoning/capability-catalog.md`; a grammar row declares only what it adds
+  beyond it, so an empty tag cell adds nothing and no frame's set is ever empty. Plus asset and
+  subject realities, plus additions that each carry a stated reason on the frame. Never a taste call and never an invented tag — the vocabulary is owned by
   `reasoning/capability-catalog.md`, whose selection procedure then answers Q12.
 - **Motion names are cited, never invented.** A `blueprint:` id resolves through `BLUEPRINT_INDEX`
   and `motion:` rule names through `RULES_INDEX` — backticked, no directory, no `.md`. A name in

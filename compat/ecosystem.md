@@ -35,7 +35,9 @@ against the local install under `.agents/skills/` on 2026-08-01.
 
 ## Capability registry
 
-Every path below was confirmed to exist on disk at authoring time.
+Every path below was confirmed to exist on disk at authoring time, and is re-asserted by the
+pointer-validity suite on every `bash test/run.sh` where the ecosystem is installed
+(§ `SKILL_SPLIT_TOPOLOGY`).
 
 ### `hyperframes-core` — the runtime contract
 
@@ -61,14 +63,14 @@ Every path below was confirmed to exist on disk at authoring time.
 | `TRANSITION_FAMILIES` | `hyperframes-animation` | `transitions/css-<family>.md`, 13 files: `css-3d`, `css-blur`, `css-cover`, `css-destruction`, `css-dissolve`, `css-distortion`, `css-grid`, `css-light`, `css-mechanical`, `css-other`, `css-push`, `css-radial`, `css-scale` | Per-family implementations (the *how*) behind the family names our catalog maps to moments | `patterns/transition-catalog.md` § Full CSS transition reference |
 | `TRANSITION_REGISTRY` | `hyperframes-animation` | `transitions/TRANSITION-REGISTRY.md` | Machine-readable registry — a curated Tier-B subset, **not** the full catalog | `patterns/transition-catalog.md`; seam tooling |
 | `MARKER_PATTERNS` | `hyperframes-animation` | `rules/css-marker-patterns.md` | Full depth of word-emphasis drawing patterns (highlight, circle, burst, scribble, sketchout) incl. multi-line + mode cycling | `patterns/marker-highlight.md` (product-video subset); Phase 3 caption emphasis |
-| `RULES_INDEX` | `hyperframes-animation` | `rules-index.md` | Index of the atomic motion recipes at `rules/<name>.md`; compose 2–4 per scene | Phase 3 scene choreography (entry point — do not enumerate `rules/*` outside this file) |
+| `RULES_INDEX` | `hyperframes-animation` | `rules-index.md` | Index of the atomic motion recipes at `rules/<name>.md`, composed a few at a time into one scene — the count this repo writes is the `motion:` row of the director-keys contract in `reasoning/scene-analysis.md`, not a number this map carries | Phase 3 scene choreography (entry point — do not enumerate `rules/*` outside this file) |
 | `BLUEPRINT_INDEX` | `hyperframes-animation` | `blueprints-index.md` | Index of the 22 proven whole-frame shapes at `blueprints/<id>.md`, plus the Reproduce/Adapt/Compose method | Phase 3 scene-shape selection; M1 `blueprint:` storyboard key (entry point — do not enumerate `blueprints/*` outside this file) |
-| `TECHNIQUES` | `hyperframes-animation` | `techniques.md` | The 13 numbered visual techniques (#1 SVG path draw … #13 WebGL fragment shader); "every composition should use at least 2–3". Cite by **number + title**, never by path | M1 `grammar/camera.md` (#12 clip-path reveal window), `grammar/motion.md` (#4 per-word kinetic type), `grammar/metaphors.md` (#9 MotionPath), `grammar/three-taxonomy.md` (#13 shader plates) |
+| `TECHNIQUES` | `hyperframes-animation` | `techniques.md` | The 13 numbered visual techniques (#1 SVG path draw … #13 WebGL fragment shader), plus upstream's own per-composition minimum — read that expectation there; this map does not restate it. Cite by **number + title**, never by path | M1 `grammar/camera.md` (#12 clip-path reveal window), `grammar/motion.md` (#4 per-word kinetic type), `grammar/metaphors.md` (#9 MotionPath), `grammar/three-taxonomy.md` (#13 shader plates) |
 | `RUNTIME_PICKER` | `hyperframes-animation` | `SKILL.md` (§ Picking a runtime, § coexistence) | Upstream's own one-line-per-runtime selection guidance, plus the rule that runtimes coexist — each registers on its global so HyperFrames seeks all in one pass | M1 `reasoning/capability-catalog.md`: this is the **base truth** the catalog extends with capability tags. The catalog may add mapping and tie-breaks; it may never contradict this |
 | `GSAP_ADAPTER` | `hyperframes-animation` | `adapters/gsap.md` | GSAP-in-HyperFrames adapter rules — timeline registration and the property/transform contract (transforms/perf in sibling `adapters/gsap-*.md`; easing/stagger has its own symbol below) | M1 `reasoning/capability-catalog.md` (GSAP is the default runtime and the master clock every other runtime hangs off); Phase 3/4 authoring. Also the standing answer for the optional standalone `gsap` companion skill that `SKILL.md`/`CLAUDE.md`/`README.md` name but which is **not installed** — this is where that guidance actually lives now |
 | `EASING_AND_STAGGER` | `hyperframes-animation` | `adapters/gsap-easing-and-stagger.md` | The ease-family palette with its character/mood mapping, the house easing register, and the stagger contract — *selection* guidance a director needs, not only mechanism | M1 `grammar/motion.md` (Easing discipline, Follow-through, Hierarchy); `reasoning/scene-analysis.md` easing register per tone |
 | `THREE_ADAPTER` | `hyperframes-animation` | `adapters/three.md` | The whole Three.js integration contract: render from `hf-seek`, importmap version pinning, asset preload, mandatory `data-duration`, `AnimationMixer.setTime`, camera pose as a pure function of time | M1 `grammar/three-taxonomy.md` (built entirely on it) + `reasoning/capability-catalog.md` `three` row + `grammar/camera.md` Tier B. Grammars name scene categories and ingredients; they never restate this contract |
-| `HTML_IN_CANVAS` | `hyperframes-animation` | `adapters/html-in-canvas-patterns.md` | Live HTML captured as a GPU texture (`drawElementImage`) with bloom/shatter/portal/liquid post-fx, incl. its environment caveats and fallback rule | M1 `reasoning/capability-catalog.md` (`cinematic-hero` on real UI) + `grammar/three-taxonomy.md` § HTML-as-texture. Also the origin of the **1–3 hero beats per video** doctrine both grammars budget against |
+| `HTML_IN_CANVAS` | `hyperframes-animation` | `adapters/html-in-canvas-patterns.md` | Live HTML captured as a GPU texture (`drawElementImage`) with bloom/shatter/portal/liquid post-fx, incl. its environment caveats and fallback rule | M1 `reasoning/capability-catalog.md` (`cinematic-hero` on real UI) + `grammar/three-taxonomy.md` § HTML-as-texture. Also the upstream origin of the **hero-beat doctrine** both grammars budget against — the limit itself is a row of the budget table in `reasoning/scene-analysis.md` and lives nowhere else (ADR-008), including here |
 | `TYPEGPU_ADAPTER` | `hyperframes-animation` | `adapters/typegpu.md` | WebGPU/WGSL canvases — particle sims, liquid glass, custom shaders — and their sync-registration rules | M1 `reasoning/capability-catalog.md` (`gpu-compute`). Environment-gated: confirm with `DOCTOR` before selecting, else fall back to Three.js or DOM |
 | `LOTTIE_ADAPTER` | `hyperframes-animation` | `adapters/lottie.md` | Pre-baked After Effects timelines seeked by absolute time (no runtime loop/speed); local assets only | M1 `reasoning/capability-catalog.md` (`prebaked-asset`) — asset-reality gated: no exported asset, never Lottie |
 | `ANIMEJS_ADAPTER` | `hyperframes-animation` | `adapters/animejs.md` | Lightweight tweening when GSAP is overkill, plus the instance-registry discipline that keeps it seekable | M1 `reasoning/capability-catalog.md` — explicitly secondary to GSAP |
@@ -95,7 +97,7 @@ Every path below was confirmed to exist on disk at authoring time.
 | `BEAT_DIRECTION` | `hyperframes-creative` | `references/beat-direction.md` | Per-beat direction: concept, mood, choreography, transition, depth layers, SFX cues, rhythm planning — and the "every element gets a motion verb" law | M1 `grammar/motion.md` (Staging; the verb law) and `reasoning/scene-analysis.md` per-frame questions |
 | `VIDEO_COMPOSITION` | `hyperframes-creative` | `references/video-composition.md` | Video frames are not web pages — density, type scale, decorative opacity; what is strict from the design spec vs adaptable for video | M1 `reasoning/scene-analysis.md` `density:` values; `grammar/motion.md` (Staging) |
 | `STORY_SPINE` | `hyperframes-creative` | `references/story-spine.md` | Value-first narrative doctrine — the hook speaks outcome language, reverse iceberg (value claim by beat 2), implementation is the footnote | Reserved name for Phase 1 beat ordering. **Not wired today** |
-| `NARRATION` | `hyperframes-creative` | `references/narration.md` | Script-writing rules and the 2.5-words-per-second pacing budget | Reserved name for Phase 1 voiceover word budgets. **Not wired today** |
+| `NARRATION` | `hyperframes-creative` | `references/narration.md` | Script-writing rules and upstream's words-per-second pacing budget | Reserved name for Phase 1 voiceover word budgets. **Not wired today** |
 | `TYPOGRAPHY` | `hyperframes-creative` | `references/typography.md` | Font pairing + OpenType features (tabular-nums for stat scenes) | Phase 3 `DESIGN.md` |
 | `DATA_IN_MOTION` | `hyperframes-creative` | `references/data-in-motion.md` | Animated charts, counters, bar races | Phase 3 stat scenes |
 | `COMPOSITION_RECIPES` | `hyperframes-creative` | `references/composition-patterns.md` | **Visual composition recipes**: picture-in-picture, text-behind-subject, title card with fade, slide show, and a flat top-level clip example | Phase 3 scene shapes; Phase 4 when a scene needs PiP/title-card layout |
@@ -125,9 +127,9 @@ Every path below was confirmed to exist on disk at authoring time.
 | `TRANSCRIBE` | `media-use` | `audio/references/transcribe.md` | Word-level timestamps; **always pass `--model` explicitly** (the CLI default `small.en` silently translates non-English audio) | Phase 5 voiceover-timing verification |
 | `TTS_LOCAL` | `media-use` | `audio/references/tts.md` | Local Kokoro-82M TTS — 54 voices, 8 languages | Phase 5 fallback when no `ELEVENLABS_API_KEY`, on explicit user confirmation |
 | `AUDIO_REQUIREMENTS` | `media-use` | `audio/references/requirements.md` | Local prerequisites for the audio paths | `patterns/INDEX.md` § Native TTS only, as a parenthetical beside `TTS_LOCAL`. No workflow cites it directly |
-| `AUDIO_ENGINE` | `media-use` | `audio/scripts/audio.mjs` | The shared TTS + BGM + SFX engine — one implementation for every official video workflow | **Not wired today.** This repo uses `scripts/generate_voiceover.py` (ElevenLabs) + `scripts/search_music.py` (Freesound). Consolidation candidate |
-| `BGM` | `media-use` | `audio/references/bgm.md` | One music bed per composition, produced by `AUDIO_ENGINE` | **Not wired today** — see `AUDIO_ENGINE` |
-| `SFX` | `media-use` | `audio/references/sfx.md` | Named sound effects, provider-gated by `AUDIO_ENGINE`'s single switch | **Not wired today** — see `AUDIO_ENGINE` |
+| `AUDIO_ENGINE` | `media-use` | `audio/scripts/audio.mjs` | The shared TTS + BGM + SFX engine — one implementation for every official video workflow | Phase 5 narration + music bed + SFX (M2). `scripts/generate_voiceover.py` / `scripts/search_music.py` are the deprecated fallbacks when this engine is unavailable |
+| `BGM` | `media-use` | `audio/references/bgm.md` | One music bed per composition, produced by `AUDIO_ENGINE` | Phase 5 (M2) — see `AUDIO_ENGINE` |
+| `SFX` | `media-use` | `audio/references/sfx.md` | Named sound effects, provider-gated by `AUDIO_ENGINE`'s single switch | Phase 5 (M2) — see `AUDIO_ENGINE` |
 
 ### `motion-doctrine` / `seam-craft` / `cut-the-curve` — seam law, mechanics, technique
 
@@ -207,23 +209,37 @@ be an immediate fork of upstream authorship (ADR-002).
 in `RULES_INDEX` and the registered symbol `MARKER_PATTERNS`. Cite `MARKER_PATTERNS`; do not cite
 it as a bare rule name. It is the only such overlap in the registry today.
 
-**Enforcement.** `test/unit/test_compat_pointers.py` already asserts that every registered path
-resolves under an installed skill home and that every SYMBOL cited in repo prose is defined here.
-It will be extended to resolve bare rule/blueprint citations against `RULES_INDEX` and
-`BLUEPRINT_INDEX`, so a citation naming a nonexistent rule or blueprint becomes a red test rather
-than a silent dead pointer. Both indexes are already machine-parseable, which is what makes that
-extension cheap: rules are listed as `<name path="rules/name.md">…</name>` elements (48 of them),
-blueprints as `<blueprint id="…" roles="…" duration="…">…</blueprint>` elements (22). Two
-consequences for authors:
+**Enforcement.** `test/unit/test_compat_pointers.py` asserts that every registered path resolves
+under an installed skill home, that every SYMBOL cited in repo prose is defined here, and — since
+M1 — that every bare rule/blueprint citation in the reasoning layer resolves against
+`RULES_INDEX` and `BLUEPRINT_INDEX`, so a citation naming a nonexistent rule or blueprint is a red
+test rather than a silent dead pointer. Both indexes are machine-parseable, which is what makes
+that resolution cheap: rules are listed as `<name path="rules/name.md">…</name>` elements,
+blueprints as `<blueprint id="…" roles="…" duration="…">…</blueprint>` elements. The two counts
+published in the table above are parsed out of *this* file and compared against the installed
+indexes, so a hand-typed count that drifts (an early draft said 47 rules) fails too — which is
+why those counts are stated once, there, and not repeated in this paragraph. Two consequences for
+authors:
 
 - **Keep citations backticked** — that is what the scanner sees.
 - **Keep them extension-less and directory-less** — a `.md` suffix or a leading `rules/` reads as
   a path and violates the one rule at the top of this file.
 
-That extension also needs the suite's file lists widened: today they glob `workflows/`,
-`patterns/`, `design-systems/`, `templates/` and `compat/`, but **not** `grammar/` or
-`reasoning/` — so nothing written in those two directories is checked against this map until both
-lists are updated.
+**Which files the suite reads.** Three surfaces, deliberately different in width:
+
+- **Path rules** (no `skill` → `path` citation, no registered path string, no distinctive upstream
+  basename) run over the markdown in `workflows/`, `patterns/`, `grammar/` and `reasoning/`, the
+  whole `design-systems/` tree, and the three root prompt files — `SKILL.md`, `CLAUDE.md`,
+  `README.md`. This file is exempt because it *is* the map.
+- **Symbol definition** runs wider, and recursively: every markdown file this repo authors as
+  prompt content, which additionally covers `templates/`, `compat/`, `.github/` and the remaining
+  root docs.
+- **Bare rule/blueprint resolution** is scoped to the markdown directly in `grammar/` and
+  `reasoning/` — the only prose that cites upstream recipes by name.
+
+Everything outside those lists is unchecked by design: `CHANGELOG.md` is history, `docs/` is the
+spec bundle, `example/` is a generated project. All three are off-limits to edits, and a test may
+not demand a fix it forbids.
 
 ---
 
@@ -327,12 +343,26 @@ automated.
 - **Why it matters.** This is the failure that motivated ADR-007: a relayout invalidates pointers
   with zero local signal.
 - **Probe.** The **pointer-validity suite** — assert every skill-relative path in this file
-  resolves, and every SYMBOL cited elsewhere in the repo is defined here.
-- **Status: IMPLEMENTED, with a known gap.** `test/unit/test_compat_pointers.py` runs inside
-  `test/run.sh` and asserts both directions (registered path resolves; cited SYMBOL is defined),
-  plus the no-paths-outside-the-map and row-shape rules. The gap: its file lists do not glob
-  `grammar/` or `reasoning/`, and bare rule/blueprint citations are not yet resolved against the
-  two indexes — see § Citing upstream vocabulary.
+  resolves, every SYMBOL cited elsewhere in the repo is defined here, and every bare
+  rule/blueprint citation in the reasoning layer resolves against the two upstream indexes.
+- **Status: IMPLEMENTED.** `test/unit/test_compat_pointers.py` runs inside `test/run.sh` and
+  asserts both directions (registered path resolves; cited SYMBOL is defined), the
+  no-paths-outside-the-map rules, the row-shape and enumerated-file-count rules, and — since M1 —
+  recipe-citation resolution plus the published rule/blueprint counts. `grammar/` and `reasoning/`
+  are inside both the path surface and the symbol surface; see § Citing upstream vocabulary for
+  the three scan lists.
+- **Residual limits** — real, and none of them a coverage gap this file can close by itself:
+  - Path and citation *resolution* **skip** when no HyperFrames install is found under any
+    `$SKILL_HOMES` entry. The ecosystem is optional at test time, so a green suite on a bare
+    machine proves the shape rules, not the pointers.
+  - The four single-word symbols (`PALETTES`, `TRANSCRIBE`, `BGM`, `SFX`) are deliberately never
+    collected from prose — an underscore-free grammar produces more false positives than it
+    catches. Their rows are still covered by the path and row-shape rules.
+  - `templates/` sits in the symbol surface but in **neither** the path surface nor the
+    recipe-citation surface, so a leaked upstream path or an invented recipe name in a template
+    that gets copied into every generated project is invisible today.
+  - A resolving path proves the file still exists, never that the capability still lives in it. A
+    silent *content* move stays a manual read at lock-bump time.
 
 ---
 

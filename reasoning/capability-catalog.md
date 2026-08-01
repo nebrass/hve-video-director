@@ -16,10 +16,20 @@ its tags from the list below and from nowhere else; `reasoning/scene-analysis.md
 tags and never invents one. That is what makes capability derivation mechanical rather than a
 judgment call.
 
+**Baseline capability.** Every scene implies `timeline-choreography` — a frame is a timeline and
+its elements arrive on one clock. Grammar rows declare only what they add *beyond* it, so an empty
+tag cell adds nothing rather than meaning "no capability". Stated here and nowhere else: no
+grammar file's local convention is load-bearing, Q11's union starts from it, and no set is empty.
+
 - **Vocabulary version: 1** (2026-08-01). Bump on any add, rename, or removal.
-- **Adding a tag** requires: a communication need no existing tag covers, at least one grammar
-  entry that will declare it, and at least one runtime row that serves it. A tag no runtime serves
-  is a design error, not a capability.
+- **Adding a tag** requires three things: a communication need no existing tag covers; a
+  **derivation path** — one of Q11's three sources: a grammar entry that declares it, a named
+  asset/subject reality, or an explicit addition whose triggering condition is stated in its row
+  below; and at least one runtime row that serves it. A tag no runtime serves is a design error,
+  not a capability; a tag no source reaches is dead vocabulary.
+- **Audited exceptions.** Two tags are declared by no grammar entry and are not orphans:
+  `prebaked-asset` enters as an asset reality (Q11 source 2 names it verbatim), `decorative-loop`
+  as an explicit addition (source 3) under the condition its row states. Both are served.
 - **Renaming a tag** is a breaking change — every grammar entry declaring it changes in the same
   commit.
 
@@ -27,7 +37,7 @@ judgment call.
 
 | Tag | The frame needs it when… |
 |---|---|
-| `timeline-choreography` | two or more elements must arrive or act in a stated order on one clock |
+| `timeline-choreography` | **baseline — every scene has it**: elements arrive and act in a stated order on one clock |
 | `text-choreography` | the words themselves are the motion — per-word or per-glyph treatment |
 | `ui-micro-motion` | small interface reactions carry the beat: press, hover, toggle, cursor contact |
 | `chart-animation` | a number or series must be *seen changing* — counters, bars, rings, scrub |
@@ -67,8 +77,8 @@ already does it.** A tested block beats a hand-built hero beat.
 ## Selection procedure (per frame)
 
 ```
-1. Take the frame's DERIVED capability set from reasoning/scene-analysis.md Q11 — the union of
-   tags declared by each grammar entry the frame cites, plus asset/subject realities, plus
+1. Take the frame's DERIVED capability set from reasoning/scene-analysis.md Q11 — the baseline,
+   plus tags declared by each grammar entry the frame cites, plus asset/subject realities, plus
    reasoned additions. Do not re-derive it here; do not add tags here.
 2. Candidate set = every runtime serving ALL derived capabilities.
 3. Apply the priors, in order — the first that decides, decides:

@@ -43,7 +43,7 @@ All times are in **seconds**. Each scene below maps 1:1 to a HyperFrames sub-com
 - tone: {one lowercase word, from the film's `Emotional journey` above}
 - energy: {calm | build | peak | resolve}
 - density: {focal | composed | dense}
-- camera: {a move name from `grammar/camera.md`, or `static` — written as the lowercase-hyphenated form of the move (`camera: push-in`, `camera: rack-focus`); a `-3d` suffix requests the Tier-B branch, which the Step 1.4c hero-beat check may deny}
+- camera: {the **Key** literal copied verbatim from `grammar/camera.md`'s Key column, or `static`. Never derive it from the Move display name — eight of sixteen rows disagree with naive lowercasing. A `-3d` suffix requests the Tier-B branch, which the Step 1.4c hero-beat check may deny}
 - metaphor: {an entry name from `grammar/metaphors.md`, or `none — real product`}
 - blueprint: {one blueprint id resolved through `BLUEPRINT_INDEX`}
 - motion: {2–4 rule names resolved through `RULES_INDEX`, comma-separated, backticked, no directory, no `.md`}   *(at least one of `blueprint:` / `motion:` is REQUIRED; both together is the Adapt/Compose posture)*

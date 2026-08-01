@@ -227,6 +227,19 @@ CITE_BARE = (
     "§ Citing upstream vocabulary)"
 )
 
+# The column of grammar/camera.md that closes the `camera:` vocabulary: the exact
+# literal a storyboard writes. Matched on the concept rather than one spelling —
+# a `Key`, a `Slug` and a `` `camera:` value `` column are the same contract.
+# Header text is backtick-stripped before matching, so `camera:` is written bare.
+CAMERA_KEY_COLUMN = re.compile(r"\bslugs?\b|\bkeys?\b|camera:")
+# A Key cell holds one literal, or a Tier-A/Tier-B pair separated by `·` or `/`.
+CAMERA_KEY_SPLIT = re.compile(r"[·/,;]")
+CAMERA_KEY_LITERAL = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")
+# Markdown escapes a literal pipe in a cell as `\|`; splitting on a bare pipe
+# would shred such a row.
+ROW_SPLIT = re.compile(r"(?<!\\)\|")
+TABLE_SEPARATOR = re.compile(r":?-{3,}:?")
+
 
 def rel(path):
     return str(Path(path).resolve().relative_to(ROOT))
@@ -517,22 +530,63 @@ def runtime_values():
     return set()
 
 
+def table_column_cells(path, header_pattern):
+    """Yield the cells of every markdown-table column whose header matches.
+
+    A deliberately small structural parser — a table is a run of `|`-leading
+    lines outside a fence, its first row is the header, and the `|---|` rule is
+    skipped. Structural rather than positional: a reordered column, an added
+    table, a renamed section heading and reflowed prose around any of them all
+    leave it working, which is the property a vocabulary reader has to have.
+    """
+    headers = None
+    for _number, line, in_fence in iter_lines(path):
+        stripped = line.strip()
+        if in_fence or not stripped.startswith("|"):
+            headers = None
+            continue
+        cells = [c.strip() for c in ROW_SPLIT.split(stripped.strip("|"))]
+        if cells and all(TABLE_SEPARATOR.fullmatch(c) for c in cells if c):
+            continue
+        if headers is None:
+            headers = [c.strip("*` ").lower() for c in cells]
+            continue
+        for index, header in enumerate(headers):
+            if header_pattern.search(header) and index < len(cells):
+                yield cells[index]
+
+
 def camera_key_values():
-    """Tier-suffixed `camera:` values (`hero-orbit`, `isometric-3d`, …).
+    """The `camera:` value vocabulary (`push-in`, `exploded`, `exploded-3d`, …).
 
-    grammar/camera.md defines these in the paragraph explaining why a row
-    spanning both tiers names its tier inside the `camera:` value. They are
-    director-key values, not recipe names.
+    These are director-key values, not recipe names, and they share a citation's
+    shape exactly, so the scanner has to subtract them.
 
-    Scoped to the whole PARAGRAPH, not the line carrying the marker phrase:
-    markdown prose wraps, and a line-scoped read silently collects only the
-    pairs that happen to precede the first newline.
+    Read from TWO places on purpose, because the vocabulary is stated in two:
+
+    * the **Key column** of the grammar table, which owns it — the exact literal
+      a storyboard writes, closed by that column so nothing derives a literal
+      from the Title-Case Move name;
+    * the **paragraph** stating the `-3d` tier-suffix rule, which spells the
+      Tier-A/Tier-B pairs inline.
+
+    The column is a superset today, but a value backticked in only one of the
+    two is still a value, and reading both costs nothing. Both reads are
+    structural rather than line-scoped: the column is parsed as a table and the
+    paragraph as a whole block. Prose reflow is not hypothetical here — an
+    earlier line-scoped version of this function silently collected only the
+    pairs that happened to precede the first newline.
     """
     values = set()
     for block in re.split(r"\n\s*\n", read(CAMERA_GRAMMAR)):
         if "`camera:` value" not in block:
             continue
         values |= {t for t in INLINE_CODE.findall(block) if not t.endswith(":")}
+    for cell in table_column_cells(CAMERA_GRAMMAR, CAMERA_KEY_COLUMN):
+        for segment in CAMERA_KEY_SPLIT.split(cell):
+            token = segment.strip().strip("*_` ").strip()
+            if CAMERA_KEY_LITERAL.fullmatch(token):
+                values.add(token)
     return values
 
 
@@ -804,7 +858,16 @@ class RecipeCitations(unittest.TestCase):
         self.rules, self.blueprints = upstream_recipe_names()
 
     def require_ecosystem(self):
-        if self.rules is None:
+        """Return (rules, blueprints), or skip when the ecosystem is absent.
+
+        The guard *returns* the two sets rather than narrowing `self.rules` in
+        place, so a caller cannot reach them without passing through it. Both
+        halves are checked: `upstream_recipe_names` returns the pair or
+        `(None, None)`, and binding them here makes that invariant visible to a
+        reader instead of leaving `None | None` one forgotten call away.
+        """
+        rules, blueprints = self.rules, self.blueprints
+        if rules is None or blueprints is None:
             self.skipTest(
                 "hyperframes-animation is not installed under any $SKILL_HOMES "
                 "entry, so the rule/blueprint indexes cannot be read — the "
@@ -812,6 +875,7 @@ class RecipeCitations(unittest.TestCase):
                 "`npx hyperframes skills update hyperframes-animation` to verify "
                 "citations"
             )
+        return rules, blueprints
 
     def test_scanner_has_a_vocabulary_to_subtract(self):
         """A silently-empty exclusion set would turn every tag into a citation."""
@@ -834,15 +898,16 @@ class RecipeCitations(unittest.TestCase):
         )
         self.assertTrue(
             camera_key_values(),
-            f"{rel(CAMERA_GRAMMAR)}: no paragraph defines the tier-suffixed "
-            f"`camera:` values; `hero-orbit` / `isometric-3d` would read as "
-            f"recipe names",
+            f"{rel(CAMERA_GRAMMAR)}: neither the Key column of the grammar table "
+            f"nor the paragraph stating the `-3d` tier-suffix rule yielded any "
+            f"`camera:` value, so every director-key literal in that file "
+            f"(`push-in`, `exploded-3d`, …) now reads as an upstream recipe name",
         )
 
     def test_exclusions_never_shadow_an_upstream_name(self):
         """An exclusion that swallows a real name would hide a dead pointer."""
-        self.require_ecosystem()
-        names = self.rules | self.blueprints
+        rules, blueprints = self.require_ecosystem()
+        names = rules | blueprints
         shadowed = sorted(names & (set(NON_RECIPE_TOKENS) | non_recipe_vocabulary()))
         self.assertFalse(
             shadowed,
@@ -866,8 +931,8 @@ class RecipeCitations(unittest.TestCase):
         `recipe_citation_candidates` does not yet know about. All three need a
         human, so all three are reported the same way.
         """
-        self.require_ecosystem()
-        names = self.rules | self.blueprints
+        rules, blueprints = self.require_ecosystem()
+        names = rules | blueprints
         stems = registered_path_stems()
         candidates = recipe_citation_candidates()
         self.assertTrue(
@@ -922,18 +987,21 @@ class RecipeCitations(unittest.TestCase):
 
     def test_declared_namespace_counts_match_the_indexes(self):
         """compat/ecosystem.md publishes both counts; drift is the 47-vs-48 bug."""
-        self.require_ecosystem()
+        rules, blueprints = self.require_ecosystem()
         blob = read(COMPAT)
         for label, pattern, actual in (
-            ("rule", DECLARED_RULE_COUNT, self.rules),
-            ("blueprint", DECLARED_BLUEPRINT_COUNT, self.blueprints),
+            ("rule", DECLARED_RULE_COUNT, rules),
+            ("blueprint", DECLARED_BLUEPRINT_COUNT, blueprints),
         ):
             match = pattern.search(blob)
-            self.assertIsNotNone(
-                match,
-                f"{rel(COMPAT)}: § Citing upstream vocabulary no longer states "
-                f"how many {label}s upstream publishes",
-            )
+            # `fail`, not `assertIsNotNone`: the very next line reads
+            # `match.group(1)`, and a missing sentence must stop here with the
+            # actionable message rather than raise AttributeError on None.
+            if match is None:
+                self.fail(
+                    f"{rel(COMPAT)}: § Citing upstream vocabulary no longer states "
+                    f"how many {label}s upstream publishes"
+                )
             self.assertEqual(
                 int(match.group(1)),
                 len(actual),

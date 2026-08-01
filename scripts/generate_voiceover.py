@@ -1,6 +1,30 @@
 #!/usr/bin/env python3
 """
-hve-video-director — Voiceover Generation Pipeline
+hve-video-director — Voiceover Generation Pipeline (DEPRECATED FALLBACK)
+
+DEPRECATED. The primary voiceover path is now the `media-use` skill's audio
+engine (`AUDIO_ENGINE`): it runs TTS, background music, and sound effects in a
+single request and returns word-level timestamps. Those timestamps still require
+the Phase-5 timing verification pass — they are the engine's own estimate of what
+it said, not a measurement of the rendered audio, and Phase 5 marks that check
+CRITICAL for exactly that reason. Its TTS cascade is HeyGen → ElevenLabs → local
+Kokoro, which means an ELEVENLABS_API_KEY still gets used there — the key is not
+made useless by the delegation. Phase 5 prefers that engine; see
+`workflows/phase-5-audio.md`, and `compat/ecosystem.md` for where the capability
+resolves to.
+
+This script remains the supported local fallback for exactly two cases: the
+`media-use` skill is not installed in any skills home, or its provider path is
+unauthenticated and the user wants their ElevenLabs key driven directly. It is
+not an offline path — it calls the ElevenLabs API. Nothing about it has changed:
+same flags, same outputs, same tests.
+
+Planned removal: M6 (prune & rebuild example), the milestone that applies the
+asset-disposition table — and only once the delegated path has proven itself in
+real projects. Deleting a working local path in the same change that introduces
+a replacement depending on an external skill being installed and authenticated
+is how a pipeline breaks mid-project.
+
 Generates timed voiceover using ElevenLabs TTS, assembles with silence
 padding, pads to VIDEO_DURATION, and verifies timing via transcript.
 

@@ -8,15 +8,25 @@ invisible: architecture, flow, scale, time, risk.
 Every row names WHEN and WHY. The named upstream recipe owns HOW — never re-derive its mechanism
 here.
 
-**Columns.** **Concept** · **Metaphor** (what to draw) · **Requires** (capability tags, ADR-005) ·
-**Camera** (a move from `grammar/camera.md`) · **Motion** (the upstream recipe that is the DOM
-floor) · **Why**.
+**Columns.** **Concept** (the row identifier) · **Metaphor** (what to draw) · **Requires**
+(capability tags, ADR-005) · **Camera** (a move from `grammar/camera.md`) · **Motion** (the
+upstream recipe that is the DOM floor) · **Why**.
 
-**Requires** lists only what a row adds *beyond* `timeline-choreography`, which every row implies;
-`—` means it adds nothing. Tags are the vocabulary owned and versioned by
-`reasoning/capability-catalog.md` — use those spellings, never invent one. A frame's capability set
-is the **union** of the tags of every grammar entry it cites; that union is the input to runtime
-selection, which happens in the catalog, not here.
+**The Camera cells name moves in display form, for orientation only.** A frame's `camera:`
+value is always the Key literal from `grammar/camera.md`'s Key column; this table is never a
+second naming surface for that key.
+
+**A storyboard's `metaphor:` value is the Concept cell, copied verbatim** — never the Metaphor
+cell, which is the picture rather than the name. Concept identifies the row —
+`metaphor: Layered architecture` — which is what lets the budget rule below read
+*one concept → one metaphor*.
+
+**Requires** lists only what a row adds beyond the baseline capability every scene implies
+(`timeline-choreography`); `—` means it adds nothing. That baseline rule is owned and stated once
+by `reasoning/capability-catalog.md`, which also owns and versions the tag vocabulary — use those
+spellings, never invent one. A frame's capability set is the **union** of the tags of every grammar
+entry it cites; that union is the input to runtime selection, which happens in the catalog, not
+here.
 
 **Motion cells name the Tier-A (DOM) expression only.** Elevating a row to true 3D, GPU, or
 html-in-canvas is a separate decision that spends a hero beat — the tags say what elevation would
@@ -92,8 +102,8 @@ buy, `grammar/camera.md` owns the tier ladder, `reasoning/capability-catalog.md`
 
 1. **Real product first.** If the beat has a bound capture, the metaphor budget is zero — frame
    the real thing. Metaphors are for beats about invisible structure.
-2. **One metaphor per concept per video.** Re-use it when the concept returns; consistency
-   compounds comprehension.
+2. **One concept → one metaphor, per video.** Re-use the same row when the concept returns;
+   consistency compounds comprehension.
 3. **Screenshot test.** Pause any frame — would a stranger name the concept? If not, simplify
    (`patterns/anti-slop.md`).
 4. **Tags are inputs, not verdicts.** Citing a row contributes its tags to the frame's capability

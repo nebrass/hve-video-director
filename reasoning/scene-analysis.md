@@ -20,8 +20,8 @@ Answer all twelve for every frame. One line each, no essays — the answers *are
 | 5 | What **energy / pacing**? | `energy:` | `calm` · `build` · `peak` · `resolve` |
 | 6 | How **dense** is the information? | `density:` | `focal` · `composed` · `dense` — counts in the budget table below |
 | 7 | Does it need **spatial reasoning** (parts, layers, topology, scale)? | *no key of its own* | feeds Q11 as an asset/subject reality |
-| 8 | Does it need **perspective or camera travel**? | `camera:` | one move from `grammar/camera.md`, or `static` |
-| 9 | What **metaphor**, if any? | `metaphor:` | one entry from `grammar/metaphors.md`, or `none — real product` |
+| 8 | Does it need **perspective or camera travel**? | `camera:` | the literal in the Key column of `grammar/camera.md` (a `-3d` key requests that row's Tier B), or `static` |
+| 9 | What **metaphor**, if any? | `metaphor:` | the **Concept** column value of one row in `grammar/metaphors.md`, or `none — real product` |
 | 10 | What **motion vocabulary**? | `blueprint:` / `motion:` | a blueprint id via `BLUEPRINT_INDEX` when one fits; otherwise 2–4 rule names via `RULES_INDEX` |
 | 11 | Which **capabilities** follow? | `capabilities:` | see the derivation rule below |
 | 12 | Which **runtime**, and what lost? | `runtime:` / `runtime_rejected:` | the procedure in `reasoning/capability-catalog.md` |
@@ -30,7 +30,11 @@ Answer all twelve for every frame. One line each, no essays — the answers *are
 
 - **Q1–Q10 are judgment.** Story and visual intelligence, guided by the grammars. No capability
   term and no runtime name may appear in these answers.
-- **Q11 is a MECHANICAL derivation** (ADR-005). It is the union of three sets, and nothing else:
+- **Q11 is a MECHANICAL derivation** (ADR-005) — the union of a baseline and three sets, and
+  nothing else. The **baseline** is `timeline-choreography`, which every scene implies; grammar
+  rows declare only what they add beyond it. That rule is stated once, by the vocabulary owner
+  (`reasoning/capability-catalog.md`), so the union below is computable without reading any
+  grammar file's local convention note, and a frame's set is never empty.
   1. every capability tag **declared by each grammar entry the frame cites** in Q8/Q9/Q10;
   2. **asset and subject realities** — a prebaked export exists → `prebaked-asset`; the subject is
      a per-frame simulation → `gpu-compute`; Q7 answered yes → the spatial tag it names;
@@ -60,8 +64,8 @@ the official format unchanged.
 | `tone:` | yes | one lowercase word, from the film's Phase-0 emotional journey (e.g. `tension`, `curiosity`, `relief`, `confidence`, `urgency`) |
 | `energy:` | yes | `calm` \| `build` \| `peak` \| `resolve` |
 | `density:` | yes | `focal` \| `composed` \| `dense` |
-| `camera:` | yes | a move name from `grammar/camera.md`, or `static` |
-| `metaphor:` | yes | an entry name from `grammar/metaphors.md`, or `none — real product` |
+| `camera:` | yes | the exact literal from the Key column of `grammar/camera.md` — never the Title-Case Move name and never a guessed lowercasing of it; a `-3d` key requests that row's Tier-B branch. Or `static` |
+| `metaphor:` | yes | the **Concept** column value of a row in `grammar/metaphors.md` — the concept *is* the row identifier, and the unit the metaphor-consistency budget counts. Or `none — real product` |
 | `blueprint:` | conditional | one blueprint id resolved through `BLUEPRINT_INDEX`. At least one of `blueprint:` / `motion:` must be present |
 | `motion:` | conditional | 2–4 rule names, comma-separated, resolved through `RULES_INDEX`. Required when no blueprint fits; allowed alongside one (Adapt / Compose posture) |
 | `capabilities:` | yes, non-empty | comma-separated tags from the catalog vocabulary only |
@@ -91,7 +95,7 @@ Never infer an override from a vague preference; only an explicit instruction qu
 | **Marker highlight** | 1 per film | the drawn-marker device is a single reserved moment (`MARKER_PATTERNS`) |
 | **Density** | `focal` = 1 element · `composed` = 3–5 · `dense` = grid or diagram, and only with a stated disclosure order | video frames are not web pages — doctrine in `VIDEO_COMPOSITION` |
 | **Duration variance** | no flat duration profile | check durations against the `energy:` curve; uniform scene lengths are a defect (the slideshow failure) |
-| **Metaphor consistency** | 1 concept → 1 metaphor, film-wide | the same idea never gets two visual treatments |
+| **Metaphor consistency** | 1 concept → 1 metaphor, film-wide | the `metaphor:` value *is* the concept, so this counts distinct values: the same concept never gets two visual treatments |
 | **Emotional arc closure** | the `tone:` sequence traces the Phase-0 journey | this is the stage that finally **consumes** what Phase 0 collects |
 
 ## Emotional pacing → mechanics

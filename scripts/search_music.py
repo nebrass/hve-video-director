@@ -1,6 +1,23 @@
 #!/usr/bin/env python3
 """
-hve-video-director — Background Music Search (Freesound)
+hve-video-director — Background Music Search (Freesound) (DEPRECATED FALLBACK)
+
+DEPRECATED. The primary music path is now the `media-use` skill's music
+capability (`BGM`), produced by the same audio engine (`AUDIO_ENGINE`) that
+makes the voiceover, so one request covers narration, music bed, and effects.
+It retrieves or generates *candidate* tracks only: the exact-track
+confirmation stays with the user in Phase 5 (ADR-001) exactly as it does here —
+delegation moves the search, never the choice. See `workflows/phase-5-audio.md`,
+and `compat/ecosystem.md` for where the capability resolves to.
+
+This script remains the supported local fallback for exactly two cases: the
+`media-use` skill is not installed in any skills home, or its provider path is
+unauthenticated. It is not an offline path — it calls the Freesound API.
+Behavior is unchanged: same flags, same output, same tests.
+
+Planned removal: M6 (prune & rebuild example), the milestone that applies the
+asset-disposition table — and only once the delegated path has proven itself in
+real projects.
 
 Searches Freesound APIv2 for CC-licensed music matching mood/genre keywords.
 Filters by duration and license. Returns ready-to-use preview URLs (HQ MP3,
