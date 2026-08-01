@@ -202,7 +202,7 @@ on the storyboard scene so the skip is a recorded, deliberate choice rather than
 In promo/showcase captions stay optional.
 
 Captions are a HyperFrames caption sub-comp synced to `transcript.json` — see
-`references/captions.md` (GROUPS mechanism) and the Phase-3 caption-track recipe. Each
+`media-use` → `CAPTIONS_AUTHORING` (GROUPS mechanism; path in `compat/ecosystem.md`) and the Phase-3 caption-track recipe. Each
 footage scene whose storyboard `Captions:` is `auto` must carry a caption track wired over
 its window in `index.html`.
 
@@ -212,7 +212,8 @@ Orchestrator enforcement before render (tutorial mode) — do not advance until 
    (on-screen copy already shows the spoken line) or the window is silence-only. A bare
    `Captions: auto` scene with VO and no track still blocks.
 3. Each caption group has a hard `tl.set(... {opacity:0, visibility:"hidden"}, group.end)` kill
-   (the `references/captions.md` `[caption-lint]` self-check logs warnings otherwise).
+   (the same `media-use` → `CAPTIONS_AUTHORING` `[caption-lint]` self-check logs
+   warnings otherwise).
 There is no programmatic gate; a true build-time rule would be upstream `hyperframes` lint work (spec §14).
 
 ### Caption transcript preparation
@@ -734,12 +735,10 @@ The HyperFrames composition (`index.html`) already references `voiceover-with-mu
 
 ### Pre-flight gates
 
-Re-run the validation gates after wiring the audio clip, in case any caption sub-composition overlaps a visual element:
+Re-run the composition gate after wiring the audio clip, in case any caption sub-composition overlaps a visual element:
 
 ```bash
-npx hyperframes lint     .                # flags "audio element has no id" (silent-video failure mode) by default
-npx hyperframes inspect  . --samples 10
-npx hyperframes validate .
+npx hyperframes check . --samples 10      # reruns lint (flags "audio element has no id" — the silent-video failure mode)
 ```
 
 ### Render

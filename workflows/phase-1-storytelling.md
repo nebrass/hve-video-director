@@ -276,7 +276,8 @@ Then present only the chosen family's second-level prompt.
 ```
 
 Record `identity_strategy: hyperframes-style` and the exact style name in `identity_choice`.
-Full descriptions live in the `hyperframes` skill at `visual-styles.md`.
+Full descriptions live in the `hyperframes-creative` skill under `VISUAL_STYLES` (path registered
+in `compat/ecosystem.md`).
 
 ### If "derive from screenshots" was picked
 
@@ -401,6 +402,70 @@ continuous run >~90s with an authored recap beat (Phase 4) before the next step.
 
 Adjust durations based on selected total length.
 
+## Step 1.4a: Emotional Pacing
+
+Phase 0 asked what the viewer should *feel* (Step 0.1, question 4). Until this step that answer was
+collected and never used. Read it back from `context.md` and turn it into the film's **tone and
+energy curve**; the curve is written to the storyboard header (`Emotional journey:`) when the
+storyboard is created in Step 1.6, so Phases 3 and 5 read one authored arc instead of re-deriving
+it. If `context.md` carries no explicit emotional-journey
+answer, ask that Phase-0 question again and record the user's answer before continuing — never
+infer the arc from product research.
+
+Give every beat from Step 1.4 one `tone:` word drawn from that journey and one `energy:` value. The
+curve is film-level: it starts where the journey starts, lands where it ends, and changes at least
+once. A curve that never changes is the slideshow failure in another form.
+
+| Source | Feeds | Then consumed by |
+|---|---|---|
+| the Phase-0 emotional journey in `context.md` | storyboard header `Emotional journey:`, and each frame's `tone:` | the emotional-arc-closure row of the budget table in `reasoning/scene-analysis.md` |
+| the tone → energy defaults in `reasoning/scene-analysis.md` | each frame's `energy:` | scene durations, camera pacing (`grammar/camera.md`), transition energy between adjacent frames |
+| the music column of that same table | the Phase-5 music brief | track candidates, ducking, the final hit |
+
+**The curve advises; it never answers a brief question.** `transition_style`, `transition_speed`,
+and `music_strategy` remain the user's in Step 1.5. A derived curve may only shape a
+`Recommended - <reason>` label on an option. It may never preselect one, and never skip a prompt.
+
+## Step 1.4b: Scene Analysis
+
+For each beat planned above, answer the twelve questions in `reasoning/scene-analysis.md` and write
+the resulting **director keys** onto that frame's storyboard block in Step 1.6
+(`templates/storyboard.md` carries the key list and a filled example). That file owns the questions,
+the closed key set, and every allowed value — read them there. Do not restate them here or in the
+storyboard: two copies drift, and these keys are exactly what Phase 3 forwards to its scene
+builders.
+
+Three things this step must not get wrong:
+
+- **Q1–Q10 are judgment; Q11 is a derivation.** A frame's `capabilities:` is the union of the tags
+  declared by every grammar entry it cites in Q8–Q10 (`grammar/camera.md`, `grammar/metaphors.md`,
+  `grammar/motion.md`), plus asset and subject realities, plus additions that each carry a stated
+  reason on the frame. Never a taste call and never an invented tag — the vocabulary is owned by
+  `reasoning/capability-catalog.md`, whose selection procedure then answers Q12.
+- **Motion names are cited, never invented.** A `blueprint:` id resolves through `BLUEPRINT_INDEX`
+  and `motion:` rule names through `RULES_INDEX` — backticked, no directory, no `.md`. A name in
+  neither index is invalid: drop it, or map it to the nearest real entry and say so
+  (`compat/ecosystem.md` § Citing upstream vocabulary).
+- **Runtime is an outcome, not a wish.** Omit `runtime:` when the default serves the frame; whenever
+  a non-default runtime was considered and not chosen, record `runtime_rejected: <runtime> — <reason>`.
+
+A reviewer reading only the keys must be able to reconstruct why every visual choice exists. Where
+the user explicitly directed a frame — an instruction, not a preference — state the tradeoff once,
+comply, and record `user_directed: true`.
+
+## Step 1.4c: Video-level Budget Check
+
+Once every frame carries keys, check the film against the cognitive-load budget table in
+`reasoning/scene-analysis.md`: hero beats, transitions, emphasis, marker highlight, density,
+duration variance, metaphor consistency, and emotional-arc closure. **That table is the only place
+those numbers live** — never copy one into this workflow, the storyboard, or a scene prompt.
+
+Report the outcome as a short list: budget, verdict, and what changed to come back under it. Frames
+carrying `user_directed: true` are exempt from the budgets but are still counted and shown, so the
+user sees the choice was theirs and not the agent's. Re-run the transition and duration-variance
+rows at the end of Step 1.6, once every window and `Transition to next` exists — those two rows read
+fields that do not exist yet at this point.
+
 ## Step 1.5: Transition and Music Strategy
 
 ```json
@@ -521,10 +586,15 @@ Only begin this step after `require story` passes for the current fingerprint.
 
 For each scene, define:
 - **Timecode** — start/end in seconds
+- **Director keys** — the keys derived in Step 1.4b, written as `- key: value` bullets on the frame
 - **Visual** — what appears on screen (screenshot reference, text, stats, mockup)
 - **Voiceover** — what's being said (matched to visual content)
 - **Animation** — how elements enter/exit
 - **Transition** — how this scene connects to the next
+
+Carry the film-level curve from Step 1.4a into the storyboard header's `Emotional journey:` line,
+then close Step 1.4c's deferred rows (transitions, duration variance) now that every window and
+`Transition to next` is populated.
 
 Populate every `Transition to next` from the confirmed fields rather than inventing a Phase-4
 default. Use `transition_style` at main section boundaries, `crossfade` for connective cuts within

@@ -70,10 +70,10 @@ Phase 0: DISCOVERY         Phase 1: STORYTELLING       Phase 2: CAPTURE
 └ Goal/audience analysis   └ Script outline             └ Bound capture artifacts
 
 Phase 3: DESIGN            Phase 4: PRODUCTION         Phase 5: AUDIO & RENDER
-├ hyperframes skill        ├ HyperFrames root index     ├ ElevenLabs TTS
+├ HyperFrames skills       ├ HyperFrames root index     ├ ElevenLabs TTS
 ├ DESIGN.md (brand+motion) ├ Sub-composition wiring     ├ Whisper verification
 ├ Scene HTML templates     ├ GSAP transitions           ├ Freesound Music API
-└ Per-scene preview        └ lint / inspect / validate  └ npx hyperframes render
+└ Per-scene preview        └ lint + check gates         └ npx hyperframes render
 ```
 
 Each phase has a user-approval checkpoint before proceeding to the next.
@@ -120,7 +120,7 @@ less check_requirements.sh && bash check_requirements.sh --plan
 | Python 3.10+ | Yes | [python.org](https://python.org) |
 | ffmpeg | Yes | `brew install ffmpeg` / `apt install ffmpeg` |
 | HyperFrames CLI | Yes | `npm install --global hyperframes` (the checker never fetches it during report modes) |
-| `hyperframes` companion skill | Phases 3–4 | `npx skills add heygen-com/hyperframes` |
+| HyperFrames companion skills | Phases 3–5 | `npx skills add heygen-com/hyperframes` — installs the `hyperframes` router *and* the domain family it dispatches to |
 | `chrome-headless-shell` | Yes | Used by `npx hyperframes render` for frame capture. System Chrome causes 120s render hangs. Install once: `npx puppeteer browsers install chrome-headless-shell` (one-time, ~170MB, cached). Verify with `npx hyperframes doctor`. |
 | Chrome DevTools MCP | For web capture | Required only when the storyboard requests web screenshots/screencasts. Configure it in the active agent; capability names are resolved per runtime. For an already-authenticated tab, use Chrome 144+ remote debugging plus MCP `--autoConnect` (preferred), or the documented dedicated-profile `--browser-url` fallback. |
 | `ELEVENLABS_API_KEY` | For an ElevenLabs voice | [elevenlabs.io](https://elevenlabs.io) — required when the confirmed voice uses ElevenLabs. Choose Kokoro explicitly for no-key local TTS; providers are never substituted automatically. |
@@ -197,13 +197,18 @@ approval also invalidates its content-bound approval fingerprint.
 
 ### Required Skills
 
-hve-video-director depends on two **companion agent skills** plus the **`hyperframes` npm package** (these are separate — the skills provide authoring prompts; the npm package provides the `hyperframes` CLI). Install the companion skills the same way as this skill — with `npx skills add` (see [Installation](#installation)), which auto-detects your agent and resolves the correct skills home for you:
+hve-video-director depends on the **HyperFrames companion agent skills** plus the **`hyperframes` npm package** (these are separate — the skills provide authoring prompts; the npm package provides the `hyperframes` CLI). A single `npx skills add heygen-com/hyperframes` offers the whole family — select all of them, or pass `--all` (see [Installation](#installation)). The command auto-detects your agent and resolves the correct skills home for you:
 
 | Dependency | Type | Purpose | Install |
 |-----------|------|---------|---------|
-| `hyperframes` skill | Agent skill | Authoring rules for HTML/GSAP compositions, sub-comps, transitions, captions | `npx skills add heygen-com/hyperframes` |
-| `gsap` skill | Agent skill | Animation choreography reference (eases, timelines, stagger) | Recommended companion to the hyperframes skill |
-| `hyperframes` npm package | CLI | `init`, `add` (pull catalog blocks, Phase 4), `lint`, `preview`, `inspect`, `validate`, `render`, `doctor` (render diagnostics), `transcribe` (Phase 5's preferred timing verifier, with standalone Whisper as fallback), `tts` (confirmed local Kokoro voices) | `npx hyperframes <command>` (auto-fetches; package: [`hyperframes`](https://www.npmjs.com/package/hyperframes), repo: [github.com/heygen-com/hyperframes](https://github.com/heygen-com/hyperframes)) |
+| `hyperframes` skill | Agent skill | The intent **router**: it dispatches to whichever domain skill owns the topic. Load it first; it is no longer a monolith that carries the authoring rules itself. | `npx skills add heygen-com/hyperframes` |
+| `hyperframes-core`, `hyperframes-animation`, `hyperframes-creative`, `hyperframes-cli`, `hyperframes-registry` | Agent skills | The domain family the router points at — composition contract and `data-*` timing (core), GSAP choreography such as eases, timelines, stagger and the transition catalog (animation), visual style/typography/data-in-motion (creative), gates and render commands (cli), catalog blocks (registry). Loaded on demand across Phases 3–5, never wholesale. | Installed by the same `npx skills add heygen-com/hyperframes` |
+| `media-use`, `motion-doctrine` | Agent skills | Audio, captions and transcripts (`media-use`, Phase 5); seam/transition law that supersedes local transition guidance where the two disagree (`motion-doctrine`, Phase 4). | Installed by the same `npx skills add heygen-com/hyperframes` |
+| `hyperframes` npm package | CLI | `init`, `add` (pull catalog blocks, Phase 4), `lint` (fast iteration), `preview`, `check` (the required final gate — `inspect`, `validate` and `layout` are deprecated aliases it subsumes), `render`, `doctor` (render diagnostics), `transcribe` (Phase 5's preferred timing verifier, with standalone Whisper as fallback), `tts` (confirmed local Kokoro voices) | `npx hyperframes <command>` (auto-fetches; package: [`hyperframes`](https://www.npmjs.com/package/hyperframes), repo: [github.com/heygen-com/hyperframes](https://github.com/heygen-com/hyperframes)) |
+
+Skill *names* are the ecosystem's stable API; the file paths *inside* them churn, so every path this
+skill relies on is registered once in [`compat/ecosystem.md`](compat/ecosystem.md) and cited
+everywhere else by capability symbol.
 
 ## Installation
 
@@ -346,7 +351,7 @@ Use the invocation syntax from the compatibility table above.
 | Daniel | Authoritative male | `onwK4e9ZLuTAKqWW03F9` |
 | Josh | Friendly, conversational male | `TxGEqnHWrfWFTfGW9XjX` |
 
-**Local option (Kokoro-82M):** choose Kokoro during Phase 1 for no-key local TTS with 54 voices across 8 languages (e.g. `af_nova`, `af_heart`). List them with `npx hyperframes tts --list`; see the HyperFrames skill's `references/tts.md` for the full catalog. A missing ElevenLabs key never changes a confirmed provider.
+**Local option (Kokoro-82M):** choose Kokoro during Phase 1 for no-key local TTS with 54 voices across 8 languages (e.g. `af_nova`, `af_heart`). List them with `npx hyperframes tts --list`; the full catalog is the `media-use` skill's TTS_LOCAL capability (resolved through [`compat/ecosystem.md`](compat/ecosystem.md)). A missing ElevenLabs key never changes a confirmed provider.
 
 ## Music Strategy
 
@@ -431,6 +436,16 @@ hve-video-director/
 │   ├── phase-3-design.md
 │   ├── phase-4-production.md
 │   └── phase-5-audio.md
+├── reasoning/                     # How a scene is analysed and a runtime chosen
+│   ├── scene-analysis.md          # Per-scene communication analysis + the cognitive-load budgets
+│   └── capability-catalog.md      # The capability-tag vocabulary → runtime selection
+├── grammar/                       # Visual grammars the reasoning layer draws on
+│   ├── camera.md
+│   ├── motion.md
+│   ├── metaphors.md
+│   └── three-taxonomy.md
+├── compat/
+│   └── ecosystem.md               # The only file holding upstream file paths (capability registry)
 ├── templates/                     # Copied into each generated video project
 │   ├── project-plan.md
 │   ├── context.md
@@ -441,6 +456,7 @@ hve-video-director/
 │   ├── metallic-swoosh.md         # Premium transition pattern
 │   ├── marker-highlight.md        # 5 word-emphasis modes
 │   ├── transition-catalog.md      # Mood-mapped transition reference
+│   ├── cli-terminal-capture.md    # asciinema + agg real-terminal clip workflow
 │   ├── authenticated-browser-capture.md # safe SSO/MFA live-tab attachment
 │   └── anti-slop.md               # Cardinal sins + AI Tool Promo specifics
 ├── design-systems/                # 10 vendored brand presets (Phase 1 Path A)
@@ -460,7 +476,7 @@ hve-video-director/
 │   └── check_requirements.sh      # JSON/plan preflight + consent-scoped safe fixes
 ├── test/
 │   ├── run.sh                     # stdlib unit/integration test entrypoint
-│   └── unit/                       # caption, capture, requirements, onboarding, brief, and resolver tests
+│   └── unit/                       # caption, capture, requirements, onboarding, brief, resolver, and pointer-validity tests
 ├── example/                       # The skill's own promo, built by the skill itself
 │   ├── (out/final.mp4)           # 53s rendered demo (1920×1080, 18 MB) — not committed; regenerable build artifact (attached to the v0.1.0 release)
 │   ├── voiceover.py               # Project-local script with the actual VO timing config

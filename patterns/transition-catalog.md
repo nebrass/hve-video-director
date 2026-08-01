@@ -1,20 +1,22 @@
 # Transition Catalog
 
-One-page index of every transition family available in HyperFrames, mapped to the moments where each fits in a product video. The deep implementations live in the `hyperframes` skill at `references/transitions/`. This file tells you *which* transition to reach for; the linked file shows you *how* to wire it.
+One-page index of every transition family available in HyperFrames, mapped to the moments where each fits in a product video. The deep implementations live in the `hyperframes-animation` skill — `TRANSITION_CATALOG`, `TRANSITION_OVERVIEW`, and the per-family `TRANSITION_FAMILIES` pages, whose paths are registered in `compat/ecosystem.md`. This file tells you *which* transition to reach for; those pages show you *how* to wire it.
 
 ## Picking by mood
 
 | Moment in the video | Reach for | Why |
 |---|---|---|
-| Default scene-to-scene cut | **Crossfade** or **Blur Crossfade** | Quiet, professional. Default in `references/transitions/css-dissolve.md`. |
+| Default scene-to-scene cut | **Crossfade** or **Blur Crossfade** | Quiet, professional. Default of the dissolve family. |
 | Section boundary (Hook → Pain, Solution → Features) | **Metallic Swoosh** (`patterns/metallic-swoosh.md`) or **Flash through White** | Signals "new chapter" without overpowering. |
-| Hero / product reveal | **Cinematic Zoom** or **Zoom Through** | Earns the visual flourish — `css-scale.md`. |
-| Stat or proof moment | **Chromatic Radial Split** or **Diamond Iris** | Energetic, pulls eye to the centre — `css-radial.md`. |
-| Before / after, competitor comparison | **Diagonal Split** or **Push Slide** | Spatial metaphor for "this vs that" — `css-radial.md` + `css-push.md`. |
-| Editorial pull-quote | **Focus Pull** or **Color Dip** | Cinema-y, soft. `css-dissolve.md`. |
-| Drama / tension reveal | **Glitch** or **Page Burn** | Use ONCE per video at most — `css-distortion.md`, `css-destruction.md`. |
-| Mechanical / countdown | **Shutter** or **Clock Wipe** | Editorial gravitas — `css-mechanical.md`. |
+| Hero / product reveal | **Cinematic Zoom** or **Zoom Through** | Earns the visual flourish — scale family. |
+| Stat or proof moment | **Chromatic Radial Split** or **Diamond Iris** | Energetic, pulls eye to the centre — radial family. |
+| Before / after, competitor comparison | **Diagonal Split** or **Push Slide** | Spatial metaphor for "this vs that" — radial + push families. |
+| Editorial pull-quote | **Focus Pull** or **Color Dip** | Cinema-y, soft. Dissolve family. |
+| Drama / tension reveal | **Glitch** or **Page Burn** | Use ONCE per video at most — distortion + destruction families. |
+| Mechanical / countdown | **Shutter** or **Clock Wipe** | Editorial gravitas — mechanical family. |
 | Closing fade-to-end-card | Plain **Crossfade** to a held final frame | Never use a "flashy" transition on the final exit. |
+
+Family names above resolve through `TRANSITION_FAMILIES`; for upstream's own energy/mood selection guidance read `TRANSITION_OVERVIEW`. Both live in the `hyperframes-animation` skill — paths in `compat/ecosystem.md`.
 
 ## Catalog blocks (use these first)
 
@@ -32,28 +34,20 @@ See `workflows/phase-4-production.md` Step 4.2 for how to wire them into the roo
 
 ## Full CSS transition reference
 
-| HF reference file | Transitions inside |
-|---|---|
-| `references/transitions/catalog.md` | Hard rules, scene template, shader rules |
-| `references/transitions/css-dissolve.md` | Crossfade, Blur Crossfade, Focus Pull, Color Dip |
-| `references/transitions/css-scale.md` | Zoom Through, Zoom Out |
-| `references/transitions/css-radial.md` | Circle Iris, Diamond Iris, Diagonal Split |
-| `references/transitions/css-push.md` | Push Slide, Vertical Push, Elastic Push, Squeeze |
-| `references/transitions/css-cover.md` | Staggered Colour Blocks, Horizontal/Vertical Blinds |
-| `references/transitions/css-blur.md` | Blur Through, Directional Blur |
-| `references/transitions/css-distortion.md` | Glitch, Chromatic Aberration, Ripple, VHS Tape |
-| `references/transitions/css-light.md` | Light Leak, Overexposure Burn, Film Burn |
-| `references/transitions/css-3d.md` | 3D Card Flip |
-| `references/transitions/css-mechanical.md` | Shutter, Clock Wipe |
-| `references/transitions/css-destruction.md` | Page Burn |
-| `references/transitions/css-grid.md` | Grid Dissolve |
-| `references/transitions/css-other.md` | Gravity Drop, Morph Circle |
+Everything below is owned by the `hyperframes-animation` skill and registered in `compat/ecosystem.md` — that map is the only place the file paths live:
 
-All paths are relative to the installed HyperFrames skill location — `~/.claude/skills/hyperframes/` (Claude Code) or `~/.copilot/skills/hyperframes/` (GitHub Copilot CLI).
+- `TRANSITION_CATALOG` — the normative page: hard rules, scene template, shader rules.
+- `TRANSITION_OVERVIEW` — selection guidance: energy/mood, narrative position, presets, CSS vs shader.
+- `TRANSITION_FAMILIES` — the per-family implementation pages (dissolve, scale, radial, push and the rest); the map holds the complete, current list.
+- `TRANSITION_REGISTRY` — machine-readable registry, a curated Tier-B subset and **not** the full catalog.
+
+Which named transition lives in which family is upstream's to state, and it changes with upstream: start at `TRANSITION_OVERVIEW`, then open the family page. This file deliberately keeps no copy of that inventory.
 
 ## Hard rules (don't skip these)
 
-These come from `references/transitions/catalog.md` and bite if violated:
+Seam law is owned by the `motion-doctrine` skill (`SEAM_LAW`; numeric verifier `SEAM_VERIFIER`); render-compositing mechanics by `seam-craft` (`SEAM_RENDER_MECHANICS`).
+
+These come from `TRANSITION_CATALOG` (`hyperframes-animation`) and bite if violated:
 
 - **Scenes must OVERLAP during the confirmed transition window.** Map `transition_speed` once (`quick = 0.4s`, `medium = 0.7s`, `slow = 1.2s`) and extend every non-closing scene's `data-duration` by that value past its nominal end. Start the incoming scene at the nominal boundary. If adjacent scenes do not overlap, neither renders during the transition and the body color flashes through — producing a visible artifact that is one of the most obvious "AI-rendered" tells. See `workflows/phase-4-production.md` § Step 4.4 for the corrected composition pattern.
 - **Track indices must be UNIQUE for overlapping scenes.** HyperFrames rejects same-track overlap. Use 1, 2, 3, 4, 5. Track index doesn't drive visual layering — DOM order does (later in DOM = on top with equal z-index).

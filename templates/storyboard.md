@@ -5,6 +5,7 @@
 **Product surface:** {ui | none}   *(ui = real captures are the spine; none = intentional abstract/no-product film — waives the Phase-3 capture-coverage gate)*
 **Capture plan:** {N bound artifacts | none — skip Phase 2}
 **Web capture source:** {navigate | attached-session | pending | n/a}
+**Emotional journey:** {the film's tone curve, e.g. curiosity → tension → relief → confidence} *(Phase 1 Step 1.4a — read back from the Phase-0 emotional-journey answer in `context.md`. Every scene's `tone:` key traces this curve; Phase 5 reads it for the music brief.)*
 
 All times are in **seconds**. Each scene below maps 1:1 to a HyperFrames sub-composition under `scenes/`. The Phase 4 root `index.html` references them via `data-composition-src`.
 
@@ -34,6 +35,42 @@ All times are in **seconds**. Each scene below maps 1:1 to a HyperFrames sub-com
 **Captions:** auto                                           *(auto = Whisper on the VO; `carried` = on-screen copy already shows the spoken line, tutorial-only)*
 **Chapter:** {title}                                         *(tutorial mode only — chapter/section name)*
 **Step label:** Step {n} of {M}                              *(tutorial mode only — on-screen step pill)*
+
+**Director keys:** *(Phase 1 Step 1.4b. `reasoning/scene-analysis.md` owns the twelve questions, the closed key set, and every allowed value — read them there; the list below is the shape, not the contract. Keep them as `- key: value` bullets: unknown bullets are preserved verbatim by the official storyboard parser (`STORYBOARD_EXTRA_KEYS`), so they survive a format migration untouched.)*
+- goal: {one sentence, the viewer's perspective — what they understand when this frame ends}
+- abstraction: {literal | analog | metaphor | symbolic}
+- complexity: {atomic | compound | systemic}
+- tone: {one lowercase word, from the film's `Emotional journey` above}
+- energy: {calm | build | peak | resolve}
+- density: {focal | composed | dense}
+- camera: {a move name from `grammar/camera.md`, or `static` — written as the lowercase-hyphenated form of the move (`camera: push-in`, `camera: rack-focus`); a `-3d` suffix requests the Tier-B branch, which the Step 1.4c hero-beat check may deny}
+- metaphor: {an entry name from `grammar/metaphors.md`, or `none — real product`}
+- blueprint: {one blueprint id resolved through `BLUEPRINT_INDEX`}
+- motion: {2–4 rule names resolved through `RULES_INDEX`, comma-separated, backticked, no directory, no `.md`}   *(at least one of `blueprint:` / `motion:` is REQUIRED; both together is the Adapt/Compose posture)*
+- capabilities: {DERIVED, never chosen — the union of the tags declared by every grammar entry this frame cites, plus asset/subject realities, plus additions each carrying a stated reason. Vocabulary owned by `reasoning/capability-catalog.md`; never invent a tag}
+- runtime: {omit this line entirely for the default runtime; otherwise the value the selection procedure in `reasoning/capability-catalog.md` returns}
+- runtime_rejected: {`<runtime> — <reason>`, REQUIRED whenever a non-default runtime was considered and not chosen; omit the line when none was}
+- user_directed: true                                        *(only when the user explicitly directed this frame; exempt from the budgets, but still counted and shown in the Step 1.4c report)*
+
+> **Filled example** — scene 04 of a promo, the architecture beat:
+>
+> - goal: the viewer understands the product is three cooperating layers, not one box
+> - abstraction: metaphor
+> - complexity: compound
+> - tone: curiosity
+> - energy: build
+> - density: composed
+> - camera: exploded
+> - metaphor: Layered architecture
+> - motion: `depth-scatter-assemble`, `center-outward-expansion`
+> - capabilities: timeline-choreography, spatial-depth
+> - runtime_rejected: three — requested as `camera: exploded-3d`, but the film's hero beats are already committed elsewhere (budget table in `reasoning/scene-analysis.md`), so the frame re-derives to its Tier-A branch
+>
+> No `runtime:` line: the derived capabilities are served by the default. No `blueprint:` line: the
+> two cited rules are the whole shape of this frame. This frame's `Screenshot:` is
+> `none — connective tissue` — a metaphor beat draws invisible structure, so no capture is bound;
+> a beat that *does* bind one gets `metaphor: none — real product` instead (`grammar/metaphors.md`
+> selection rule 1).
 
 **Visual:**
 - Text on screen: "{headline}"

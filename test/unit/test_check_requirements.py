@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 
 import json
-import os
 import shutil
 import subprocess
+import tempfile
 import unittest
 import uuid
 from pathlib import Path
@@ -22,6 +22,8 @@ class RequirementsCheckerTestCase(unittest.TestCase):
         self.log = self.work / "commands.log"
         self.bin.mkdir(parents=True)
         self.home.mkdir()
+        self.sandbox = Path(tempfile.mkdtemp(prefix="hve-checker-cwd-"))
+        self.addCleanup(shutil.rmtree, self.sandbox, ignore_errors=True)
         self.write_executable("uname", "printf 'Darwin\\n'")
 
     def tearDown(self):
@@ -77,9 +79,14 @@ class RequirementsCheckerTestCase(unittest.TestCase):
             skill.write_text(f"# {name}\n", encoding="utf-8")
 
     def run_checker(self, *args, env=None, cwd=None):
+        # The default cwd MUST stay outside this repository: $SKILL_HOMES holds
+        # cwd-relative homes (.claude/skills, .agents/skills, …) and
+        # $SKILL_ROOT-relative ones, and $SKILL_ROOT falls back to $PWD. Running
+        # from ROOT would let the repo's own installed skills — and any repo
+        # .npmrc or node_modules/ — decide what the checker reports.
         return subprocess.run(
             ["/bin/bash", str(SCRIPT), *args],
-            cwd=cwd or ROOT,
+            cwd=cwd or self.sandbox,
             env=env or self.environment(),
             text=True,
             capture_output=True,

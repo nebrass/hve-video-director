@@ -1,6 +1,6 @@
 # Patterns Index — Wayfinding
 
-Quick map: *"I need to do X"* → *"read this file."* hve-video-director leans on the `hyperframes` skill for deep authoring guidance; this index keeps you from re-discovering which HF reference covers which situation.
+Quick map: *"I need to do X"* → *"read this file."* hve-video-director leans on the HyperFrames domain skills for deep authoring guidance; this index keeps you from re-discovering which local pattern — and which ecosystem capability — covers which situation.
 
 ## Local patterns (in this directory)
 
@@ -14,58 +14,34 @@ Quick map: *"I need to do X"* → *"read this file."* hve-video-director leans o
 | `cli-terminal-capture.md` | Professional CLI scene recording via `asciinema` + `agg`: install, shell pre-flight (prompt, secrets, size), recording flags, cast editing, theme→palette pairing, MP4 render, quality gate, troubleshooting. Read when the storyboard calls for a real terminal clip; for the no-dep fallback see `templates/scene-terminal.html`. |
 | `authenticated-browser-capture.md` | Connect Chrome DevTools MCP to an already-open Chrome 144+ session, select the exact SSO/MFA tab, capture without navigation, protect auth data, and restore viewport state. |
 
-## HyperFrames skill references (in `~/.claude/skills/hyperframes/` or `~/.copilot/skills/hyperframes/`)
+Seam/transition **law** now lives in the `motion-doctrine` skill (with `seam-craft` for render mechanics); it supersedes local transition guidance where the two disagree.
 
-The `hyperframes` skill is invoked in Phases 3 and 4. Once invoked, these files are accessible. Read by-task, not by-default — loading the whole skill at once eats context.
+## Ecosystem capabilities
 
-### Strategic / structural
+HyperFrames authoring guidance is split across several skills, pulled in on demand during Phases 3–5. Every capability we use is registered in **`compat/ecosystem.md`** — one row per capability, giving the owning skill, the exact skill-relative path, what it is, and who uses it.
 
-| Need | File | Use when |
-|---|---|---|
-| Pick a brand (10 vendored design systems) | `../design-systems/<slug>/DESIGN.md` | **Path A** — most specific. Pick when user says "make it look like Stripe / Linear / Notion". Skips Phases 3 extraction entirely. |
-| Pick a visual style (one of 8 named identities) | `visual-styles.md` (HF skill) | **Path B** — medium. Pick a mood-based identity from HF's library. Skips Phase 3 extraction, allows minor tuning. |
-| Pick a palette | `palettes/` (9 files: bold-energetic, clean-corporate, dark-premium, jewel-rich, monochrome, nature-earth, neon-electric, pastel-soft, warm-editorial) | Phase 3, when authoring DESIGN.md. Pair with a visual style. |
-| Motion philosophy | `references/motion-principles.md` | Phase 3 + 4 — "easing is emotion, speed is weight, build/breathe/resolve, transitions are meaning." Read once per project. |
-| House style defaults | `house-style.md` | When you don't have a strong opinion. Gives sensible defaults for motion, colour, type. |
-| Composition patterns (picture-in-picture, slide show, title card) | `patterns.md` | Phase 4, when wiring the root index.html. |
+Skill *names* are stable, so this index (like every workflow) names the skill and the capability SYMBOL — `hyperframes-creative` → VISUAL_STYLES. The intra-skill *paths* churn, so they live in the compat map and nowhere else: an upstream file move is then a one-file edit. A path pointing *inside* a skill, written anywhere outside that map, is the bug.
 
-### Authoring craft
-
-| Need | File | Use when |
-|---|---|---|
-| Choose a transition | `references/transitions/catalog.md` + family files | Phase 4 Step 4.5. Start from our `transition-catalog.md` for the wayfinding; descend into HF's catalog when you need the implementation. |
-| Word-emphasis patterns | `references/css-patterns.md` | Caption emphasis, multi-line variants. Our `marker-highlight.md` is product-video focused; this file has the full depth (mode cycling, per-word styling). |
-| Typography (font pairing, OpenType data) | `references/typography.md` | Phase 3 DESIGN.md — picking fonts. Especially useful for stat-heavy scenes (tabular-nums). |
-| Animated charts, counters, data viz | `data-in-motion.md` | Phase 3, when authoring stat scenes — bar races, ticking counters, line charts. |
-
-### Audio + captions
-
-| Need | File | Use when |
-|---|---|---|
-| Caption authoring | `references/captions.md` | On-screen captions synced to the voiceover. **Optional in `promo`/`showcase`** and **REQUIRED in `tutorial` mode** on footage segments — see `workflows/phase-5-audio.md` § "Captions (REQUIRED in tutorial mode)" and spec §7.2. Separate reviewed `out/final.srt`/`.vtt` closed-caption sidecars are required in **all** modes by Phase 5 Step 5.3b. |
-| Caption-energy techniques (audio-reactive caption styling) | `references/dynamic-techniques.md` | High-energy spots — TikTok karaoke effects, beat-sync caption emphasis. |
-| Audio-reactive animation | `references/audio-reactive.md` | When music is doing narrative work — beat-matched logo pulses, frequency-driven backgrounds. Pre-extract frequency bands to JSON; never use Web Audio API at render time. |
-| Native TTS | `references/tts.md` | Phase 5 fallback when no `ELEVENLABS_API_KEY` — Kokoro-82M, 54 voices, 8 languages. |
-| Transcript / SRT | `references/transcript-guide.md` | If you need word-level timestamps for caption sync (HF `transcribe` is an alternative to Whisper). |
-
-### Implementation details
-
-| Need | File | Use when |
-|---|---|---|
-| CSS pattern primitives (any drawing pattern) | `references/css-patterns.md` | See above. |
-| Embedding HTML pages as scenes | `references/html-in-canvas.md` | If you want to drop a live web page into a video frame (rare; usually a screenshot is better). |
-| Other dynamic techniques | `references/dynamic-techniques.md` | Advanced caption + emphasis combinations. |
+Read by-task, not by-default — loading a whole skill at once eats context.
 
 ## Decision flow
 
 ```
 Phase 1 (storytelling)
-  └─ Want a templated visual identity?
-      ├─ Yes → visual-styles.md  (pick one of 8) + palettes/<name>.md
-      └─ No  → Phase 3 will extract brand from screenshots → DESIGN.md
+  └─ Where does the visual identity come from?
+      ├─ A vendored brand ("make it look like Stripe / Linear / Notion")
+      │     → ../design-systems/<slug>/DESIGN.md — Path A, most specific;
+      │       skips Phase 3 extraction entirely
+      ├─ A named HF identity (one of 8 moods)
+      │     → hyperframes-creative → VISUAL_STYLES + PALETTES (pair them) — Path B;
+      │       skips extraction, allows minor tuning
+      └─ Neither → Path C: Phase 3 extracts brand from screenshots → DESIGN.md
 
 Phase 3 (design)
-  ├─ Scene authoring → hyperframes skill SKILL.md + patterns.md
+  ├─ Scene authoring → hyperframes-core → DATA_ATTRIBUTES (the data-* contract)
+  │                    + hyperframes-creative → COMPOSITION_RECIPES
+  │                      (picture-in-picture, title card, slide show)
+  ├─ Motion philosophy, once per project → hyperframes-creative → MOTION_PRINCIPLES
   ├─ Animation → ../visual-patterns.md (this repo)
   ├─ Camera & depth on a still → ../visual-patterns.md § Camera & Depth (this repo):
   │     ├─ Push / pull / drift on a screenshot → § Camera Moves on Stills
@@ -74,20 +50,47 @@ Phase 3 (design)
   │     ├─ Direct the eye to a UI region       → § Anchored Callout / Spotlight
   │     ├─ Specular pass over a UI card        → § In-Scene Shine Sweep
   │     └─ Wipe an element in via a mask        → § Masked Reveal (mask-position)
-  ├─ Charts/counters → data-in-motion.md
+  ├─ Charts/counters → hyperframes-creative → DATA_IN_MOTION
   └─ Emphasis on text → ../marker-highlight.md (this repo)
 
 Phase 4 (production)
-  ├─ Root composition wiring → hyperframes patterns.md (Top-Level Composition Example)
-  ├─ Inter-scene transitions → ../transition-catalog.md (this repo) → HF references/transitions/
-  └─ Quality gates → SKILL.md (Quality Checks section)
+  ├─ Root composition wiring → hyperframes-core → COMPOSITION_ARCHITECTURE
+  │                            (this repo is always the modular-orchestrator shape)
+  ├─ Inter-scene transitions → law first: motion-doctrine → SEAM_LAW
+  │                            → ../transition-catalog.md (this repo)
+  │                            → hyperframes-animation → TRANSITION_CATALOG (+ TRANSITION_FAMILIES)
+  └─ Quality gates → hyperframes-cli → CHECK_GATE
+                     (`lint` while iterating, `check` as the final gate)
 
 Phase 5 (audio)
   ├─ Voiceover → workflows/phase-5-audio.md
-  ├─ Captions (optional) → references/captions.md
-  └─ Audio-reactive flourishes → references/audio-reactive.md
+  ├─ On-screen captions → media-use → CAPTIONS_AUTHORING (+ TRANSCRIPT_HANDLING)
+  │     optional in promo/showcase, REQUIRED in tutorial mode on footage segments
+  │     (workflows/phase-5-audio.md § "Captions (REQUIRED in tutorial mode)", spec §7.2);
+  │     reviewed out/final.srt + .vtt sidecars are required in ALL modes (Step 5.3b)
+  └─ Audio-reactive flourishes → hyperframes-creative → AUDIO_REACTIVE
 ```
+
+**Do not merge COMPOSITION_ARCHITECTURE and COMPOSITION_RECIPES.** The two upstream documents
+carry near-identical names but answer different questions, and this index has already pointed at
+the wrong one once. `hyperframes-core` → COMPOSITION_ARCHITECTURE is the **project shape** —
+monolithic vs modular and the thin orchestrator root that declares slots, mounts audio, and
+registers a near-empty root timeline; that is Phase 4's root-wiring concern, and this repo is
+always modular. `hyperframes-creative` → COMPOSITION_RECIPES is the **scene arrangement** —
+picture-in-picture, text-behind-subject, title card, slide show; that is a Phase 3 concern. The
+creative document's own top-level example is a flat, clip-level composition, so it is *not* a
+substitute for the orchestrator shape. Citing by SYMBOL rather than by filename is what keeps the
+two apart — see `compat/ecosystem.md` § Disambiguation.
+
+## Less common needs
+
+- Word-emphasis in full depth (multi-line, mode cycling, per-word styling) → `hyperframes-animation` → MARKER_PATTERNS; our `marker-highlight.md` is the product-video subset.
+- Picking a transition: start local (`transition-catalog.md`) for the wayfinding, descend to `hyperframes-animation` → TRANSITION_OVERVIEW + TRANSITION_FAMILIES for the implementation.
+- Font pairing, especially stat-heavy scenes (tabular-nums) → `hyperframes-creative` → TYPOGRAPHY.
+- No strong opinion on motion, colour or type → `hyperframes-creative` → HOUSE_STYLE.
+- No `ELEVENLABS_API_KEY` → `media-use` → TTS_LOCAL (Kokoro-82M; prerequisites in AUDIO_REQUIREMENTS); word-level timestamps for caption sync → TRANSCRIBE; karaoke / beat-sync caption styling → CAPTIONS_MOTION.
+- Dropping a live web page into a frame (rare — a screenshot is usually better) → `hyperframes-animation` → HTML_IN_CANVAS.
 
 ## Convention
 
-When a phase workflow says *"see the hyperframes skill for X"*, that's a hint to invoke `Skill(hyperframes)` and then read the specific reference file from this index. Don't load the whole skill — read the one file you need.
+When a phase workflow says *"see the hyperframes skill for X"*, that's a hint to invoke the `hyperframes` skill — now an intent **router** that points at the domain skill owning X. The domain skills (`hyperframes-core`, `-animation`, `-creative`, `-cli`, `-registry`, plus `media-use` and `motion-doctrine`) load on demand. Don't load a whole skill — take the capability SYMBOL from this index, resolve its one file through `compat/ecosystem.md`, and read only that.

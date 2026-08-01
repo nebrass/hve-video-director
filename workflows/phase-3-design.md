@@ -73,8 +73,9 @@ section.
 
 **If Phase 1 recorded `identity_strategy: hyperframes-style` and the style name in
 `identity_choice`** (Swiss Pulse, Velvet Standard, Deconstructed, Maximalist Type, Data Drift,
-Soft Signal, Folk Frequency, Shadow Cut), invoke `Skill(hyperframes)` and read `visual-styles.md`
-for that style's palette, type, and motion feel. Pre-fill DESIGN.md from those values; skim the
+Soft Signal, Folk Frequency, Shadow Cut), invoke `Skill(hyperframes-creative)` and read its
+`VISUAL_STYLES` reference (path in `compat/ecosystem.md`) for that style's palette, type, and
+motion feel. Pre-fill DESIGN.md from those values; skim the
 screenshots only to spot any conflicting brand cue worth overriding. Resolve every semantic color
 role to the confirmed theme while preserving the named style's identity. Skip the rest of this
 section.
@@ -194,7 +195,7 @@ where one exists.
 
 Each scene template must:
 
-- Be a valid HyperFrames **sub-composition** — the root is a `<div data-composition-id="…" data-width="{W}" data-height="{H}">` wrapped in a `<template>` (per HyperFrames `patterns.md`). Use the canvas dimensions chosen in Phase 1 (1920×1080, 1080×1920, 1080×1080, or 1080×1350). Sub-comps loaded via `data-composition-src` *require* this `<template>` wrapper; only the root `index.html` skips it.
+- Be a valid HyperFrames **sub-composition** — the root is a `<div data-composition-id="…" data-width="{W}" data-height="{H}">` wrapped in a `<template>` (per `hyperframes-core` → `SUB_COMPOSITIONS`, path in `compat/ecosystem.md`). Use the canvas dimensions chosen in Phase 1 (1920×1080, 1080×1920, 1080×1080, or 1080×1350). Sub-comps loaded via `data-composition-src` *require* this `<template>` wrapper; only the root `index.html` skips it.
 - Author the **resting layout first** in static CSS, then layer GSAP entrance tweens via `tl.fromTo()` (explicit from/to states — never bare `tl.from()` on opacity-bearing elements; see `patterns/visual-patterns.md` § "tl.from() stagger trap"). Never animate to a position — animate from an offset to the rest position.
 - Initialize and register the timeline: `window.__timelines = window.__timelines || {}; window.__timelines["<composition-id>"] = tl;` (paused).
 - Use palette and typography tokens from `DESIGN.md`. Reference colors and fonts inline; HyperFrames embeds supported fonts automatically.
@@ -350,7 +351,7 @@ pointer with a click pulse, and a color-grade toward the active design system's 
 
 When content-mode is `tutorial`, author one caption sub-comp per footage scene from the
 Phase-5 `transcript.json` (word-level), then wire it over the scene window in Phase 4.
-Mechanism per `references/captions.md` — invoke `Skill(hyperframes)` and read it. Skeleton
+Mechanism per `media-use` → `CAPTIONS_AUTHORING` (path in `compat/ecosystem.md`) — invoke `Skill(media-use)` and read it. Skeleton
 (deterministic, fully seekable — no `Math.random()`/`Date.now()`):
 
 ```js
@@ -364,7 +365,7 @@ GROUPS.forEach(function (g, gi) {
 });
 ```
 
-Positioning (per `captions.md`): bottom 80–120px, `position:absolute; overflow:visible`,
+Positioning (per the same `media-use` → `CAPTIONS_AUTHORING`): bottom 80–120px, `position:absolute; overflow:visible`,
 full-width centered container (NOT `left:50%;translateX(-50%)`). Text ≥24px, high contrast.
 Run the `[caption-lint]` self-check before `window.__timelines[id] = tl`.
 
@@ -373,12 +374,12 @@ Run the `[caption-lint]` self-check before `window.__timelines[id] = tl`.
 Build each scene template to match `DESIGN.md`. A scene file is a `<template>`-wrapped sub-composition: it can't be previewed standalone (the HyperFrames runtime clones and drives it), and the CLI gates take a project **directory** that resolves `index.html` — which doesn't exist until Phase 4. So per-scene preview and the mechanical gates run in Phase 4, after `index.html` references the scenes:
 
 - `npx hyperframes preview .` opens the studio, which lists `main` **plus every scene composition individually** for scrubbing.
-- `npx hyperframes lint .` / `inspect . --samples 10` / `validate .` check the assembled project.
+- `npx hyperframes lint .` is the fast static check while iterating; `npx hyperframes check . --samples 10` is the required gate on the assembled project.
 
 Author with these failure modes in mind so Phase 4's gates pass first try:
 
-- Overlapping elements at rest (Phase 4 `inspect` flags container/text overflow)
-- Text contrast below WCAG AA (Phase 4 `validate` runs a contrast audit)
+- Overlapping elements at rest (Phase 4 `check` flags container/text overflow)
+- Text contrast below WCAG AA (Phase 4 `check` runs a contrast audit)
 - Animations that imply an exit (Phase 4 transitions own the exit — see DON'Ts in `SKILL.md`)
 
 Then ask the user:
@@ -418,6 +419,6 @@ python3 "$SKILL_DIR/scripts/validate_brief.py" \
 
 Do not advance on a nonzero exit.
 
-> "Design contract and [N] scene templates ready. Palette + typography locked in `DESIGN.md`. Scenes are verified in Phase 4 — `preview .` lists each one individually for scrubbing and `lint`/`inspect`/`validate .` run on the assembled composition.
+> "Design contract and [N] scene templates ready. Palette + typography locked in `DESIGN.md`. Scenes are verified in Phase 4 — `preview .` lists each one individually for scrubbing and `lint`/`check .` run on the assembled composition.
 >
 > Ready to move to Phase 4: Composition assembly?"

@@ -69,8 +69,13 @@ as follows:
 - **Loading a companion skill.** Wherever you see `Skill(<name>)` (e.g. `Skill(hyperframes)`),
   use the runtime's native skill loader/selector. If no callable loader exists, locate the
   companion's `SKILL.md` in the canonical homes below and read only the referenced file.
-- **Skill install home.** Companion skills (`hyperframes`, `gsap`) live next to this skill in
-  whichever global or project home the runtime scans. Project-level `.copilot/skills/` is not a
+- **Locating a file inside a companion skill.** Skill *names* are stable; the paths inside them
+  are not. When a phase names a skill plus a capability symbol (`VISUAL_STYLES`,
+  `TRANSITION_CATALOG`, …) but no path, resolve it from this skill's `compat/ecosystem.md`.
+- **Skill install home.** Companion skills (`hyperframes` and the HyperFrames domain skills it
+  gateways) live next to this skill in whichever global or project home the runtime scans. There is
+  no separate `gsap` companion skill — GSAP choreography guidance is `GSAP_ADAPTER` and
+  `EASING_AND_STAGGER` in `hyperframes-animation`. Project-level `.copilot/skills/` is not a
   Copilot CLI skill home.
 
   These homes, in this order, are the **single canonical list** — the prereq probe below and every
@@ -131,6 +136,14 @@ All validator commands take `--project-dir "$PROJECT_DIR"`. They read the stable
 table in `project-plan.md` and atomically maintain `.hve/brief-state.json`; they never delete
 generated artifacts. Resolve `$SKILL_DIR`, `$VALIDATOR`, and `$PROJECT_DIR` again in a fresh shell
 because shell state does not persist between agent tool calls.
+
+**HyperFrames CLI gates (canonical — stated once here; every phase just runs them).** Use
+`npx hyperframes lint` as the fast check while iterating, and `npx hyperframes check` as the
+required final gate before a render is approved. `validate`, `inspect`, and `layout` still run but
+are deprecated aliases of `check`; they announce it with `_meta.deprecated: true` under `--json`.
+Detect the capability, never a version number: if `check` is unavailable on an older CLI, fall back
+to the `inspect` + `validate` pair for that run and tell the user to upgrade. Full command
+semantics belong to the `hyperframes-cli` skill (`CHECK_GATE` in `compat/ecosystem.md`).
 
 ---
 
@@ -209,7 +222,7 @@ Run Phase -1 for direct/default `new` mode only when there is no `project-plan.m
    | Phase 1 — Storytelling | Collect and confirm the user-owned story brief, then build the narrative | Confirm the complete brief before `storyboard.md`; approve the storyboard |
    | Phase 2 — Capture | Gather bound web (including an already-open authenticated Chrome tab), terminal, supplied, or native recordings | Approve the capture set and any fallbacks |
    | Phase 3 — Design | Define brand/motion and author scene HTML | Approve `DESIGN.md` and scene previews |
-   | Phase 4 — Production | Wire the root composition and transitions | Approve the preview after lint/inspect/validate |
+   | Phase 4 — Production | Wire the root composition and transitions | Approve the preview after lint + check |
    | Phase 5 — Audio & Render | Generate narration/captions, confirm exact music, render MP4 | Confirm title/path/source/license (or explicit none) before mixing; approve render |
 
    Mention that `screen-recording` capture is native where supported: macOS uses the
@@ -404,14 +417,45 @@ Phase 3 requires: context.md + storyboard.md, plus completion of every capture r
   it; the Phase-4 hero-frame check references it rather than re-implementing it.)
 Phase 4 requires: context.md + storyboard.md + DESIGN.md + scenes/*.html + fresh Phase-3 stamp
 Phase 5 requires: index.html (root composition) + fresh Phase-4 stamp; Phase 5 then confirms the
-  exact audio fingerprint, runs `npx hyperframes lint|inspect|validate`, and requires reviewed
-  `out/final.srt` + `out/final.vtt` whose caption state validates against the final mixed-audio
-  fingerprint before stamping completion
+  exact audio fingerprint, runs `npx hyperframes lint` + `npx hyperframes check`, and requires
+  reviewed `out/final.srt` + `out/final.vtt` whose caption state validates against the final
+  mixed-audio fingerprint before stamping completion
 Tutorial content mode: PREFERS public/clips/ but does not require them. Jumping into a
 tutorial with no clips WARNS ("tutorial requested but no clips found — degrading to stills")
 and continues with stills; it does NOT block. Missing captions in tutorial mode is the
 stricter check (see Phase 5). (warn-don't-block; spec §7.3)
 ```
+
+---
+
+## Reasoning Pipeline
+
+Sixteen stages carry a request from raw intent to builder prompts. They are not an extra phase —
+each phase owns a contiguous span, and the modules under `reasoning/` and `grammar/` are where that
+thinking is written down. The procedure for running them stays in the phase workflow (stages 4–14
+in `workflows/phase-1-storytelling.md`); this table is the map, not the method.
+
+| Stages | Phase | What happens |
+|---|---|---|
+| 1–3 · user intent · audience · communication goals | 0 | who this is for and what must land; every later cut is judged against these |
+| 4–7 · story structure · beat extraction · emotional pacing · information hierarchy | 1 | the arc becomes frames carrying a `tone:`/`energy:` curve and a per-frame `density:` |
+| 8–12 · visual semantics · metaphor · scene · camera · motion planning | 1, per frame | visual intelligence — judgment, guided by the grammars; no technology named |
+| 13 · capability derivation | 1, per frame | the **mechanical** union of the capability tags declared by every grammar entry the frame cites, plus asset/subject realities — never a judgment call |
+| 14 · runtime selection | 1, per frame; re-checked in 3 | capabilities become a runtime — GSAP-first, hero budget, and the rejected candidate recorded |
+| 15 · rendering plan | 3 | design spec, registry blocks, frame packets |
+| 16 · prompt generation | 4 | each builder receives only its packet plus the cited recipes |
+
+Stages 8–14 run through `reasoning/scene-analysis.md`: it owns the per-frame question set, the
+director keys those answers become, and — single-sourced — the cognitive-load budgets that every
+other file cites without repeating a number. The vocabulary those stages choose from is
+`grammar/camera.md`, `grammar/motion.md`, `grammar/metaphors.md`, and `grammar/three-taxonomy.md`;
+the capability-tag vocabulary is owned and versioned by `reasoning/capability-catalog.md`.
+
+**The grammars decide when and why; the HyperFrames ecosystem owns how.** Motion is cited by bare
+rule or blueprint name, resolved through `RULES_INDEX` / `BLUEPRINT_INDEX`, and its mechanism is
+never restated here. And the consent doctrine outranks the pipeline: a user's explicit creative
+instruction overrides any derived verdict, including runtime selection and every budget — state the
+tradeoff once, comply, and record `user_directed: true` on the frame.
 
 ---
 
@@ -430,7 +474,7 @@ Phase 3: DESIGN ──── Phase 4: PRODUCTION ──── Phase 5: AUDIO &am
   ├ hyperframes skill  ├ HyperFrames root html  ├ ElevenLabs TTS
   ├ DESIGN.md          ├ Sub-comp wiring        ├ Whisper verification
   ├ Scene templates    ├ Transitions (GSAP)     ├ Freesound Music API
-  └ Brand & motion     └ lint/inspect/validate  └ npx hyperframes render
+  └ Brand & motion     └ lint + check           └ npx hyperframes render
 ```
 
 ### Phase 0: Discovery
@@ -484,6 +528,9 @@ See [workflows/phase-5-audio.md](workflows/phase-5-audio.md)
 ## Resources
 
 - [workflows/](workflows/) — Phase workflow files
+- [reasoning/](reasoning/) — The director's instrument: `scene-analysis.md` (per-frame questions, director keys, the single-source cognitive-load budgets) and `capability-catalog.md` (the capability-tag vocabulary and the capability→runtime procedure)
+- [grammar/](grammar/) — When and why the camera moves, a motion principle applies, a metaphor explains, and when a frame earns Three.js: `camera.md`, `motion.md`, `metaphors.md`, `three-taxonomy.md`
+- [compat/ecosystem.md](compat/ecosystem.md) — The only file holding upstream HyperFrames file paths; everywhere else names the skill plus a capability SYMBOL and lets this map resolve it
 - [templates/](templates/) — Project scaffolding templates
 - [patterns/visual-patterns.md](patterns/visual-patterns.md) — Animation techniques
 - [patterns/metallic-swoosh.md](patterns/metallic-swoosh.md) — Metallic transition (crossfade + shine, NOT clipPath)

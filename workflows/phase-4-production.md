@@ -24,14 +24,7 @@ You only need three things in the project directory to render:
 └── (audio files)        ← from Phase 5
 ```
 
-`npx hyperframes` (no local install required) handles `lint`, `inspect`, `validate`, `preview`, and `render`. If you want to run the bundled verification scripts (`animation-map.mjs`, `contrast-report.mjs` — see Step 4.7), install the package locally first:
-
-```bash
-npm init -y                              # one-time, creates package.json
-npm install hyperframes                  # installs into node_modules/
-```
-
-After that, both CLI subcommands and bundled scripts work. The local install is optional — skip it if you don't plan to run animation-map.
+`npx hyperframes` (no local install required) handles `lint`, `check`, `snapshot`, `preview`, and `render`. The bundled verification scripts ship with the companion skills rather than the CLI: `hyperframes-animation` → `ANIMATION_MAP` (see Step 4.7) and `hyperframes-creative` → `CONTRAST_REPORT`; both paths are registered in `compat/ecosystem.md`.
 
 ### Starter templates (reference only; not used in the hve-video-director flow)
 
@@ -96,9 +89,7 @@ Confirm the directory layout. The Phase 4 composition expects:
 │   ├── 00-title-card.html
 │   ├── 01-pain-point.html
 │   └── ...
-├── public/screenshots/        # from Phase 2
-└── package.json               # optional — only if you ran `npm install hyperframes`
-                               #            in Step 4.1 to enable animation-map (Step 4.7)
+└── public/screenshots/        # from Phase 2
 ```
 
 Screenshots stay at `public/screenshots/` — referenced from `index.html` via relative `<img src="public/screenshots/…">` tags.
@@ -213,7 +204,7 @@ Use the `hyperframes` skill for the composition authoring rules — the most imp
 - **Standalone root** has no `<template>` wrapper; sub-compositions do.
 - Every clip has `data-start`, `data-duration`, `data-track-index`. Times are seconds; sub-second precision is fine (e.g. `data-duration="0.4"`).
 - Visual clips share track index 1 or higher; audio uses track 0; transitions sit on a separate high track (e.g. 9) only to avoid same-track overlap — paint order is controlled by CSS `z-index` (and DOM order when `z-index` is equal), NOT by the track index (see the CRITICAL invariant above and `patterns/metallic-swoosh.md`).
-- Layout the resting state first; add motion only after `npx hyperframes inspect` reports zero overlaps at any sampled timestamp.
+- Layout the resting state first; add motion only after `npx hyperframes check` reports zero overlaps at any sampled timestamp.
 
 ### Clip scenes (footage timing)
 
@@ -243,9 +234,9 @@ Use the `hyperframes` skill for the composition authoring rules — the most imp
   **footage timecodes**; if `Speed` ≠ 1, remap those keys proportionally.
 - **Promo framing check (orchestrator-enforced):** when `Mode: promo`, every clip
   scene MUST use the device-frame wrapper — bare-edge footage is not allowed in
-  promo. Verify by eye in `npx hyperframes inspect` before advancing. (There is no
+  promo. Verify by eye in `npx hyperframes snapshot` before advancing. (There is no
   programmatic gate; see spec §5.5/§14.)
-- **Legibility check (orchestrator-enforced, spec §7.2a):** narrative-critical UI text in footage must read ≥24px effective in the rendered frame. If raw capture is below that, add a footage-time punch-in on the `.clip-frame` wrapper (see `patterns/visual-patterns.md` § Camera Moves on Stills — the "When footage text is too small" subsection). Verify by eye in `npx hyperframes inspect . --at <focal-t>`; there is no programmatic gate.
+- **Legibility check (orchestrator-enforced, spec §7.2a):** narrative-critical UI text in footage must read ≥24px effective in the rendered frame. If raw capture is below that, add a footage-time punch-in on the `.clip-frame` wrapper (see `patterns/visual-patterns.md` § Camera Moves on Stills — the "When footage text is too small" subsection). Verify by eye in `npx hyperframes snapshot . --at <focal-t>`; there is no programmatic gate.
 - **Segment cap (spec §7.2b, orchestrator-enforced):** no continuous instructional run exceeds ~90s without an authored recap beat. Insert a `scenes/NN-recap.html` (from `templates/scene-recap.html`) listing the steps just covered, then resume. Self-police; no programmatic gate.
 
 ## Step 4.5: Wire Transitions
@@ -319,32 +310,37 @@ Open the composition in the HyperFrames Studio (headless Chrome + scrubbable tim
 npx hyperframes preview .
 ```
 
-Iterate. Then run the three gates before moving on:
+Iterate, re-running the fast static check after each structural change:
 
 ```bash
-npx hyperframes lint     .                # project DIR, not a file — finds index.html (flags missing audio id, track overlaps, etc.)
-npx hyperframes inspect  . --samples 10   # visual layout audit (no overlaps) — use 15 for dense cuts
-npx hyperframes validate .                # WCAG AA contrast + console errors in headless Chrome
+npx hyperframes lint . # project DIR, not a file — finds index.html (flags missing audio id, track overlaps, etc.)
 ```
 
-All gates take the project **directory** (they resolve `index.html` inside it), not a file path — `lint index.html` errors with "Not a directory". `lint` reports issues like "audio element has no id" by default. To fail a build on warnings, use `inspect --strict` or `render --strict` / `--strict-all` (`lint` and `validate` have no `--strict`).
+Then run the required gate before moving on:
 
-`--samples` controls how many timestamps `inspect` seeks to. Typical convention: `--samples 10` for 30s spots, `--samples 15` for denser transition-heavy cuts. Use `--at 1.5,4,7.25` instead if you want to audit specific hero frames.
+```bash
+npx hyperframes check . --samples 10   # reruns lint, then audits layout (no overlaps), WCAG AA contrast,
+                                       # console errors, and motion in one headless-Chrome pass — use 15 for dense cuts
+```
 
-All three must pass cleanly (or report only overflows you've consciously marked intentional).
+Both take the project **directory** (they resolve `index.html` inside it), not a file path — `lint index.html` errors with "Not a directory". `lint` reports issues like "audio element has no id" by default; `check` reruns it, so don't chain a standalone `lint` immediately before `check`. To fail a build on warnings, use `check --strict` or `render --strict` / `--strict-all` (`lint` has no `--strict`).
+
+`--samples` controls how many timestamps `check` seeks to. Typical convention: `--samples 10` for 30s spots, `--samples 15` for denser transition-heavy cuts. Use `--at 1.5,4,7.25` instead if you want to audit specific hero frames.
+
+`check` must pass cleanly (or report only overflows you've consciously marked intentional).
 
 ### Hero-frame content check (mandatory — gates can't see "wrong content")
 
-`lint`, `inspect`, and `validate` are mechanical: structure, layout overflow, contrast. **None of them judges whether each scene is showing the *right* content** — a clip wired to the wrong footage or a stale `<img src>` passes all three GREEN (this is exactly how the bare-`<video>` clip cross-route shipped unnoticed). Catch it here, cheaply, *before* the full render in Phase 5.
+`lint` and `check` are mechanical: structure, layout overflow, contrast. **Neither judges whether each scene is showing the *right* content** — a clip wired to the wrong footage or a stale `<img src>` passes both GREEN (this is exactly how the bare-`<video>` clip cross-route shipped unnoticed). Catch it here, cheaply, *before* the full render in Phase 5.
 
-Re-run `inspect` at the **midpoint of each scene** (not a uniform sweep) so every scene contributes one readable hero frame:
+Capture a `snapshot` at the **midpoint of each scene** (not a uniform sweep) so every scene contributes one readable hero frame:
 
 ```bash
 # Midpoints from the storyboard scene windows, e.g. scene 0 spans 0–5 → 2.5, etc.
-npx hyperframes inspect . --at 2.5,7,12,18,24,30
+npx hyperframes snapshot . --at 2.5,7,12,18,24,30
 ```
 
-Then **Read each `.hyperframes/inspect/*.png`** and confirm, scene by scene, that the frame shows what the storyboard calls for — correct screenshot, correct clip footage, correct copy. This re-uses the headless-Chrome frames `inspect` already writes (no `ffmpeg`, no rendered MP4 needed — the render doesn't exist until Phase 5). Do not advance until every scene's hero frame matches its storyboard intent.
+Then **Read each PNG `snapshot` writes to the project's snapshots directory** and confirm, scene by scene, that the frame shows what the storyboard calls for — correct screenshot, correct clip footage, correct copy. These are headless-Chrome stills (no `ffmpeg`, no rendered MP4 needed — the render doesn't exist until Phase 5). Do not advance until every scene's hero frame matches its storyboard intent.
 
 **Capture-coverage backstop:** if `product_surface: ui`, confirm at least one hero frame shows a real on-screen capture (the product framed) — this is the visual confirmation of the Phase-3 capture-coverage gate (`SKILL.md` § Entry Modes → `jump`). A promo/showcase whose hero frames are all text/CTA means the spine never made it on screen; return to Phase 3.
 
@@ -373,22 +369,28 @@ Iterate on feedback before proceeding.
 
 ## Step 4.7: Animation Map Verification (Optional)
 
-Before the aesthetic critique, run the bundled `animation-map.mjs` script to get a structural audit of every tween in the composition. It outputs an ASCII Gantt timeline, flags problematic tweens, and surfaces dead zones (long intervals with no motion).
+Before the aesthetic critique, run the `ANIMATION_MAP` verifier to get a structural audit of every tween in the composition. It outputs an ASCII Gantt timeline, flags problematic tweens, and surfaces dead zones (long intervals with no motion).
 
-This step requires a local `hyperframes` install (`npm install hyperframes` — see Step 4.1). The script ships inside the npm package; it's not exposed as a CLI subcommand.
+The script ships inside the `hyperframes-animation` skill (`ANIMATION_MAP` in `compat/ecosystem.md`); it's not exposed as a CLI subcommand. Resolve that skill's install directory the same way Phase 3 resolves this one:
 
 ```bash
-# One-time, if you haven't already:
-[ -f package.json ] || npm init -y
-[ -d node_modules/hyperframes ] || npm install hyperframes
+# $SKILL_HOMES is the canonical home list defined in SKILL.md § Runtime Compatibility.
+# Keep this line identical to that definition; edit it there, not here.
+SKILL_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+SKILL_HOMES="$HOME/.claude/skills|$HOME/.copilot/skills|$HOME/.agents/skills|$HOME/.pi/agent/skills|$HOME/.config/opencode/skills|$HOME/.cursor/skills|$HOME/.codex/skills|/etc/codex/skills|.claude/skills|.github/skills|.agents/skills|.pi/skills|.opencode/skills|.cursor/skills|.codex/skills|$SKILL_ROOT/.claude/skills|$SKILL_ROOT/.github/skills|$SKILL_ROOT/.agents/skills|$SKILL_ROOT/.pi/skills|$SKILL_ROOT/.opencode/skills|$SKILL_ROOT/.cursor/skills|$SKILL_ROOT/.codex/skills"
+ANIM_SKILL_DIR=$(
+  OLD_IFS=$IFS
+  IFS='|'
+  for h in $SKILL_HOMES; do
+    [ -d "$h/hyperframes-animation" ] && { echo "$h/hyperframes-animation"; break; }
+  done
+  IFS=$OLD_IFS
+)
+[ -n "$ANIM_SKILL_DIR" ] || { echo "ERROR: hyperframes-animation install dir not found — set ANIM_SKILL_DIR to the skill's path manually" >&2; }
 
-# Run the script (HYPERFRAMES_SKILL_BOOTSTRAP_DEPS=1 is required on first run):
-HYPERFRAMES_SKILL_BOOTSTRAP_DEPS=1 \
-  node node_modules/hyperframes/dist/skills/hyperframes/scripts/animation-map.mjs . \
-  --out .hyperframes/anim-map
+# Live path — registered as ANIMATION_MAP in compat/ecosystem.md; if upstream moves it, edit both.
+node "$ANIM_SKILL_DIR/scripts/animation-map.mjs" . --out .hyperframes/anim-map
 ```
-
-(If you ran `npx hyperframes init`, the script is also copied to `skills/hyperframes/scripts/animation-map.mjs` in your project.)
 
 The script reports:
 
@@ -409,7 +411,7 @@ Skip this step for trivial edits. Run on every new composition or after signific
 
 ## Step 4.8: Aesthetic Critique (Optional but Recommended)
 
-`hyperframes lint`, `inspect`, and `validate` are mechanical gates — they catch syntax errors, layout overflow, and contrast failures, but they cannot judge whether the composition is *good*. This step adds an aesthetic gate before Phase 5 commits the design with voiceover.
+`hyperframes lint` and `check` are mechanical gates — they catch syntax errors, layout overflow, and contrast failures, but they cannot judge whether the composition is *good*. This step adds an aesthetic gate before Phase 5 commits the design with voiceover.
 
 ### If the `critique` skill is installed
 
@@ -418,7 +420,7 @@ Invoke it on the rendered composition's HTML + sampled screenshots:
 ```
 Invoke: Skill(critique)
 Context: "Run a 5-dimension review on the HyperFrames composition at index.html.
-Sample inspect screenshots are at .hyperframes/inspect/*.png. Audit for:
+Sample hero-frame stills are in the project's snapshots directory. Audit for:
 - Philosophy (one declared direction, held through every decision)
 - Hierarchy (does the eye know where to land?)
 - Detail (timing, spacing, micro-decisions)
@@ -469,12 +471,12 @@ For each checked item, propose 1-2 fixes and iterate. See `patterns/anti-slop.md
 ## Output
 
 - `index.html` — root HyperFrames composition referencing every Phase 3 scene template
-- Passing `lint` + `inspect` + `validate` runs
+- Passing `lint` + `check` runs
 - (If `critique` skill ran) Empty Fix list or consciously-accepted residual items
 
 ## Checkpoint
 
-After the user accepts the preview and all three HyperFrames gates pass, stamp Phase 4:
+After the user accepts the preview and the HyperFrames gates pass, stamp Phase 4:
 
 ```bash
 python3 "$SKILL_DIR/scripts/validate_brief.py" \
@@ -483,6 +485,6 @@ python3 "$SKILL_DIR/scripts/validate_brief.py" \
 
 Do not advance on a nonzero exit.
 
-> "Composition built. [N] scenes, [duration]s, all screenshots integrated. `hyperframes inspect` and `validate` pass. Aesthetic critique complete.
+> "Composition built. [N] scenes, [duration]s, all screenshots integrated. `hyperframes check` passes. Aesthetic critique complete.
 >
 > Ready to move to Phase 5: Audio & Render?"

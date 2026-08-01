@@ -10,7 +10,7 @@ The renderer is **HyperFrames** (HTML + GSAP, rendered via headless Chromium). R
 
 Two things to keep distinct:
 
-- **This repo** — the skill definition (`SKILL.md`, `workflows/`, `templates/`, `patterns/`, `scripts/`, `design-systems/`) plus the canonical demo (`example/`). Edits here change behavior for *all* users.
+- **This repo** — the skill definition (`SKILL.md`, `reasoning/`, `grammar/`, `workflows/`, `templates/`, `patterns/`, `scripts/`, `design-systems/`, `compat/`) plus the canonical demo (`example/`). Edits here change behavior for *all* users.
 - **Generated video projects** — created by the skill at runtime in `{project-dir}/`. They contain `project-plan.md`, `.hve/brief-state.json`, `context.md`, `storyboard.md`, `DESIGN.md`, `public/screenshots/`, `scenes/*.html`, `index.html` (root HyperFrames composition), `voiceover.mp3`, `out/final.mp4`. These do not live in this repo (except `example/`, which is *this skill's own* generated project, committed as the reference build).
 
 ## Architecture
@@ -19,6 +19,7 @@ Two things to keep distinct:
 
 ```
 SKILL.md (orchestrator)
+  ├─ reasoning/ + grammar/              → the 16-stage reasoning pipeline (read by Phases 0, 1, 3, 4)
   ├─ workflows/phase-0-discovery.md     → produces context.md
   ├─ workflows/phase-1-storytelling.md  → produces storyboard.md
   ├─ workflows/phase-2-capture.md       → produces public/screenshots/ (via Chrome DevTools MCP)
@@ -27,19 +28,36 @@ SKILL.md (orchestrator)
   └─ workflows/phase-5-audio.md         → produces voiceover.mp3 + background-music.mp3 + out/final.mp4 (npx hyperframes render)
 ```
 
+**`reasoning/` and `grammar/` are first-class skill directories, not documentation.** They hold the
+reasoning layer the phases run on, and a phase workflow points at them instead of restating them.
+`reasoning/scene-analysis.md` is the per-frame instrument (the question set, the director keys it
+emits onto each storyboard frame, and — single-sourced, ADR-008 — the cognitive-load budgets; no
+other file may restate one of those numbers). `reasoning/capability-catalog.md` owns and versions
+the capability-tag vocabulary and turns a frame's derived tags into a runtime. The four grammars
+supply the vocabulary those stages choose from: `grammar/camera.md` (camera moves, two tiers),
+`grammar/motion.md` (motion principles), `grammar/metaphors.md` (concept → picture), and
+`grammar/three-taxonomy.md` (when a frame earns Three.js, and how to record rejecting it).
+
+**The grammars decide WHEN and WHY; the HyperFrames ecosystem owns HOW.** No mechanism text is ever
+copied into this repo (ADR-002): upstream motion is cited by bare rule name or bare blueprint id and
+resolved through `RULES_INDEX` / `BLUEPRINT_INDEX`; everything else upstream is cited by capability
+SYMBOL through `compat/ecosystem.md` (ADR-007). Capability derivation is mechanical, never a taste
+call (ADR-005), and a user's explicit creative instruction still overrides any derived verdict
+(ADR-001, `user_directed: true`).
+
 **Phase prerequisites are enforced in `jump` mode** — see `SKILL.md`. When editing workflows, preserve the file-presence contract:
 - Phase 1 needs `context.md`
 - Phase 2 needs `context.md` + `storyboard.md`
 - Phase 3 needs capture artifacts (`public/screenshots/` and/or `public/clips/`)
 - Phase 4 needs context + storyboard + `DESIGN.md` + `scenes/*.html`
-- Phase 5 needs `index.html` (root composition) and passing `npx hyperframes lint|inspect|validate`
+- Phase 5 needs `index.html` (root composition) and passing `npx hyperframes lint` + `npx hyperframes check`
 - Tutorial content mode prefers `public/clips/` but degrades to stills with a warning when clips are absent (warn-don't-block, spec §7.3); only missing captions is a hard check in tutorial mode
 
 **External dependencies the skill calls out to:**
 - `mcp__chrome-devtools__*` for app capture (Phase 2)
 - The `hyperframes` skill for HTML/GSAP authoring rules (Phases 3 + 4)
-- The `gsap` skill (optional companion) for choreography reference
-- `npx hyperframes` CLI for `init`, `add` (pull catalog blocks, Phase 4), `lint`, `preview`, `inspect`, `validate`, `render`, `doctor` (render-environment diagnostics, Phase 5), `transcribe` (preferred voiceover-timing verifier in Phase 5; falls back to standalone Whisper if unavailable), and `tts` (used in Phase 5 when the user explicitly confirms a local Kokoro voice)
+- There is **no** `gsap` companion skill — it is not installed in any skills home and is not an ecosystem skill. GSAP choreography guidance (timeline registration, the property contract, ease families, stagger) is `GSAP_ADAPTER` + `EASING_AND_STAGGER` in `hyperframes-animation`. `scripts/check_requirements.sh` still probes for a `gsap` skill and reports it as a `recommended` check that degrades gracefully when absent, which is harmless; do not re-add it to prose.
+- `npx hyperframes` CLI for `init`, `add` (pull catalog blocks, Phase 4), `lint`, `preview`, `check` (required final gate; `inspect`/`validate`/`layout` are deprecated aliases), `render`, `doctor` (render-environment diagnostics, Phase 5), `transcribe` (preferred voiceover-timing verifier in Phase 5; falls back to standalone Whisper if unavailable), and `tts` (used in Phase 5 when the user explicitly confirms a local Kokoro voice)
 - `mcp__chrome-devtools__screencast_*` + `resize_page` for Phase-2 web-clip capture (experimental, feature-detected — needs `--experimentalScreencast=true`; falls back to screenshots), and optional `asciinema`+`agg` for CLI clip recording (otherwise the authored-terminal path)
 - `mcp__chrome-devtools__list_pages` + `select_page` for the explicit authenticated-session path. The user must first connect the MCP to running Chrome with Chrome 144+ `--autoConnect` (preferred) or the dedicated-profile `--browser-url` fallback; attached capture never navigates and follows `patterns/authenticated-browser-capture.md`.
 - `scripts/generate_voiceover.py` → ElevenLabs API + optional Whisper transcription (Phase 5)
@@ -122,8 +140,28 @@ These are enforced verbally in the `## DON'Ts` section of `SKILL.md`. If you mod
   ```bash
   grep -rho 'SKILL_HOMES="[^"]*"' SKILL.md workflows/phase-3-design.md workflows/phase-5-audio.md scripts/check_requirements.sh | sort -u | wc -l   # must print 1
   ```
+- **Add a camera move / motion principle / visual metaphor** → edit the relevant `grammar/` file
+  (`camera.md`, `motion.md`, `metaphors.md`, or `three-taxonomy.md`) and **declare the entry's
+  capability tags in its own row** — that declaration is what stage 13 unions, so an entry with no
+  tags is invisible to runtime selection. The tag vocabulary is owned and versioned by
+  `reasoning/capability-catalog.md`: use its spellings, never invent one, and a genuinely new tag
+  needs a catalog row plus a runtime that serves it *before* a grammar entry may declare it. Cite
+  upstream vocabulary by **bare rule name** (`coordinate-target-zoom`), **bare blueprint id**
+  (`camera-journey`), or capability **SYMBOL** — never an upstream file path, and never a restated
+  mechanism (`compat/ecosystem.md` § Citing upstream vocabulary; the bare, extension-less form is
+  what keeps the citation legal under `test/unit/test_compat_pointers.py`). Budget numbers stay in
+  `reasoning/scene-analysis.md` — cite the table, never copy a number.
+- **Change an ecosystem dependency** (an upstream HyperFrames skill, a file inside one, or the
+  `npx hyperframes` CLI surface) → edit `compat/ecosystem.md` and nothing else. Intra-skill **file
+  paths** for ecosystem skills live there and nowhere else in the repo; every other file names the
+  skill plus the capability SYMBOL and lets that map resolve the path. Skill **names** are stable
+  public API — name them freely anywhere. Enforced by `test/unit/test_compat_pointers.py`. To take
+  an upstream update: `npx hyperframes skills update` → `bash test/run.sh` → commit
+  `skills-lock.json` only when green (full procedure, incl. the pointer sweep and behavior probes,
+  in `compat/ecosystem.md` § Pin and update policy). Cadence: milestone boundaries or monthly,
+  whichever comes first.
 - **Bump skill metadata** → frontmatter at top of `SKILL.md` (especially `allowed-tools` if a new MCP tool is needed).
-- **Bump the GSAP version** → the CDN `<script>` tags carry a Subresource Integrity hash (`integrity="sha384-…" crossorigin="anonymous"`), pinned to `gsap@3.14.2`. Changing the version *requires* recomputing the hash, or the script is blocked and every scene renders without animation (caught by `npx hyperframes validate` in Phase 4/5). Update **all** occurrences together — `templates/scene-*.html`, the skeletons in `workflows/phase-3-design.md` + `workflows/phase-4-production.md`, and every `example/**/*.html`:
+- **Bump the GSAP version** → the CDN `<script>` tags carry a Subresource Integrity hash (`integrity="sha384-…" crossorigin="anonymous"`), pinned to `gsap@3.14.2`. Changing the version *requires* recomputing the hash, or the script is blocked and every scene renders without animation (caught by `npx hyperframes check` in Phase 4/5). Update **all** occurrences together — `templates/scene-*.html`, the skeletons in `workflows/phase-3-design.md` + `workflows/phase-4-production.md`, and every `example/**/*.html`:
   ```bash
   V=3.x.y   # new version
   H="sha384-$(curl -sL https://cdn.jsdelivr.net/npm/gsap@$V/dist/gsap.min.js | openssl dgst -sha384 -binary | base64)"

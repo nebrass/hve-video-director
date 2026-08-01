@@ -210,7 +210,7 @@ tl.fromTo(root + ' .shot-browser',
 
 **When footage text is too small (the legibility case).** When narrative-critical UI text in recorded footage renders below ~24px in the final frame, this push *is* the remedy: scale the non-timed `.clip-frame` wrapper toward the text. Key it to **footage time** (seconds into the clip); if the clip's `Speed` ≠ 1, remap the times proportionally. Release before the crossfade as above.
 
-Effective size: `effective_px = source_px × scale × (rendered_frame_width / source_capture_width)`. Pick `scale` so the smallest narrative-critical glyph clears 24px. Verify by eye with `npx hyperframes inspect . --at <focal-t>`.
+Effective size: `effective_px = source_px × scale × (rendered_frame_width / source_capture_width)`. Pick `scale` so the smallest narrative-critical glyph clears 24px. Verify by eye with `npx hyperframes snapshot . --at <focal-t>`.
 
 ### Scroll-Within-Frame
 
@@ -291,7 +291,7 @@ tl.to(root + ' .card-shine', { opacity: 0, duration: 0.08, ease: "power1.in" }, 
 **Guardrails:**
 
 - **One-shot, not an ambient loop.** A shine that keeps sweeping the whole scene is the looping-motion tell (`anti-slop.md` § P2). Fire it once when the card lands.
-- **Self-police `mix-blend-mode: screen` luminance.** If you add `mix-blend-mode: screen` for a hotter pop, neither `inspect` nor `validate` detects luminance overflow — they're layout and contrast checks, not luminance audits. Preview against your **brightest** scene background by eye; `screen` blending can push near-white past 100% luminance and produce a flash. If that happens, drop the band's `rgba` alpha to ~0.65, or remove the blend mode and rely on `opacity` alone (carried verbatim in spirit from `metallic-swoosh.md` § Validation).
+- **Self-police `mix-blend-mode: screen` luminance.** If you add `mix-blend-mode: screen` for a hotter pop, `check` does not detect luminance overflow — it is not a luminance audit. Preview against your **brightest** scene background by eye; `screen` blending can push near-white past 100% luminance and produce a flash. If that happens, drop the band's `rgba` alpha to ~0.65, or remove the blend mode and rely on `opacity` alone (carried verbatim in spirit from `metallic-swoosh.md` § Validation).
 
 ### Masked Reveal (mask-position)
 
@@ -357,11 +357,11 @@ Transition duration comes from the confirmed brief: `quick = 0.4s`, `medium = 0.
 | Caption | 24–32px | Regular |
 | Stat number | 90–140px | Bold |
 
-HyperFrames' `validate` enforces WCAG AA contrast (4.5:1 normal text, 3:1 large text ≥24px or ≥19px bold). Tiny text is *not* auto-flagged — self-police anything below 24px because it loses legibility at typical playback resolutions.
+HyperFrames' `check` enforces WCAG AA contrast (4.5:1 normal text, 3:1 large text ≥24px or ≥19px bold). Tiny text is *not* auto-flagged — self-police anything below 24px because it loses legibility at typical playback resolutions.
 
 ## DON'Ts (Critical)
 
-- **No jitter or shake** — looks cheap; HyperFrames inspect will not catch this, you must self-police.
+- **No jitter or shake** — looks cheap; HyperFrames `check` will not catch this, you must self-police.
 - **No full 360° rotations** — disorienting. Subtle `rotateY` ≤ 8° or `rotateZ` ≤ 4° only.
 - **No exit animations on non-final scenes** — let the transition handle the exit. Animating the same element out and then transitioning the scene out is double-motion.
 - **No `clipPath` for transitions** — produces anti-aliased black slivers between scenes. Use crossfade + shine instead (see `metallic-swoosh.md`).
@@ -384,4 +384,4 @@ HyperFrames' `validate` enforces WCAG AA contrast (4.5:1 normal text, 3:1 large 
   gsap.set("#late-card", { opacity: 0, x: -100 });
   tl.to("#late-card", { opacity: 1, x: 0, duration: 0.5 }, 5);
   ```
-- **No tiny text** — below 24px is unreadable in rendered video. `validate` won't warn (it's contrast-only), so self-police.
+- **No tiny text** — below 24px is unreadable in rendered video. `check` won't flag it (contrast, not size), so self-police.

@@ -2,7 +2,7 @@
 
 Five drawing-mode patterns for emphasizing words in product videos — kicker lines, value props, stats, callouts. Pure CSS + GSAP, no library dependency, fully deterministic under HyperFrames render.
 
-Adapted from the HyperFrames skill's `references/css-patterns.md` (read that file for caption-specific variations, multi-line cases, and the full pattern depth). This file is product-video focused: each mode below is paired with the moment in a promo arc where it lands best.
+Adapted from `MARKER_PATTERNS` in the `hyperframes-animation` skill — read it for caption-specific variations, multi-line cases, and the full pattern depth; path in `compat/ecosystem.md`. This file is product-video focused: each mode below is paired with the moment in a promo arc where it lands best.
 
 ## When to use which mode
 
@@ -258,4 +258,4 @@ tl.to("#sketchout-1 .mh-sketchout-bwd",
 
 ## Source
 
-Full versions of these patterns (including multi-line variants, mode-cycling for captions, and the path-length math) live in the HyperFrames skill at `<skills-home>/hyperframes/references/css-patterns.md` (`<skills-home>` is `~/.claude/skills` on Claude Code or `~/.copilot/skills` on GitHub Copilot CLI). This file is a product-video focused subset.
+Full versions of these patterns (including multi-line variants, mode-cycling for captions, and the path-length math) live in `MARKER_PATTERNS`, owned by the `hyperframes-animation` skill; path in `compat/ecosystem.md`. This file is a product-video focused subset.
