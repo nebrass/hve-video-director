@@ -1,6 +1,8 @@
 # Camera Grammar
 
-Consumed by Phase 1 (frame planning, the `camera:` key) and Phase 3 (scene direction). This file
+Consumed by Phase 1 today (frame planning, the `camera:` key). Phase 3 becomes a reader in M5,
+when frame packets carry the director keys to scene builders — until then the keys are
+planning record, not build input. This file
 teaches **when and why** the camera moves. It never teaches how — every move names the upstream
 owner of its mechanism and the builder loads that owner, not this file (ADR-002). Bare names are
 rules/blueprints and SYMBOLS are capabilities; both resolve through `compat/ecosystem.md`.
@@ -85,8 +87,9 @@ The vocabulary is owned and versioned by `reasoning/capability-catalog.md`. Neve
    motion at the boundary — exit vector, direction and speed are ledger entries (SEAM_LAW; the
    named carriers and their parameters are CUT_CATALOG; SEAM_VERIFIER checks them). Camera
    direction feeds the film's Current: one dominant direction, reserved vectors carry meaning.
-6. **Tier B's contract is THREE_ADAPTER's, verbatim** — render from `hf-seek`, preload assets,
-   `data-duration` on the root, pinned renderer size and DPR. Never re-derive it.
+6. **Tier B's integration contract belongs entirely to THREE_ADAPTER** — load it and follow it
+   there. This file deliberately does not enumerate its terms: a local copy is a second author of
+   record (ADR-002), and a copy that drifts is worse than a pointer.
 7. **The repo DON'Ts still bind Tier A** (`SKILL.md` § DON'Ts): no 360° scene spins; mockup tilt
    ≤8° `rotateY` / ≤4° `rotateZ`; no 3D transforms inside an inter-scene transition; no camera
    tween that animates a layout property.

@@ -1,6 +1,7 @@
 # Motion Grammar
 
-Consumed by Phase 1 (beat direction) and Phase 3 (scene direction). This file maps motion
+Consumed by Phase 1 today (beat direction); Phase 3 becomes a reader in M5, when frame packets
+carry the director keys to scene builders. This file maps motion
 *principles* to communication purposes and names the official owner of every mechanism. It plans
 **when and why**; the owning upstream recipe implements **how** (ADR-002 — never restate mechanism
 text here). Motion names are cited, never invented: bare backticked names resolve through

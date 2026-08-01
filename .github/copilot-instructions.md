@@ -32,15 +32,15 @@ SKILL.md (orchestrator)
 - Phase 2 needs `context.md` + `storyboard.md`
 - Phase 3 needs capture artifacts (`public/screenshots/` and/or `public/clips/`)
 - Phase 4 needs context + storyboard + `DESIGN.md` + `scenes/*.html`
-- Phase 5 needs `index.html` (root composition) and passing `npx hyperframes lint|inspect|validate`
+- Phase 5 needs `index.html` (root composition) and passing `npx hyperframes lint` + `npx hyperframes check`
 - Tutorial content mode prefers `public/clips/` but degrades to stills with a warning when clips are absent (warn-don't-block, spec §7.3); only missing captions is a hard check in tutorial mode
 
 **External dependencies the skill calls out to:**
 
 - `mcp__chrome-devtools__*` for app capture (Phase 2)
 - The `hyperframes` companion agent skill for HTML/GSAP authoring rules (Phases 3 + 4) — distinct from the `hyperframes` npm CLI
-- The `gsap` skill (optional companion) for choreography reference
-- `npx hyperframes` CLI for `init`, `add` (pull catalog blocks, Phase 4), `lint`, `preview`, `inspect`, `validate`, `render`, `doctor` (render-environment diagnostics, Phase 5), `transcribe` (preferred voiceover-timing verifier in Phase 5; falls back to standalone Whisper if unavailable), and `tts` (used in Phase 5 when the user explicitly confirms a local Kokoro voice)
+- GSAP choreography reference lives in the `hyperframes-animation` skill (there is no standalone `gsap` companion skill)
+- `npx hyperframes` CLI for `init`, `add` (pull catalog blocks, Phase 4), `lint`, `preview`, `check` (required final gate; `inspect`/`validate`/`layout` are deprecated aliases), `snapshot`, `render`, `doctor` (render-environment diagnostics, Phase 5), `transcribe` (preferred voiceover-timing verifier in Phase 5; falls back to standalone Whisper if unavailable), and `tts` (used in Phase 5 when the user explicitly confirms a local Kokoro voice)
 - `mcp__chrome-devtools__screencast_*` + `resize_page` for Phase-2 web-clip capture (experimental, feature-detected — needs `--experimentalScreencast=true`; falls back to screenshots), and optional `asciinema`+`agg` for CLI clip recording (otherwise the authored-terminal path)
 - `mcp__chrome-devtools__list_pages` + `select_page` for the explicit authenticated-session path. The user must first connect the MCP to running Chrome with Chrome 144+ `--autoConnect` (preferred) or the dedicated-profile `--browser-url` fallback; attached capture never navigates and follows `patterns/authenticated-browser-capture.md`.
 - `scripts/generate_voiceover.py` → ElevenLabs API + optional Whisper transcription (Phase 5)

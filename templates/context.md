@@ -10,6 +10,7 @@
 - **Who:** {target audience}
 - **Pain points:** {list}
 - **Desired action:** {CTA}
+- **Emotional journey:** {what the viewer should feel, in order — e.g. curiosity → tension → relief → confidence}
 
 ## Brand
 - **Colors:** {palette}
