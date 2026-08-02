@@ -373,6 +373,31 @@ automated.
   `templates/storyboard.md` are exercised only as a representative sample, so a collision against
   one of those is caught by the execution half and not by the documented-contract half.
 
+### `SUBCOMP_ROOT_ATTRIBUTE_SELECTOR` — the scene templates' root styling survives scoping
+
+- **What.** A sub-composition may style its own root with a leftmost
+  `[data-composition-id="<id>"] { … }` rule, and reach its descendants with
+  `[data-composition-id="<id>"] .child`, without carrying `id="root"`. Both match after the render
+  pipeline scopes the sub-composition's CSS.
+- **Why it matters.** All seven `templates/scene-*.html` and both Phase-3 skeletons use exactly
+  that pattern. `SUB_COMPOSITIONS` § "Pitfall 3" says to style the root by `#root`, "never a
+  class", and lints a violation as `subcomposition_root_styled_by_class`. Whether an *attribute*
+  selector falls under that rule was unresolved and load-bearing: if it did, every scene in every
+  generated project would render unstyled while the storyboard, the timeline and the gates all
+  looked correct — the "all gates green, output wrong" failure this repo keeps meeting.
+- **Probe.** Build a two-scene composition: scene A styles its root by the bare attribute selector
+  with no `id="root"`, scene B by `#root`. Give each a distinct saturated background and a
+  descendant-selector child. Snapshot both times and sample the centre pixel; a scene whose CSS
+  failed to apply shows the page background instead of its own.
+- **Status: verified empirically on CLI 0.7.87, macOS, hardware GPU.** Scene A rendered
+  `#ff0000` with its descendant-styled label painted and its flex centring applied — its root rule
+  and its descendant rules both matched. Scene B rendered green as expected. `lint` returned
+  **0 errors**, and `subcomposition_root_styled_by_class` did not fire on either scene: the rule
+  targets a class on the root, not an attribute selector. **The templates are correct as shipped.**
+  Not automated — it needs headless Chrome and a render, so it belongs in the same
+  browser-gated tier as `CHECK_DEPRECATION_SIGNAL`. Re-run it if upstream changes how
+  sub-composition CSS is scoped; the reproduction above is the whole test.
+
 ### `CHECK_DEPRECATION_SIGNAL` — deprecation is machine-detectable
 
 - **What.** Deprecated gates keep working and announce themselves; `check` does not.
