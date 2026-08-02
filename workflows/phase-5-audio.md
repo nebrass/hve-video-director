@@ -60,10 +60,11 @@ ENGINE="$MEDIA_SKILL_DIR/<AUDIO_ENGINE skill-relative path from compat/ecosystem
 ```
 
 **When the delegated path is unavailable.** An empty `$MEDIA_SKILL_DIR` (skill not installed), or a
-provider the user declines to authenticate, routes to the local fallbacks:
-`scripts/generate_voiceover.py` for voiceover and `scripts/search_music.py` for music. Both are
-**deprecated as acquisition paths** (planned removal **M6**, once the delegated path has proven
-itself in real projects) and both still work unchanged. Say which path you took; never switch
+provider the user declines to authenticate, has no local acquisition fallback left: **M6 retired
+both**. `scripts/search_music.py` is gone, and `scripts/generate_voiceover.py` keeps only
+`--assemble-only`, the section assembler both audio paths use — it no longer calls a TTS provider.
+Without the engine, narration and music come from the user (a supplied voiceover file, a supplied
+or user-chosen track) and the confirmation gates are unchanged. Say which path you took; never switch
 silently. `generate_voiceover.py` has a second role that is **not** deprecated: `--assemble-only` is
 the canonical timeline assembler for either path — it places each section at its exact start time,
 pads to `VIDEO_DURATION`, and warns on overrun.
@@ -75,8 +76,8 @@ pads to `VIDEO_DURATION`, and warns on overrun.
 Read the exact confirmed `voice` from the Creative Brief. Its prefix is binding:
 
 - `elevenlabs:<name>:<voice-id>` → ElevenLabs with that exact ID.
-- `kokoro:<voice-id>` → local Kokoro TTS (`TTS_LOCAL`) with that exact ID, even if an ElevenLabs
-  key is available.
+- `kokoro:<voice-id>` → local Kokoro TTS (`TTS_LOCAL`) with that exact ID, even if an
+  ElevenLabs key is available.
 
 Do not choose a provider from environment-variable availability. Do not replace the confirmed voice
 with a default, and do not silently fall back between providers — including inside the engine:
@@ -174,9 +175,7 @@ python3 ./voiceover.py --assemble-only    # places each section, pads to VIDEO_D
 The pad is not cosmetic: a voiceover shorter than the composition leaves the render with no audio
 for the trailing frames, and it may truncate.
 
-**Deprecated fallback.** With no engine (or when the user wants their ElevenLabs key driven
-directly), set `VOICE_ID` in `./voiceover.py` and run `python3 ./voiceover.py`, which generates and
-assembles in one pass. For a confirmed Kokoro voice, `npx hyperframes tts "<section text>" --voice
+**When the engine is unavailable.** For a confirmed Kokoro voice, `npx hyperframes tts "<section text>" --voice
 <id> --output vo_section_NN.mp3` per section, then `--assemble-only`. Kokoro IDs read
 `<lang><gender>_<name>` (`af_nova` = American female "Nova"); `TTS_LOCAL` has the catalog.
 
@@ -345,17 +344,15 @@ engine's request-side `mode: none` is likewise not a delegated outcome — no mu
 
 ### Freesound strategy
 
-Freesound is a public CC-licensed audio search API; get a key at
-<https://freesound.org/apiv2/apply> (`FREESOUND_API_KEY`). Derive mood keywords from the
-storytelling phase; the script filters by duration and to CC0 / CC-BY:
+Freesound is a public CC-licensed audio library. **M6 retired the local search script**, so the
+agent no longer queries the API: for `music_strategy: freesound` the user picks the track. Derive
+mood keywords from the storytelling phase, state them, and ask the user for the track page URL of a
+CC0 / CC-BY result that runs at least the composition length. The Creative Brief pins that exact
+`freesound.org` URL with its numeric sound id, which is the provenance the audio gate checks.
 
-```bash
-FREESOUND_API_KEY=... python3 "$SKILL_DIR/scripts/search_music.py" \
-  "cinematic corporate uplifting" --min-duration 42
-```
-
-Each hit prints title, author, duration, license, its track page URL, and a high-quality MP3 preview
-URL usable as the soundtrack. Present ranked candidates in pages of at most three tracks plus a
+If the user would rather have candidates proposed, that is what `music_strategy: delegated` is for
+— the `media-use` engine retrieves or generates a bed. Never silently switch strategies; the one
+the user confirmed is the one that runs. Present ranked candidates in pages of at most three tracks plus a
 **More candidates** option, so no prompt exceeds four:
 
 ```json
@@ -887,7 +884,8 @@ Two failures belong to the *composition*, so `doctor` passes while the output is
 - **Render succeeds but the output is silent** — the `<audio>` element in `index.html` has no `id`.
   Without one the audio is silently dropped during render; `lint` (inside `check`) flags it.
 - **Scenes look blank during transitions** — adjacent scenes must OVERLAP during the crossfade
-  window. See `patterns/transition-catalog.md` § Hard Rules.
+  window. Clip windows and the `data-track-index` that lets two scenes overlap are
+  `hyperframes-core` → `TRACKS_AND_CLIPS`.
 
 If capture itself dies on the host (sandboxed containers, WSL2), re-run through the containerized
 path with `--docker`; on low-RAM hosts the CLI auto-enables low-memory mode, which forces screenshot

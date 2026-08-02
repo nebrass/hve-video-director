@@ -6,6 +6,10 @@ without Phase-2 artifacts.
 
 The authoring engine is **HyperFrames** (HTML + GSAP). There is no React, no JSX, no `useCurrentFrame`. Scene timing is expressed in **seconds** via `data-start` and `data-duration` attributes; motion is authored as GSAP tweens on paused timelines.
 
+This is where the director keys stop being a planning record and start being build input. The phase
+runs in five steps: seed the design spec (3.1), plan each scene registry-first (3.2), assemble one
+ephemeral **frame packet** per scene (3.3), dispatch the builds (3.4), collect and review (3.5).
+
 Before authoring, require Phase 2 (including an intentional stamped skip) to be fresh:
 
 ```bash
@@ -20,7 +24,8 @@ A nonzero exit routes to the earliest stale prior phase even when capture files 
 Every frame value this phase needs — `src`, `duration`, `screenshot`, `clip`, `clip_in`,
 `clip_out`, `speed`, `chapter`, `step_label`, and the director keys — is a `- key: value` bullet in
 that frame's metadata block. Read them through the installed validator rather than by eye; it
-returns official fields and preserved `extra` bullets in one payload:
+returns official fields and preserved `extra` bullets in one payload, and that payload is what
+Step 3.3 copies into each packet:
 
 ```bash
 python3 "$SKILL_DIR/scripts/validate_brief.py" \
@@ -152,22 +157,25 @@ Copy `transition_style` and `transition_speed` from the confirmed Creative Brief
 defaults. The Phase 4 composition will reference values from this file; do not hard-code colors,
 font sizes, transition styles, or transition durations that aren't also documented here.
 
-## Step 3.2: Author Scene Templates via the HyperFrames Skill
+## Step 3.2: Plan the scenes — registry first
 
-Invoke the `hyperframes` skill and request authoring of brand-matched scene templates. Each template is a **standalone HTML file** that will later be loaded as a sub-composition by the Phase 4 root `index.html`.
+Every storyboard frame becomes one **standalone HTML file** under `scenes/`, loaded as a
+sub-composition by the Phase 4 root `index.html`. This step decides *what* each scene is and which
+starting point it uses; Steps 3.3–3.4 build them from packets.
 
-Every template's body canvas, surfaces, text, controls, mockup chrome, screenshot framing, terminal
+Every scene's body canvas, surfaces, text, controls, mockup chrome, screenshot framing, terminal
 chrome, and clip matte must use the one confirmed-theme token set in `DESIGN.md`. Do not fall back
-to a template's original light or dark defaults. Before completing Step 3.3, inspect every authored
-scene and reject any opposite-theme canvas or surface.
+to a template's original light or dark defaults. Before the review checkpoint (Step 3.5), inspect
+every authored scene and reject any opposite-theme canvas or surface.
 
-```
-Invoke: Skill(hyperframes)
-Context: "Author scene templates for {project-name}, using the palette and
-typography defined in DESIGN.md. Output one HTML file per scene archetype
-below into scenes/. Each file is a complete sub-composition with paused
-GSAP timeline registered on window.__timelines."
-```
+**Check the shipped catalog before planning any hand-authored scene.** Invoke
+`Skill(hyperframes-registry)` and read `REGISTRY_CATALOG` (path in `compat/ecosystem.md`) for the
+exact block names `add` accepts — `app-showcase`, `ui-3d-reveal`, `data-chart`, `logo-outro`, the
+six VFX blocks, and more cover most product-video archetypes. A tested block beats a hand-built
+scene: install it with `npx hyperframes add <name>`, note on the frame which block it came from,
+and let the packet carry the block plus this project's content instead of a from-scratch brief.
+Hand-author only the gap. Wiring is `REGISTRY_BLOCKS`, worked through in `REGISTRY_ADD_EXAMPLE`;
+Phase 4 Step 4.2 re-uses both.
 
 **The spine of the video is the real product on screen.** Lead with capture-bearing
 scenes that frame your Phase-2 screenshots/clips with depth; the text scenes (title,
@@ -177,7 +185,8 @@ them for a palette. A film that is all text cards is the flat-slideshow failure 
 (`patterns/anti-slop.md` § The screenshot test); so is a film that buries the product
 under decorative effects. Show the product, framed.
 
-Request these scene archetypes (adapt to mode — promo or showcase).
+Plan these scene archetypes (adapt to mode — promo or showcase). Each row's **Copy from** file is
+the starting point that ships in the packet unless Step 3.2 chose a registry block instead.
 
 **Spine — the real product, framed (lead with these):**
 
@@ -212,7 +221,8 @@ scroll-within-frame, parallax depth, anchored callouts) lives in
 and prefer pulling an equivalent HyperFrames catalog block (`app-showcase`, `ui-3d-reveal`)
 where one exists.
 
-Each scene template must:
+Each scene template must satisfy the list below. These are the skeleton's own constraints, so they
+reach a builder through the packet's starting-point file rather than as separate instructions:
 
 - Be a valid HyperFrames **sub-composition** — the root is a `<div data-composition-id="…" data-width="{W}" data-height="{H}">` wrapped in a `<template>` (per `hyperframes-core` → `SUB_COMPOSITIONS`, path in `compat/ecosystem.md`). Use the canvas dimensions chosen in Phase 1 (1920×1080, 1080×1920, 1080×1080, or 1080×1350). Sub-comps loaded via `data-composition-src` *require* this `<template>` wrapper; only the root `index.html` skips it.
 - Author the **resting layout first** in static CSS, then layer GSAP entrance tweens via `tl.fromTo()` (explicit from/to states — never bare `tl.from()` on opacity-bearing elements; see `patterns/visual-patterns.md` § "tl.from() stagger trap"). Never animate to a position — animate from an offset to the rest position.
@@ -325,10 +335,12 @@ scoped (not bare `#id`) so two text scenes in one composition never collide.
 
 The `data-composition-id` value on the inner `<div>` must match the `data-composition-id` on the loader in the Phase 4 root `index.html`.
 
-Animation pattern reference: `patterns/visual-patterns.md`.
+Motion recipes are `RULES_INDEX` and the ease register is `EASING_AND_STAGGER`;
+`patterns/visual-patterns.md` carries only what those do not — the camera-on-a-still craft, the
+legibility floor, the emphasis budget and the repo DON'Ts.
 Scenes do not author their own outgoing flourish — the seam owns the exit. Transition selection: `patterns/transition-catalog.md`; the seam law itself is `SEAM_LAW` (`motion-doctrine`).
 
-**Before authoring a scene from scratch**, check the HyperFrames catalog — blocks like `app-showcase`, `ui-3d-reveal`, `data-chart`, `logo-outro`, and `reddit-post` are drop-in sub-compositions that cover most product-video archetypes. See Phase 4 Step 4.2 for the `npx hyperframes add <name>` workflow. Pulling a catalog block is almost always faster than hand-authoring an equivalent scene.
+**Registry-first still applies to every skeleton on this page.** A hand-authored scene is the fallback, not the default — re-read the catalog check in Step 3.2 before typing a scene that a shipped block already does.
 
 ### Clip scene (real footage)
 
@@ -388,18 +400,89 @@ Positioning (per the same `media-use` → `CAPTIONS_AUTHORING`): bottom 80–120
 full-width centered container (NOT `left:50%;translateX(-50%)`). Text ≥24px, high contrast.
 Run the `[caption-lint]` self-check before `window.__timelines[id] = tl`.
 
-## Step 3.3: Author Scenes (preview + gates run in Phase 4)
+## Step 3.3: Assemble one frame packet per scene
 
-Build each scene template to match `DESIGN.md`. A scene file is a `<template>`-wrapped sub-composition: it can't be previewed standalone (the HyperFrames runtime clones and drives it), and the CLI gates take a project **directory** that resolves `index.html` — which doesn't exist until Phase 4. So per-scene preview and the mechanical gates run in Phase 4, after `index.html` references the scenes:
+The director keys Phase 1 wrote onto each frame become **build input** here. A scene is built from a
+**packet** — never from this workflow, and never from a summary of the storyboard.
+
+A packet is **ephemeral**: assembled at dispatch time, regenerated on every run, written to a
+scratch path and never committed. It contains exactly five things, and a builder that has to
+resolve a citation itself has been handed the wrong packet.
+
+| # | What goes in | Where it comes from |
+|---|---|---|
+| 1 | that ONE frame's storyboard block, **verbatim**, including every director key | the `storyboard --json` payload read at the top of this phase — official fields plus the preserved `extra` bullets, in the frame's own order |
+| 2 | the project's design spec | `DESIGN.md` from Step 3.1, inlined whole |
+| 3 | the **bodies** of the upstream recipes the frame cites | read from the installed skill *at this moment* and pasted in: the `blueprint:` id resolved through `BLUEPRINT_INDEX`, each `motion:` name through `RULES_INDEX`, plus the adapter contract when `runtime:` names a non-default runtime (the Contract column of `reasoning/capability-catalog.md` says which one) |
+| 4 | the scene-builder role | `FRAME_WORKER_CORE`, read from the installed skill, followed by this skill's `sub-agents/scene-builder-delta.md` — core first, delta second, read as one role |
+| 5 | canvas size, the captions flag, and the exact paths of any bound capture artifacts | the Phase-1 canvas dimensions; the frame's `captions:` bullet; the frame's `screenshot:` / `clip:` bullets, as project-relative paths |
+
+Plus the starting point Step 3.2 chose for that archetype — the copy-ready `templates/scene-*.html`
+file, or the block already installed from the registry.
+
+**Inline, never restate.** Item 3 is a mechanical copy of upstream text into a throwaway packet, and
+that is the only thing that makes it legal: this repo does not become the author of record for
+upstream mechanism text. Paste the bodies in at dispatch time and let them die with the run. Do not
+paraphrase, do not summarize, and never write a copy into a committed file. A cited name that
+resolves to nothing is a **Phase-1 defect** — send the frame back rather than dispatching a builder
+who will guess a motion from the spelling of its name.
+
+**What a packet must NOT carry.** No `reasoning/` file, no `grammar/` file, no other frame's block,
+and no film-wide storyboard state. Those produced the director keys; the keys *are* the conclusion,
+and shipping the derivation alongside them is what makes builder context unbounded.
+
+## Step 3.4: Dispatch — inline for a short film, fan out only past it
+
+Fan-out pays only at scale. The measurement is upstream's and is not re-derived here: for a
+five-scene film, building inline runs about 9 minutes against about 21 minutes packetized out to
+workers. Packet assembly (Step 3.3) happens either way — it is what turns the director keys into
+build input. Only the dispatch differs.
+
+| Frames to build | How |
+|---|---|
+| up to ~6 short frames | **Build them yourself, in sequence**, reading each frame's packet as you start its scene. Faster than fanning out, and every rule below still binds. |
+| more than ~6 | **Fan out**: give each worker **2–3 frames**, never one, and start **all** workers in a single wave. |
+
+When you fan out, hold the contract exactly:
+
+- A worker receives its packets and nothing else, and returns exactly **one scene HTML file per
+  packet**, at the `src` path that packet names. It runs no CLI, edits no storyboard, and touches
+  no other frame.
+- **At most one retry per frame, and only with a concrete finding** — a missing or malformed output
+  file, a bound capture that was not composited, or specific per-scene feedback from the Step 3.5
+  review. "Make it better" is not a finding; fix the packet instead. A frame that fails twice comes
+  back to you to build inline.
+- Builders cannot meaningfully lint or check their own output: those gates operate on the
+  **assembled project**, which does not exist until Phase 4, so a builder running them would read
+  other files and come back falsely green. Phase 4 runs the gates for real; a scene that fails
+  there returns to Phase 3 (Phase 4 Step 4.6) with a finding a retry packet can carry.
+- Dispatch is named as an **action**, not as one runtime's tool identifier. Resolve the runtime's
+  delegation capability the way `SKILL.md` § Runtime Compatibility resolves a question prompt or a
+  skill load; where a runtime exposes none, build inline regardless of frame count.
+
+## Step 3.5: Collect the scenes, review, advance status
+
+Preview and the mechanical gates run in Phase 4. A scene file is a `<template>`-wrapped
+sub-composition — the HyperFrames runtime clones and drives it, so it cannot be previewed
+standalone — and the CLI gates take a project **directory** that resolves `index.html`, which does
+not exist until Phase 4:
 
 - `npx hyperframes preview .` opens the studio, which lists `main` **plus every scene composition individually** for scrubbing.
 - `npx hyperframes lint .` is the fast static check while iterating; `npx hyperframes check . --samples 10` is the required gate on the assembled project.
 
-Author with these failure modes in mind so Phase 4's gates pass first try:
+So verify by reading, before the checkpoint. Every collected scene must:
 
-- Overlapping elements at rest (Phase 4 `check` flags container/text overflow)
-- Text contrast below WCAG AA (Phase 4 `check` runs a contrast audit)
-- Animations that imply an exit (Phase 4 transitions own the exit — see DON'Ts in `SKILL.md`)
+- Exist at the `src` path its frame names, wrapped in `<template>`, with a `data-composition-id`
+  matching what the packet specified and one paused timeline registered under that same id.
+- Composite the capture its frame binds. **Capture-coverage gate:** for promo/showcase with
+  `product_surface: ui`, no scene showing a real screenshot or clip BLOCKS this phase (it WARNS in
+  tutorial mode) — and a scene that swapped its bound capture for an invented mock fails the same
+  way, because a plausible redraw is exactly what the gate exists to catch.
+- Carry no invented number, metric, or product string — a value the packet did not supply is a
+  build error to fix, not a figure to keep.
+- Avoid the three failure modes Phase 4's gates catch: overlapping elements at rest (`check` flags
+  container/text overflow), text contrast below WCAG AA (`check` runs a contrast audit), and
+  animations that imply an exit (Phase 4 transitions own the exit — see DON'Ts in `SKILL.md`).
 
 Then ask the user:
 
@@ -419,8 +502,8 @@ Then ask the user:
 
 ### Advance each built frame's `status`
 
-Once the user answers **Looks great**, every frame whose scene file you authored exists with its
-motion done, so advance that frame's `status` bullet from `outline` to `animated` — the rung the
+Once the user answers **Looks great**, every frame whose scene file this phase produced exists with
+its motion done, so advance that frame's `status` bullet from `outline` to `animated` — the rung the
 official format uses for a frame that is built and animated. This is the one write this phase makes
 into the user's own artifact, so it is narrow:
 
@@ -430,19 +513,24 @@ into the user's own artifact, so it is narrow:
 - Only on a storyboard the validator reports as `format: official`. Skip the update entirely on a
   legacy-shape file; injecting official bullets into one is a migration, and migrations are
   consent-gated.
-- Only for frames whose scene file you actually authored. Leave every other frame at the value it
-  already carries, and never mark a frame `animated` to make the board look finished.
+- Only for frames whose scene file actually landed in this phase — collected, verified, and
+  accepted. Leave every other frame at the value it already carries, and never mark a frame
+  `animated` to make the board look finished.
 
 The official ladder has a middle rung, `built` (layout confirmed, motion not yet added). **This
-pipeline does not drive it**: Step 3.3 lays a scene out and animates it in the same pass, so a frame
-here is either still planned or finished.
+pipeline does not drive it**: a scene builder lays a scene out and animates it in the same pass, so
+a frame here is either still planned or finished.
 
 ## Output
 
 - `DESIGN.md` — design contract (palette, typography, shape, motion defaults)
-- `scenes/*.html` — brand-matched HyperFrames scene templates
+- `scenes/*.html` — brand-matched HyperFrames scene templates, one per storyboard frame
 - `scenes/assets/` — any decorative assets (icons, brand marks) referenced by templates
 - `storyboard.md` — unchanged except for the `status` line of each frame built here
+
+Frame packets are **not** an output. They are scratch, regenerated on every run, and nothing
+downstream may read one: a packet that survives the run is a committed restatement of upstream text
+by another name.
 
 Any Phase-2 artifacts already live at their storyboard-bound paths under `public/screenshots/`,
 `public/clips/`, or `scenes/`. An intentional no-product film whose frontmatter says
@@ -450,7 +538,7 @@ Any Phase-2 artifacts already live at their storyboard-bound paths under `public
 
 ## Checkpoint
 
-With the scenes accepted and each built frame's `status` advanced (Step 3.3), stamp Phase 3:
+With the scenes accepted and each built frame's `status` advanced (Step 3.5), stamp Phase 3:
 
 ```bash
 python3 "$SKILL_DIR/scripts/validate_brief.py" \

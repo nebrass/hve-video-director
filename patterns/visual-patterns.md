@@ -1,64 +1,71 @@
-# Visual Patterns — Animation Toolkit
+# Visual Patterns — craft, budgets, legibility
 
-Reference for animation choices in hve-video-director productions. The renderer is **HyperFrames** (HTML + GSAP). Times are in **seconds**, not frames. All motion is authored as GSAP tweens on a paused timeline; HyperFrames drives playback.
+**What this file owns:** the craft of putting a *real captured product* on screen with depth and
+motivated motion, the legibility floor that footage must clear, and the judgment for spending the
+emphasis devices. That is product-video craft nobody upstream owns.
 
-## Easing Vocabulary
+**What it does not own:** the motion mechanics. Eases, entrance recipes, counters, keyframe/pose
+discipline, seek determinism and *which* camera move a frame earns all have owners now
+(§ Where the mechanics live). Where this file and one of those disagree, **they win** — a mechanic
+restated here would be a fork with no maintainer (ADR-002).
 
-GSAP eases map to product-video moods. Pick the ease first — it carries more emotional weight than duration.
+The renderer is **HyperFrames** (HTML + GSAP). Times are in **seconds**, not frames. All motion is
+authored as `tl.fromTo()` / `tl.to()` on a paused timeline; HyperFrames drives playback. The
+snippets below are timeline fragments — the GSAP `<script>` tag with its pinned SRI hash lives in
+the scene skeleton, not in a fragment.
 
-| Ease | Feel | Use For |
-|------|------|---------|
-| `power3.out` | Confident landing, no overshoot | Titles, headlines, value props |
-| `power2.out` | Gentle settle | Body text, subtitles, fades |
-| `back.out(1.4)` | Slight overshoot, playful | Stats, badges, callouts |
-| `expo.out` | Fast then very gentle | Hero reveals, screenshot drops |
-| `power1.inOut` | Continuous, mechanical | Counters, progress, scroll |
-| `none` (linear) | No easing | Numeric counters, marquee loops |
+## Where the mechanics live
 
-Avoid `elastic` and `bounce` in product videos — they read as toy-like.
+Nothing in this section is restated locally. Load the owner.
 
-## Entrance Tweens
+| You need | Owner | Cite |
+|---|---|---|
+| Ease families, their character/mood mapping, the house register, the stagger contract | `hyperframes-animation` | `EASING_AND_STAGGER` |
+| Entrance recipes — spring/pop arrivals, staggered cascades, typewriter reveals | `hyperframes-animation` | `RULES_INDEX` (`spring-pop-entrance`, `waterfall-entry`, `gsap-effects`) |
+| Animated counters and stat graphics | `hyperframes-creative` | `DATA_IN_MOTION` (mechanism: `counting-dynamic-scale`, `stat-bars-and-fills`) |
+| Timeline registration, `fromTo` vs `from`, the transform/property contract | `hyperframes-animation` | `GSAP_ADAPTER` |
+| Camera mechanism — the virtual-camera wrapper, off-centre zoom math, context reveals | `hyperframes-animation` | `RULES_INDEX` (`viewport-change`, `coordinate-target-zoom`, `zoom-out-workspace-reveal`) |
+| Why every frame must be reproducible from its time value alone | `hyperframes-core` | `DETERMINISM_RULES` |
+| The pose contract and its motion-proof diagnostics when a reveal renders wrong | `hyperframes-keyframes` | `KEYFRAME_DISCIPLINE` |
+| Type scale for video, density, decorative opacity | `hyperframes-creative` | `VIDEO_COMPOSITION` |
+| Palette and named visual identity | `hyperframes-creative` | `VISUAL_STYLES` + `PALETTES` |
+| Ready-framed device/browser mockups, shine, grain | `hyperframes-registry` | `REGISTRY_CATALOG` (`app-showcase`, `ui-3d-reveal`, `shimmer-sweep`, `grain-overlay`) |
 
-Author every entrance with `tl.fromTo()` — give the explicit **from**-state (an offset, `opacity: 0`) and the rest state as the **to**-state. (Avoid bare `tl.from()` on opacity-bearing elements — see the stagger trap below.)
+**Which camera move a frame earns is not decided here.** `grammar/camera.md` owns move selection —
+the viewer question each move answers, the Tier-A/Tier-B split, and the `camera:` key a storyboard
+writes. This file starts *after* that verdict: given a still and a chosen move, how it is executed
+without breaking seek or legibility.
 
-```html
-<h1 id="hero" style="opacity:0">Your headline</h1>
-<script>
-  const tl = gsap.timeline({ paused: true });
-  // Use fromTo with EXPLICIT end state — see "tl.from() stagger trap" below.
-  tl.fromTo("#hero",
-    { y: 40, opacity: 0 },
-    { y: 0, opacity: 1, duration: 0.6, ease: "power3.out" },
-    0.2);
-  window.__timelines["scene-1"] = tl;
-</script>
-```
+Every path behind those symbols is resolved by `compat/ecosystem.md`, and lives nowhere else
+(ADR-007).
 
-Key rules:
+## The `tl.from()` stagger trap
 
-- The element's **resting style is its final state**. Don't animate to a position — animate **from** an offset to the rest position. HyperFrames inspects the rest layout to flag overlaps.
-- Start `opacity: 0` inline on the element so the first paint is invisible.
-- Times are seconds. The third positional arg to `tl.fromTo()` is the **absolute start time on the timeline**, not a delay.
-- **Prefer `tl.fromTo()` over `tl.from()` whenever opacity is involved.** See trap below.
+`GSAP_ADAPTER` already says to prefer `fromTo()` over `from()`, for a re-seek reason: `from()`
+snapshots the start state at registration, and a seek back through the mount desyncs it. **This is
+a second, different failure with the same fix**, found here, and it is the one that actually bites
+in this repo — so it is stated rather than assumed.
 
-### The `tl.from()` stagger trap (read this before staggering opacity)
+`tl.from()` records the END state at **registration time** by reading the element's current
+computed style. Scene elements rest at `opacity: 0` in CSS so the first paint is invisible — so the
+recorded end is *also* `opacity: 0`, and the tween runs `0 → 0`, never appearing.
 
-GSAP `tl.from()` records the END state at **registration time** by reading the element's *current computed style*. If the CSS rest state is `opacity: 0` (as it should be to prevent FOUC), the recorded end is also `opacity: 0` — so the animation goes `opacity 0 → 0`, never appearing.
+The naive workaround — a `tl.to(..., { opacity: 1, duration: 0.01 })` snap right after the
+`tl.from(...)` — works for a single element and **breaks under stagger**:
 
-The naive workaround — adding a `tl.to(..., { opacity: 1, duration: 0.01 })` snap right after the `tl.from(...)` — works for a single element but **breaks horribly with stagger**:
+1. At that timeline position, every element snaps to `opacity: 1` at once (the `tl.to` does not
+   stagger).
+2. As each later staggered `tl.from` activates, it re-applies its recorded from-state
+   (`opacity: 0`), **re-hiding an element a sibling already revealed.**
 
-1. At the timeline position, all elements snap to `opacity: 1` simultaneously (the `tl.to` doesn't stagger).
-2. As each subsequent staggered `tl.from` activates, it re-applies its recorded from-state (`opacity: 0`), **re-hiding the element after a sibling has already revealed it**.
-
-Visible symptom: every staggered element flashes briefly visible, then disappears suddenly as its own tween activates.
-
-**Always use `tl.fromTo()` for opacity tweens** — both states are explicit, no current-state recording, no race with snap-hacks:
+Visible symptom: staggered elements flash briefly, then vanish one by one as their own tween
+activates. The failure is silent — no console error, no lint warning, and `check` does not flag it.
 
 ```js
 // ✅ correct — works with stagger
 tl.fromTo(".chip",
-  { y: 30, opacity: 0 },
-  { y: 0, opacity: 1, duration: 0.4, ease: "power3.out", stagger: 0.18 },
+  { y: 30, autoAlpha: 0 },
+  { y: 0, autoAlpha: 1, duration: 0.4, ease: "power3.out", stagger: 0.18 },
   1.0);
 
 // ❌ wrong — flashes-then-disappears under stagger
@@ -66,134 +73,50 @@ tl.from(".chip", { y: 30, opacity: 0, duration: 0.4, stagger: 0.18 }, 1.0);
 tl.to(".chip", { opacity: 1, duration: 0.01 }, 1.0);
 ```
 
-The failure mode is silent — there's no console error or lint warning. Elements flash visible briefly, then disappear suddenly as their staggered tween activates. If you see this pattern in a render, the cause is almost always a `tl.from()` + stagger combo on opacity-bearing elements that have `opacity: 0` in CSS.
-
-## Scene Entry Catalog
-
-> These snippets use `autoAlpha`, not bare `opacity`. Scene elements rest at `visibility: hidden; opacity: 0` in CSS (see the DON'Ts below); `autoAlpha` tweens opacity *and* clears `visibility`, so the element actually appears. A plain `opacity` tween would leave `visibility: hidden` in place and the element would never show.
-
-### Fade Up
-Clean, professional. Default for headlines and body copy.
-
-```js
-tl.fromTo(".fade-up",
-  { y: 40, autoAlpha: 0 },
-  { y: 0, autoAlpha: 1, duration: 0.6, ease: "power3.out", stagger: 0.08 },
-  0.2);
-```
-
-### Scale In
-Energetic, modern. Good for badges, stat cards, CTAs.
-
-```js
-tl.fromTo(".scale-in",
-  { scale: 0.85, autoAlpha: 0 },
-  { scale: 1, autoAlpha: 1, duration: 0.55, ease: "back.out(1.4)" },
-  0.3);
-```
-
-### Stagger
-Multiple elements arriving in sequence — list items, feature pills, social proof logos.
-
-```js
-tl.fromTo(".feature-pill",
-  { y: 24, autoAlpha: 0 },
-  { y: 0, autoAlpha: 1, duration: 0.45, ease: "power2.out", stagger: 0.12 },
-  0.4);
-```
-
-### Typewriter
-Reveal headline word-by-word for emphasis. Wrap each word in a `<span class="word">` server-side or in setup.
-
-```js
-tl.fromTo(".word",
-  { y: 12, autoAlpha: 0 },
-  { y: 0, autoAlpha: 1, duration: 0.35, ease: "power2.out", stagger: 0.06 },
-  0.2);
-```
-
-### Counter
-Animate a number from 0 to a target. Use a proxy object — never tween `textContent` directly.
-
-```js
-const stat = { v: 0 };
-tl.to(stat, {
-  v: 12_500,
-  duration: 2.2,
-  ease: "power1.out",
-  onUpdate: () => { document.getElementById("stat").textContent = Math.round(stat.v).toLocaleString(); }
-}, 0.8);
-```
-
-### Step Label / Chapter Overlay
-
-Tutorial scenes carry an on-screen `Step N of M` pill + chapter title, layered over a clip
-or recap scene (authored copy from the frame's `step_label` / `chapter` bullets in the
-storyboard). `autoAlpha` reveal; **no exit tween** — the inter-scene transition owns the exit.
-Text ≥24px.
-
-```html
-<div class="chapter-ov">
-  <span class="step-pill">Step 2 of 5</span>
-  <span class="chapter-title">Configure the pipeline</span>
-</div>
-<style>
-  [data-composition-id="scene-NN-clip"] .chapter-ov{position:absolute;left:64px;top:56px;z-index:5;
-    display:flex;align-items:center;gap:20px;visibility:hidden;opacity:0}
-  [data-composition-id="scene-NN-clip"] .step-pill{font-family:"Geist Mono",monospace;font-size:24px;
-    font-weight:600;color:#fff;background:#0a72ef;padding:8px 18px;border-radius:999px}
-  [data-composition-id="scene-NN-clip"] .chapter-title{font-size:34px;font-weight:600;color:#fff;
-    text-shadow:0 2px 12px rgba(0,0,0,.6)}
-</style>
-```
-
-```js
-tl.fromTo(root + ' .chapter-ov', { y: -16, autoAlpha: 0 },
-  { y: 0, autoAlpha: 1, duration: 0.4, ease: "power2.out" }, 0.2);
-```
+Use `autoAlpha`, not bare `opacity`, wherever the CSS rest state is
+`visibility: hidden; opacity: 0` — a plain `opacity` tween leaves `visibility: hidden` in place and
+the element never appears (§ DON'Ts).
 
 ## Screenshot Presentation
 
-### Browser Mockup with 3D Tilt
+The Phase-2 capture is the **subject** of the frame, not background texture. A screenshot pasted
+flat on a colour field is the single most common way a product video reads as a template
+(`anti-slop.md` § The screenshot test). Frame it, give it depth, and let one motivated move do the
+work.
 
-Pure CSS — no GSAP needed for the tilt itself.
-
-```html
-<div class="mockup">
-  <img src="public/screenshots/scene-01.png" alt="">
-</div>
-
-<style>
-  .mockup {
-    transform: perspective(1000px) rotateY(-5deg) rotateX(3deg);
-    box-shadow: 0 30px 60px rgba(0,0,0,0.4);
-    border-radius: 12px;
-    overflow: hidden;
-    max-width: 75%;
-  }
-  .mockup img { width: 100%; display: block; }
-</style>
-```
-
-Animate the mockup's entrance with `tl.fromTo()` — `y`, `opacity`, `scale`. Keep the perspective static; animating perspective values is jittery.
-
-### Floating Card
-Screenshot with rounded corners + large soft shadow. Float in from below (`y: 60, opacity: 0, ease: "expo.out", duration: 0.9`).
-
-### Device Frame
-Wrap the `<img>` in a device frame `<div>` (laptop or phone). Frame is static — the screenshot **inside** can pan or scroll via a child wrapper translated by GSAP.
+- **Reach for a catalog block first.** `app-showcase` (device/browser/hybrid framing) and
+  `ui-3d-reveal` (a UI panel arriving from z-depth) are tested, deterministic and
+  aspect-ratio-aware; `REGISTRY_CATALOG` is the authoritative list of names `npx hyperframes add`
+  accepts. Hand-author a wrapper only when no block fits.
+- **Keep the perspective static.** A mockup may rest at a fixed
+  `perspective(1000px) rotateY(-5deg) rotateX(3deg)` — inside the tilt limits in § DON'Ts — but
+  animating `perspective` itself is jittery. Animate the wrapper's `transform`, never the
+  perspective value.
+- **Motion goes on a non-timed wrapper, never the `<img>`.** Tween the wrapper's `scale` /
+  `translate`; animating `width`/`height` on the image forces layout recompute and breaks
+  deterministic seek (§ DON'Ts).
+- **One frame treatment per film.** Browser chrome on one scene and a laptop bezel on the next
+  reads as two different videos. Pick the framing in `DESIGN.md` and hold it.
 
 ## Camera & Depth
 
-This is the vocabulary that gives a still the cinematic life it otherwise lacks — the difference between a screenshot pasted on a flat surface and *the real product, framed with depth and motivated motion*. The default beat of a product video is a captured screenshot (see `templates/scene-screenshot.html`) with one of these moves on it; flat text scenes are connective tissue between them, not the substance.
+This is the vocabulary that gives a still the life it otherwise lacks. The default beat of a
+product video is a captured screenshot (`templates/scene-screenshot.html`) carrying **one** of the
+moves below; flat text scenes are connective tissue between them, not the substance.
 
-These earn their keep only when **motivated** — pushing toward the thing the eye should land on, scrolling to reveal what's below the fold, parallaxing real product layers. Pile on particles, 3D, grain, and ambient loops and you've traded a flat template for a busy one (see `anti-slop.md` § P1/P2). Pick **one** move per scene, key it to the work it does, and respect every ban in § DON'Ts — these entries add structured *permission with guardrails*, never a loophole.
-
-All snippets below are JS timeline fragments — `tl.fromTo()` / `tl.to()` on the scene's paused timeline. The GSAP `<script>` tag (with its pinned SRI hash) lives in the scene skeleton, not in these fragments.
+These earn their keep only when **motivated** — pushing toward the thing the eye should land on,
+scrolling to reveal what is below the fold, parallaxing real product layers. Pile on particles, 3D,
+grain and ambient loops and you have traded a flat template for a busy one (`anti-slop.md`
+§ P1/P2). Pick **one** move per scene, key it to the work it does, and respect every ban in
+§ DON'Ts — these entries add structured *permission with guardrails*, never a loophole. The move
+itself is chosen upstream of here, in `grammar/camera.md`.
 
 ### Camera Moves on Stills
 
-The aesthetic default for a held screenshot: a slow **push** (scale up toward a focal region), **pull** (scale down to reveal context), **lateral drift**, or **diagonal drift** — always on the **non-timed wrapper** (`.shot-browser` / `.clip-frame`), **never** the `<img>`/`<video>` dimensions (see § DON'Ts). Set `transformOrigin` at the region the eye should land on (x% y% of the frame). Pull `app-showcase` from the HyperFrames catalog (`npx hyperframes add app-showcase`) when you want a ready-framed device/hybrid mockup to move; hand-author the wrapper below only when the catalog frame doesn't fit.
+A held screenshot takes a slow **push** (scale up toward a focal region), **pull** (scale down to
+reveal context), **lateral drift** or **diagonal drift** — always on the **non-timed wrapper**
+(`.shot-browser` / `.clip-frame`), **never** the `<img>`/`<video>` dimensions (§ DON'Ts). Set
+`transformOrigin` at the region the eye should land on (x% y% of the frame).
 
 ```js
 // Slow push toward a focal UI region. transformOrigin points at the thing
@@ -206,16 +129,34 @@ tl.fromTo(root + ' .shot-browser',
 
 **Guardrails:**
 
-- **Release before the confirmed inter-scene transition window.** End the move (and any settle) before the duration mapped from `transition_speed` (`quick = 0.4s`, `medium = 0.7s`, `slow = 1.2s`) so it never pulls back mid-transition. No scene-internal exit tween on non-final scenes — the root transition owns the exit (§ DON'Ts).
-- **Only the closing scene may end mid-hold.** Because the closing scene exits passively (no transition), a push there can settle/hold instead of releasing. But on the closing scene the move must **push or hold only — never pull back** (a pull-out on the final frame reads as the video walking away from the product). The conservative default is no camera move on the closing scene at all (`templates/scene-screenshot.html` bakes this in); a held push is the deliberate exception.
+- **Release before the confirmed inter-scene transition window.** End the move (and any settle)
+  before the duration mapped from `transition_speed` (`quick = 0.4s`, `medium = 0.7s`,
+  `slow = 1.2s`) so it never pulls back mid-transition. No scene-internal exit tween on non-final
+  scenes — the seam owns the exit (§ DON'Ts).
+- **Only the closing scene may end mid-hold.** It exits passively, with no seam after it, so a push
+  there can settle and hold instead of releasing. On that scene the move must **push or hold only —
+  never pull back**; a pull-out on the final frame reads as the video walking away from the
+  product. The conservative default is no camera move on the closing scene at all
+  (`templates/scene-screenshot.html` bakes this in); a held push is the deliberate exception.
 
-**When footage text is too small (the legibility case).** When narrative-critical UI text in recorded footage renders below ~24px in the final frame, this push *is* the remedy: scale the non-timed `.clip-frame` wrapper toward the text. Key it to **footage time** (seconds into the clip); if the clip's `Speed` ≠ 1, remap the times proportionally. Release before the crossfade as above.
+**When footage text is too small (the legibility case).** When narrative-critical UI text in
+recorded footage renders below the floor in § Legibility floor, this push *is* the remedy: scale
+the non-timed `.clip-frame` wrapper toward the text. Key it to **footage time** (seconds into the
+clip); if the clip's `Speed` ≠ 1, remap the times proportionally. Release before the crossfade as
+above.
 
-Effective size: `effective_px = source_px × scale × (rendered_frame_width / source_capture_width)`. Pick `scale` so the smallest narrative-critical glyph clears 24px. Verify by eye with `npx hyperframes snapshot . --at <focal-t>`.
+```
+effective_px = source_px × scale × (rendered_frame_width / source_capture_width)
+```
+
+Pick `scale` so the smallest narrative-critical glyph clears the floor. Verify by eye with
+`npx hyperframes snapshot . --at <focal-t>` — there is no programmatic gate for this.
 
 ### Scroll-Within-Frame
 
-Reveal a tall full-page capture by panning it upward inside a fixed `overflow:hidden` viewport — the framed browser stays put while the page scrolls inside it. Drive it with a **timeline `translateY` on the INNER non-timed wrapper** (`.shot-pan`) only.
+Reveal a tall full-page capture by panning it upward inside a fixed `overflow:hidden` viewport —
+the framed browser stays put while the page scrolls inside it. Drive it with a **timeline
+`translateY` on the INNER non-timed wrapper** (`.shot-pan`) only.
 
 ```js
 // Travel = (viewHeight − renderedImageHeight), negative. Measure from the real
@@ -225,164 +166,159 @@ tl.to(root + ' .shot-pan',
   1.1);
 ```
 
-**Guardrail:** **NEVER** drive this with `scrollTop`, a `scroll` event listener, or an `IntersectionObserver`. None of those are pure functions of timeline `t`, so they break HyperFrames' deterministic paused-timeline seek (a seeked frame would read whatever scroll state the DOM happened to be in). The translate is the only deterministic path. Release before the crossfade; no exit on non-final scenes.
+**Guardrail:** **NEVER** drive this with `scrollTop`, a `scroll` event listener, or an
+`IntersectionObserver`. None of those is a pure function of timeline `t`, so a seeked frame would
+read whatever scroll state the DOM happened to be in — the failure `DETERMINISM_RULES` exists to
+prevent. The translate is the only deterministic path. Release before the crossfade; no exit on
+non-final scenes.
 
 ### Motivated Parallax
 
-Depth from the **real product**: split a captured UI (or a foreground UI panel + a background app surface) into 2–3 DOM layers and translate them at **different rates** so nearer layers travel further. This stays **2D translate** — no `perspective`, no 3D camera, no `rotateX/Y` on the layers. Pull `ui-3d-reveal` from the catalog (`npx hyperframes add ui-3d-reveal`) when a UI panel flying in from z-depth covers the beat; hand-author the layered translate below for a sustained drift.
+Depth from the **real product**: split a captured UI (or a foreground UI panel over a background
+app surface) into 2–3 DOM layers and translate them at **different rates**, so nearer layers travel
+further. This stays **2D translate** — no `perspective`, no 3D camera, no `rotateX/Y` on the
+layers. Pull `ui-3d-reveal` from the catalog when a panel flying in from z-depth covers the beat;
+hand-author the layered translate for a sustained drift.
 
-Reveal each layer with `tl.fromTo()` + `autoAlpha` (never `tl.from()` — see the stagger trap above, which re-hides earlier-revealed siblings under stagger):
+Reveal the layers with a staggered entrance from `RULES_INDEX`, then hold the differential drift —
+the rate difference *is* the depth:
 
 ```js
-// 3 layers of the SAME product, parallaxed. Back travels least, front most.
-tl.fromTo(root + ' .layer-back',
-  { y: 24, autoAlpha: 0 }, { y: 0,  autoAlpha: 1, duration: 0.6, ease: "power2.out" }, 0.2);
-tl.fromTo(root + ' .layer-mid',
-  { y: 40, autoAlpha: 0 }, { y: 0,  autoAlpha: 1, duration: 0.6, ease: "power2.out" }, 0.3);
-tl.fromTo(root + ' .layer-front',
-  { y: 64, autoAlpha: 0 }, { y: 0,  autoAlpha: 1, duration: 0.6, ease: "power2.out" }, 0.4);
-// Sustained drift afterward — different rates = depth, still pure 2D translate.
+// Same product, three layers. Back travels least, front most. Pure 2D translate.
 tl.to(root + ' .layer-back',  { y: -12, duration: 2.4, ease: "power1.inOut" }, 1.0);
 tl.to(root + ' .layer-front', { y: -48, duration: 2.4, ease: "power1.inOut" }, 1.0);
 ```
 
-**Guardrail:** this is parallax on **real product layers**, the exact opposite of the **banned decorative blob / wave parallax** (`anti-slop.md` § P1 — "meaningless geometry"). If the layers aren't the actual UI, you're decorating, not building depth. Keep it 2D translate; animating `perspective` is jittery (§ Browser Mockup) and a 3D camera is out of scope. For atmosphere over the layers, the only sanctioned texture is a `grain-overlay` catalog block (`anti-slop.md` § P1) — never an ambient particle field.
+**Guardrail:** this is parallax on **real product layers**, the exact opposite of the banned
+decorative blob / wave parallax (`anti-slop.md` § P1 — "meaningless geometry"). If the layers are
+not the actual UI, you are decorating, not building depth. For atmosphere over them the only
+sanctioned texture is a `grain-overlay` catalog block — never an ambient particle field.
 
 ### Anchored Callout / Spotlight
 
-Direct attention to one region of an on-screen UI — either a **marker** drawn over the spot (sweep, ring, burst from `marker-highlight.md`) **or** a **spotlight** (a dimming overlay with a brighter hole over the region). This is the **highest slop risk** on the page: stacked highlights, glows, and dimmers turn a clean frame into a ransom note.
+Direct attention to one region of an on-screen UI — either a **marker** drawn over the spot
+(`marker-highlight.md`) **or** a **spotlight**: a dimming overlay with a brighter hole over the
+region. This is the **highest slop risk** on the page; stacked highlights, glows and dimmers turn a
+clean frame into a ransom note.
 
-```js
-// Spotlight = a full-frame dim that reveals over the region. Reveal via autoAlpha.
-tl.fromTo(root + ' .spotlight-dim',
-  { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.5, ease: "power2.out" }, 1.0);
-```
-
-**Emphasis budget (enforce).** The emphasis and marker-highlight limits are counted from the
-budget table in `reasoning/scene-analysis.md` — the only place those numbers live (ADR-008). The
-judgment for spending them:
+**Emphasis budget (enforce).** The per-frame emphasis limit and the film-wide marker limit are
+rows of the budget table in `reasoning/scene-analysis.md` — the only place those numbers live
+(ADR-008). The judgment for spending them:
 
 - **Pick EITHER a marker highlight OR a spotlight, never both on one region.** Two attention cues
-  aimed at the same place cancel each other out; the eye reads "busy", not "look here".
+  aimed at the same place cancel out; the eye reads "busy", not "look here".
 - **A marker highlight is a reserved editorial beat, not a tool.** Spend it on the single moment
   that most deserves it (`marker-highlight.md` § When to use which mode). A spotlight is the
   lighter-weight alternative once the marker is spent.
-- **Reveal via `autoAlpha` — never `display`/`visibility`, never `clipPath`** (§ DON'Ts). The dim overlay's hole is a static `radial-gradient` mask or `box-shadow` inset; you fade the overlay in, you don't animate the cutout's shape.
+- **Reveal via `autoAlpha` — never `display`/`visibility`, never `clipPath`** (§ DON'Ts). The dim
+  overlay's hole is a *static* `radial-gradient` mask or inset `box-shadow`: you fade the overlay
+  in, you never animate the cutout's shape.
 
 ### In-Scene Shine Sweep
 
-A one-shot specular pass over a UI card — an absolutely-positioned gradient overlay whose `background-position` animates across the element once, as the card settles. This is **intra-scene**: it lives inside one scene and decorates one card. Nothing here applies to a scene-to-scene seam — that is `SEAM_LAW` / `SEAM_RENDER_MECHANICS` territory (`patterns/transition-catalog.md`). Pull `shimmer-sweep` from the catalog (`npx hyperframes add shimmer-sweep`) before hand-authoring — it's the tested version of this effect. Note what it is: `REGISTRY_CATALOG` lists it as an element-scoped *component*, which is precisely why it belongs here and cannot serve a seam.
-
-```html
-<div class="card-shine" aria-hidden="true"></div>
-<style>
-  .card-shine{
-    position:absolute; inset:0; pointer-events:none; border-radius:inherit;
-    background:linear-gradient(115deg, transparent 35%,
-      rgba(255,255,255,.35) 47%, rgba(255,255,255,.85) 50%,
-      rgba(255,255,255,.35) 53%, transparent 65%);
-    background-size:250% 100%; background-position:-75% 0;
-    opacity:0;
-  }
-</style>
-```
-
-```js
-// One-shot: pop in, sweep across, fade out. NOT an ambient loop.
-tl.to(root + ' .card-shine', { opacity: 1, duration: 0.08, ease: "power1.out" }, 1.0);
-tl.to(root + ' .card-shine', { backgroundPosition: "175% 0", duration: 0.5, ease: "power2.inOut" }, 1.0);
-tl.to(root + ' .card-shine', { opacity: 0, duration: 0.08, ease: "power1.in" }, 1.42);
-```
+A one-shot specular pass over a UI card as it settles — an absolutely-positioned gradient overlay
+whose `background-position` animates across the element once. This is **intra-scene**: it lives
+inside one scene and decorates one element. Pull `shimmer-sweep` from the catalog before
+hand-authoring — it is the tested version, and `REGISTRY_CATALOG` lists it as an element-scoped
+*component*, which is exactly why it belongs here and **cannot serve a seam**
+(`patterns/transition-catalog.md`).
 
 **Guardrails:**
 
-- **One-shot, not an ambient loop.** A shine that keeps sweeping the whole scene is the looping-motion tell (`anti-slop.md` § P2). Fire it once when the card lands.
-- **Self-police `mix-blend-mode: screen` luminance.** If you add `mix-blend-mode: screen` for a hotter pop, `check` does not detect luminance overflow — it is not a luminance audit. Preview against your **brightest** scene background by eye; `screen` blending can push near-white past 100% luminance and produce a flash. If that happens, drop the band's `rgba` alpha to ~0.65, or remove the blend mode and rely on `opacity` alone. This caveat holds for **any** `screen`-blended band in this repo, in a scene or across a seam.
+- **One-shot, not an ambient loop.** A shine that keeps sweeping for the whole scene is the
+  looping-motion tell (`anti-slop.md` § P2). Fire it once, when the card lands.
+- **Self-police `mix-blend-mode: screen` luminance.** `check` is not a luminance audit and will not
+  detect overflow. `screen` blending can push a near-white band past 100% luminance and produce a
+  flash; preview against your **brightest** scene background by eye, and if it blows out, drop the
+  band's `rgba` alpha to ~0.65 or remove the blend mode and rely on `opacity` alone. This holds for
+  **any** `screen`-blended band in this repo, in a scene or across a seam.
 
-### Masked Reveal (mask-position)
+### Masked Reveal
 
-Wipe a single element into view by animating **`mask-position`** over a **static** `mask-image` (e.g. a soft-edged gradient mask) — the mask stays fixed in shape, only its position slides, so the element is progressively unveiled. This is the **same safe class** as `background-position`: a continuous numeric property, fully seekable.
+Wipe a single element into view by animating **`mask-position`** over a **static** `mask-image` —
+the mask shape stays fixed, only its offset slides, so the element is progressively unveiled. Same
+safe class as `background-position`: a continuous numeric property, fully seekable. Prefix the
+property for headless Chromium and tween both forms.
 
-```html
-<div class="masked-reveal"><img class="shot-img" src="public/screenshots/SHOT.png" alt=""></div>
-<style>
-  .masked-reveal{
-    /* Static gradient mask; only its POSITION animates. Prefix for headless Chromium. */
-    -webkit-mask-image:linear-gradient(100deg, transparent 0 40%, #000 60% 100%);
-            mask-image:linear-gradient(100deg, transparent 0 40%, #000 60% 100%);
-    -webkit-mask-size:250% 100%;  mask-size:250% 100%;
-    -webkit-mask-position:100% 0;  mask-position:100% 0;   /* start: element hidden */
-  }
-</style>
-```
+**Guardrail:** this is **distinct from the banned `clipPath` seam** (§ DON'Ts carries the why).
+`mask-position` interpolates **no polygon vertices** — the geometry is constant, so there is no
+edge to mis-render. Keep the mask shape static, do not interpolate its stops, and do not press it
+into service as an inter-scene transition: a seam belongs to `SEAM_LAW`, not to a scene. A static
+`clip-path` reveal window is the same safe class — that shape is `TECHNIQUES` #12 *Clip-Path Reveal
+Masks*.
 
-```js
-// Slide the mask so the element is unveiled left→right. Tween the prefixed
-// property too — verify the unprefixed form animates in your target Chromium
-// before relying on it alone.
-tl.to(root + ' .masked-reveal',
-  { webkitMaskPosition: "0% 0", maskPosition: "0% 0", duration: 0.7, ease: "power2.inOut" },
-  0.8);
-```
+## Legibility floor
 
-**Guardrail:** this is **distinct from the banned `clipPath` transitions** (§ DON'Ts, which carries the why). `mask-position` does **no polygon vertex interpolation** — the mask geometry is constant, only its offset moves, so there is no seam to mis-render. Keep the mask shape static; do not interpolate the mask's stops, and do not press this into service as an inter-scene transition — a seam is `SEAM_LAW`'s, not a scene's.
+**Nothing narrative-critical renders below 24px in the final frame** — authored type or captured
+UI. Below that it stops being readable at typical playback resolution and on a phone.
+
+- **Authored type scale is `VIDEO_COMPOSITION`'s** — headline / body / label ranges, decorative
+  opacity, border weights. Read it there; this file carries no size table. Its rule and this floor
+  agree: a font-size under 24px in a video composition has to be justified.
+- **Captured footage** is measured, not styled:
+  `effective_px = source_px × scale × (rendered_frame_width / source_capture_width)`. When it comes
+  out under the floor, the remedy is a footage-time push-in — § Camera Moves on Stills.
+- **No gate catches this.** `check` (`CHECK_GATE`) enforces WCAG AA *contrast* (4.5:1 normal, 3:1
+  for large text ≥24px, or ≥19px bold); it does not audit size. Self-police with
+  `npx hyperframes snapshot`.
+
+## Step Label / Chapter Overlay
+
+Tutorial-mode instructional scenes carry an on-screen `Step N of M` pill plus a chapter title,
+layered over the clip or recap scene.
+
+- **Copy is authored, never derived.** Take it verbatim from the frame's `step_label` and
+  `chapter` bullets on the storyboard — never recount from the frame number, which includes the
+  cold open.
+- **Reveal with `autoAlpha`, and give it no exit tween.** The inter-scene seam owns the exit
+  (§ DON'Ts).
+- **Both elements clear the § Legibility floor**, and the pill sits in a consistent corner for the
+  whole film — a step counter that moves between scenes reads as a mistake.
 
 ## Transitions are not a scene's business
 
-Nothing in this file authors a scene-to-scene seam. A seam is a **composition-level** concern and
-belongs to the doctrine:
+Nothing in this file authors a scene-to-scene seam; a seam is a **composition-level** concern.
+*Which* transition serves a moment and how much energy the film may spend →
+`patterns/transition-catalog.md`. The law of the handoff → `SEAM_LAW`, verified by `SEAM_VERIFIER`.
+How the two scenes composite → `SEAM_RENDER_MECHANICS`. The named velocity-matched seams and their
+parameters → `CUT_CATALOG`.
 
-- *Which* transition serves this moment, and how much transition energy the film can spend →
-  `patterns/transition-catalog.md`.
-- The law of the handoff — how this scene's exit determines the next scene's entry → `SEAM_LAW`
-  (`motion-doctrine`), verified numerically by `SEAM_VERIFIER`.
-- How the two scenes actually composite across the seam → `SEAM_RENDER_MECHANICS` (`seam-craft`).
-- The named velocity-matched seams and their parameters → `CUT_CATALOG` (`cut-the-curve`).
-
-The two consequences that bind scene authoring are already in § DON'Ts: **no exit animation on a
-non-final scene** (the seam owns the exit) and **no `clipPath` transitions**. Transition duration
-comes from the confirmed `transition_speed` in the brief and is never quietly shortened after the
-user chose it (ADR-001); `workflows/phase-4-production.md` Step 4.5 is the wiring call site.
-
-## Color Psychology
-
-| Color | Feeling | Use For |
-|-------|---------|---------|
-| Blue (#3b82f6) | Trust, reliability | SaaS, enterprise |
-| Purple (#8b5cf6) | Innovation, premium | AI, creative tools |
-| Green (#22c55e) | Growth, success | Fintech, health |
-| Orange (#f97316) | Energy, urgency | CTAs, highlights |
-| Red (#ef4444) | Urgency, passion | Sales, alerts |
-
-## Text Sizing Guide
-
-| Element | Size Range | Weight |
-|---------|-----------|--------|
-| Hero headline | 80–120px | Bold/Black |
-| Section title | 60–80px | Bold |
-| Subtitle | 40–56px | Medium |
-| Body text | 32–44px | Regular |
-| Caption | 24–32px | Regular |
-| Stat number | 90–140px | Bold |
-
-HyperFrames' `check` enforces WCAG AA contrast (4.5:1 normal text, 3:1 large text ≥24px or ≥19px bold). Tiny text is *not* auto-flagged — self-police anything below 24px because it loses legibility at typical playback resolutions.
+The two consequences that bind *scene* authoring are already in § DON'Ts: no exit animation on a
+non-final scene, and no `clipPath` seam. Transition duration comes from the confirmed
+`transition_speed` in the brief and is never quietly shortened after the user chose it (ADR-001).
 
 ## DON'Ts (Critical)
 
-- **No jitter or shake** — looks cheap; HyperFrames `check` will not catch this, you must self-police.
-- **No full 360° rotations** — disorienting. Subtle `rotateY` ≤ 8° or `rotateZ` ≤ 4° only.
-- **No exit animations on non-final scenes** — let the transition handle the exit. Animating the same element out and then transitioning the scene out is double-motion.
-- **No `clipPath` for transitions** — *the why, learned the hard way in this repo:* a polygon `clipPath` that sweeps between two scenes leaves a **1px anti-aliased black sliver** along the moving edge, because the exiting and entering half-planes never share an exact subpixel boundary — each anti-aliases its own edge against nothing, and the page behind shows through the gap. It survives every gate (`check` reads layout and contrast, not a hairline seam) and only appears in the rendered frames. Reach for a crossfade with a full-frame light overlay over it instead — the light family in `TRANSITION_FAMILIES` — and let `SEAM_RENDER_MECHANICS` own the compositing. **This bans `clipPath` as a *seam*, not as a static shape** — a fixed `clip-path` on an element, or an animated `mask-position` over a static mask (§ Masked Reveal), interpolates no vertices and has no seam to mis-render.
-- **Never animate `display`, `visibility`, or call `.play()` inside a timeline** — GSAP can't tween `display`/`visibility` (they're binary), and `.play()` from inside a timeline breaks HyperFrames' deterministic seek. Use `autoAlpha` (which tweens opacity AND toggles visibility) or `opacity` + `pointer-events: none`:
-  ```js
-  // ✅ correct — autoAlpha tweens opacity AND toggles visibility
-  tl.fromTo("#el", { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.5 }, 0.3);
-
-  // ❌ wrong — visibility:hidden is binary, GSAP can't interpolate it
-  tl.from("#el", { visibility: "hidden", duration: 0.5 }, 0.3);
-  ```
-- **Never animate `<img>` dimensions directly** — wrap each animated `<img>` in a non-timed `<div>` and tween the wrapper's `transform` (`scale`, `translate`). Animating `width`/`height` on the `<img>` causes layout recompute that breaks deterministic seek.
-- **Never use `gsap.set()` at script-load time on elements that enter the timeline later** — sub-comp clips with `data-start > 0` aren't in the DOM at page load. Their elements don't exist yet, so `gsap.set("#late-element", ...)` is a no-op. Instead, use `tl.set(selector, vars, timePosition)` *inside the timeline* at or after the clip's `data-start`:
+- **No jitter or shake** — reads as cheap. `check` will not catch it; self-police.
+- **No full 360° rotations** — disorienting. Subtle `rotateY` ≤ 8° or `rotateZ` ≤ 4° only, and on
+  mockups only.
+- **No `elastic` or `bounce` eases** — they read as toy-like in a product video. This narrows
+  `EASING_AND_STAGGER`, which permits overshoot as a rare explicitly-playful register: in this
+  repo the overshoot families stop at a `back.out`-class settle on a badge or stat, and a brand's
+  own Avoid list may forbid even that.
+- **No exit animations on non-final scenes** — the seam owns the exit (`SEAM_LAW`). Animating an
+  element out *and* transitioning the scene out is double-motion.
+- **No `clipPath` for transitions** — *the why, learned the hard way in this repo:* a polygon
+  `clipPath` that sweeps between two scenes leaves a **1px anti-aliased black sliver** along the
+  moving edge, because the exiting and entering half-planes never share an exact subpixel
+  boundary — each anti-aliases its own edge against nothing, and the page behind shows through the
+  gap. It survives every gate (`check` reads layout and contrast, not a hairline seam) and appears
+  only in the rendered frames. Use a crossfade with a full-frame light overlay instead — the light
+  family in `TRANSITION_FAMILIES` — and let `SEAM_RENDER_MECHANICS` own the compositing. **This
+  bans `clipPath` as a *seam*, not as a static shape**: a fixed `clip-path` on an element, or an
+  animated `mask-position` over a static mask (§ Masked Reveal), interpolates no vertices and has
+  no seam to mis-render.
+- **Never animate `display`, `visibility`, or call `.play()` inside a timeline** — both are binary,
+  and `.play()` from inside a timeline breaks the deterministic seek `DETERMINISM_RULES` requires.
+  Use `autoAlpha` (which tweens opacity *and* toggles visibility) or `opacity` +
+  `pointer-events: none`.
+- **Never animate `<img>` dimensions directly** — wrap each animated `<img>` in a non-timed `<div>`
+  and tween the wrapper's `transform`. Animating `width`/`height` forces layout recompute that
+  breaks deterministic seek.
+- **Never use `gsap.set()` at script-load time on elements that enter the timeline later** — a
+  sub-comp clip with `data-start > 0` is not in the DOM at page load, so its elements do not exist
+  yet and the call is a silent no-op. Use `tl.set(selector, vars, timePosition)` *inside* the
+  timeline, at or after the clip's `data-start`:
   ```js
   // ✅ correct — runs inside the timeline at t=5s, after #late-card exists
   tl.set("#late-card", { opacity: 0, x: -100 }, 5);
@@ -392,4 +328,4 @@ HyperFrames' `check` enforces WCAG AA contrast (4.5:1 normal text, 3:1 large tex
   gsap.set("#late-card", { opacity: 0, x: -100 });
   tl.to("#late-card", { opacity: 1, x: 0, duration: 0.5 }, 5);
   ```
-- **No tiny text** — below 24px is unreadable in rendered video. `check` won't flag it (contrast, not size), so self-police.
+- **No tiny text** — see § Legibility floor. `check` reads contrast, not size.

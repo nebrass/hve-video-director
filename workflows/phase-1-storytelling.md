@@ -538,7 +538,7 @@ real candidates; selecting a strategy is not permission for the agent to pick a 
     "question": "How should Phase 5 source background music?",
     "header": "Music source",
     "options": [
-      { "label": "Search Freesound", "description": "Find CC0/CC-BY candidates, then ask me to confirm one exact track." },
+      { "label": "A Freesound track I pick", "description": "You choose a CC0/CC-BY track and give me its URL; Phase 5 confirms that exact track before mixing." },
       { "label": "Use my audio file", "description": "I will provide a path; Phase 5 will confirm that exact file before mixing." },
       { "label": "No background music", "description": "Voiceover only; Phase 5 will still require an explicit no-music confirmation." }
     ],

@@ -78,6 +78,10 @@ GOVERNED_PROSE = (
     + sorted((ROOT / "design-systems").rglob("*.md"))
     + sorted((ROOT / "grammar").glob("*.md"))
     + sorted((ROOT / "reasoning").glob("*.md"))
+    # M5: the scene-builder delta ships upstream-facing prose to a sub-agent, so it
+    # is governed like any other authored file — otherwise it is ADR-007-clean by
+    # discipline alone, with nothing to catch a regression.
+    + sorted((ROOT / "sub-agents").glob("*.md"))
 )
 
 # Wider surface for symbol collection: everything this repo authors as prompt
@@ -94,6 +98,7 @@ AUTHORED_PROSE = sorted(
         *(ROOT / "compat").rglob("*.md"),
         *(ROOT / "grammar").rglob("*.md"),
         *(ROOT / "reasoning").rglob("*.md"),
+        *(ROOT / "sub-agents").rglob("*.md"),
         *(ROOT / ".github").rglob("*.md"),
     }
 )

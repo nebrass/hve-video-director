@@ -1,8 +1,8 @@
 # Camera Grammar
 
-Consumed by Phase 1 today (frame planning, the `camera:` key). Phase 3 becomes a reader in M5,
-when frame packets carry the director keys to scene builders — until then the keys are
-planning record, not build input. This file
+Consumed by Phase 1 (frame planning, the `camera:` key) and by Phase 3, which carries the
+director keys to scene builders inside each frame packet (M5). The keys are build input, not
+just planning record. This file
 teaches **when and why** the camera moves. It never teaches how — every move names the upstream
 owner of its mechanism and the builder loads that owner, not this file (ADR-002). Bare names are
 rules/blueprints and SYMBOLS are capabilities; both resolve through `compat/ecosystem.md`.

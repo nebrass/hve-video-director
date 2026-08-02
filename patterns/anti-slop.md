@@ -105,7 +105,7 @@ The product screenshot is the SUBJECT of the frame, not background texture — f
 ## Cross-references
 
 - **DON'Ts list** (mechanical rules — clipPath, 360° spins, `<img>` dimension animation): see `SKILL.md` § DON'Ts
-- **Easing vocabulary** (`power3.out` vs `back.out(1.4)` vs `expo.out`): `patterns/visual-patterns.md` § Easing Vocabulary
+- **Easing vocabulary** (which ease family carries which feeling, and the house register): `hyperframes-animation` → `EASING_AND_STAGGER`
 - **Transition energy matching** (when to use a flash, a swoosh, a crossfade): `patterns/transition-catalog.md`
 - **Marker patterns for emphasis** (instead of emoji): `patterns/marker-highlight.md`
 - **Screenshot presentation** (framing the real product with motivated depth): `patterns/visual-patterns.md` § Screenshot Presentation and § Camera & Depth, with a ready-made scene in `templates/scene-screenshot.html`

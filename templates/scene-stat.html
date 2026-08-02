@@ -101,7 +101,8 @@
         { y: 0, autoAlpha: 1, duration: 0.4, ease: "power2.out" },
         0.6);
 
-      // Count up — proxy + onUpdate is the seek-safe counter (visual-patterns.md).
+      // Count up — proxy + onUpdate is the seek-safe counter. Counter and stat-graphic
+      // recipes are DATA_IN_MOTION (mechanism: counting-dynamic-scale, stat-bars-and-fills).
       tl.to(proxy, { v: TARGET, duration: 1.1, ease: "power2.out",
         onUpdate: () => { valEl.textContent = Math.round(proxy.v); } }, 0.7);
 

@@ -116,10 +116,7 @@ class RequirementsCheckerTestCase(unittest.TestCase):
         self.install_optional_shims()
         self.install_skills()
         env = self.environment()
-        env.update({
-            "ELEVENLABS_API_KEY": "test",
-            "FREESOUND_API_KEY": "test",
-        })
+        env.update({"ELEVENLABS_API_KEY": "test"})
         ready = self.run_checker(env=env)
         self.assertEqual(ready.returncode, 0, ready.stdout + ready.stderr)
         self.assertIn("hve-video-director requirements check", ready.stdout)
@@ -200,11 +197,68 @@ class RequirementsCheckerTestCase(unittest.TestCase):
         # claim, which is what the degraded detail has to say.
         self.assertIn("unverified", check["detail"])
 
-    def test_media_use_skill_degrades_to_the_local_audio_scripts(self):
+    def test_media_use_skill_degrades_to_local_synthesis_plus_assembly(self):
+        """M6 left no local *acquisition* fallback, only local assembly.
+
+        The degraded detail has to say what actually survives, or an agent
+        reads it as "run the old ElevenLabs script" — a path that no longer
+        exists. Narration comes from a confirmed local voice, the music bed
+        from the user, and only the placement is still this skill's.
+        """
         check = self.assert_companion_skill_degrades(
             "media-use", "media-use-skill", [5]
         )
-        self.assertIn("generate_voiceover.py", check["detail"])
+        self.assertIn("--assemble-only", check["detail"])
+        self.assertIn("user-provided", check["detail"])
+        self.assertNotIn("search_music", check["detail"])
+
+    def test_elevenlabs_key_is_reported_as_the_delegated_route_only(self):
+        """The key gates the engine's ElevenLabs route, nothing local.
+
+        Post-M6 the assembler needs no key, so a degraded detail claiming the
+        local script "cannot run" would send a user hunting for a credential
+        that stopped mattering to it.
+        """
+        self.install_required_shims()
+        self.install_skills()
+
+        env = self.environment()
+        env["ELEVENLABS_API_KEY"] = "test"
+        _, checks = self.json_checks(env=env)
+        ready = checks["elevenlabs-key"]
+        self.assertEqual(ready["state"], "ready")
+        self.assertEqual(ready["phases"], [5])
+
+        _, checks = self.json_checks()
+        absent = checks["elevenlabs-key"]
+        self.assertEqual(absent["state"], "degraded")
+        self.assertEqual(absent["tier"], "recommended")
+        for check in (ready, absent):
+            self.assertNotIn("generate_voiceover.py cannot run", check["detail"])
+            self.assertNotIn("deprecated", check["detail"])
+
+    def test_no_check_reports_the_retired_freesound_fallback(self):
+        """An env var no code path reads must not cost a phase.
+
+        `scripts/search_music.py` was the only consumer of FREESOUND_API_KEY;
+        with it gone the check would report a gap that changes nothing. Scans
+        every field an agent or user reads, so a reintroduction anywhere in the
+        report — id, label, detail, human message, or fix command — fails here.
+        """
+        self.install_required_shims()
+        self.install_optional_shims()
+        self.install_skills()
+        env = self.environment()
+        env["FREESOUND_API_KEY"] = "test"
+
+        result, checks = self.json_checks(env=env)
+        self.assertNotIn("freesound-key", checks)
+        blob = json.dumps(checks) + self.run_checker(env=env).stdout
+        for retired in ("FREESOUND", "freesound", "search_music"):
+            self.assertNotIn(retired, blob)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        # Both report modes ran with every shim present; neither may install.
+        self.assertFalse(self.log.exists())
 
     def test_heygen_credential_reports_presence_without_running_the_cli(self):
         self.install_required_shims()
@@ -290,7 +344,7 @@ class RequirementsCheckerTestCase(unittest.TestCase):
             "node", "npx", "python", "ffmpeg", "ffprobe", "chrome-shell",
             "hyperframes-cli", "hyperframes-skill", "gsap-skill",
             "motion-doctrine-skill", "media-use-skill", "heygen-credential",
-            "elevenlabs-key", "whisper", "freesound-key", "espeak-ng",
+            "elevenlabs-key", "whisper", "espeak-ng",
             "terminal-capture",
         }
         # Exact equality, not issubset: `docker-wsl` is the only conditional

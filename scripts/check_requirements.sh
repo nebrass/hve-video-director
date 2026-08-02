@@ -763,11 +763,11 @@ collect_checks() {
       "Companion skills (Phase 5 audio)" "media-use skill ($found)"
   else
     add_check media-use-skill "media-use skill" recommended degraded "5" \
-      "not found in any canonical skill home; Phase 5 falls back to the deprecated scripts/generate_voiceover.py and scripts/search_music.py" \
+      "not found in any canonical skill home; Phase 5 has no delegated acquisition — narration must come from hyperframes tts on an explicitly confirmed local voice and the music bed must be user-provided, then scripts/generate_voiceover.py --assemble-only places the sections" \
       "" manual-online "" \
       "npx --yes skills add heygen-com/hyperframes --global --yes" \
       "Companion skills (Phase 5 audio)" \
-      "media-use skill — not found (Phase 5 falls back to the deprecated local audio scripts)"
+      "media-use skill — not found (Phase 5 needs a confirmed local voice and a user-provided music bed)"
   fi
 
   capture_exact found heygen_credential_source 2>/dev/null || found=""
@@ -795,12 +795,12 @@ collect_checks() {
 
   if [ -n "${ELEVENLABS_API_KEY:-}" ] || [ -n "${ELEVEN_LABS_API_KEY:-}" ]; then
     add_check elevenlabs-key "ELEVENLABS_API_KEY" recommended ready "5" \
-      "set; it serves both the delegated audio engine's ElevenLabs TTS route and the deprecated scripts/generate_voiceover.py fallback" \
+      "set; it serves the delegated audio engine's ElevenLabs TTS route, the only path that reads it since the local ElevenLabs fallback was removed" \
       "" manual-env "" "export ELEVENLABS_API_KEY=<key>" Recommended \
-      "ELEVENLABS_API_KEY set (ElevenLabs TTS route, delegated or local)"
+      "ELEVENLABS_API_KEY set (delegated ElevenLabs TTS route)"
   else
     add_check elevenlabs-key "ELEVENLABS_API_KEY" recommended degraded "5" \
-      "not set; the delegated audio engine skips its ElevenLabs route and scripts/generate_voiceover.py cannot run" "" \
+      "not set; the delegated audio engine skips its ElevenLabs route and synthesizes short — section assembly is unaffected, it needs no key" "" \
       manual-env "" "export ELEVENLABS_API_KEY=<key>" Recommended \
       "ELEVENLABS_API_KEY not set — ElevenLabs voices unavailable; choose Kokoro explicitly for local TTS or configure the key"
   fi
@@ -822,17 +822,12 @@ collect_checks() {
       "whisper not found (recommended for VO timing)"
   fi
 
-  if [ -n "${FREESOUND_API_KEY:-}" ]; then
-    add_check freesound-key "FREESOUND_API_KEY" optional ready "5" \
-      "set; the deprecated scripts/search_music.py fallback can search Creative Commons music" \
-      "" manual-env "" "export FREESOUND_API_KEY=<key>" Optional \
-      "FREESOUND_API_KEY set (deprecated Creative Commons music fallback)"
-  else
-    add_check freesound-key "FREESOUND_API_KEY" optional degraded "5" \
-      "not set; only the deprecated Freesound fallback is unavailable — delegated music retrieval and user-provided tracks are unaffected" "" \
-      manual-env "" "export FREESOUND_API_KEY=<key>" Optional \
-      "FREESOUND_API_KEY not set — deprecated Freesound fallback unavailable (delegated music and user-provided tracks still work)"
-  fi
+  # No FREESOUND_API_KEY check: M6 retired scripts/search_music.py and nothing
+  # left in this skill reads that variable. Reporting an env var that no code
+  # path consumes would attribute a phase cost to a gap that has none. The
+  # `freesound` music strategy survives as a manual one — browse the site,
+  # download the track, record its exact URL in the Creative Brief — and that
+  # needs no API key.
 
   if command -v espeak-ng >/dev/null 2>&1; then
     add_check espeak-ng "espeak-ng" optional ready "5" \

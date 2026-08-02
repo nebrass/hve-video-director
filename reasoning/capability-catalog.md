@@ -1,7 +1,7 @@
 # Runtime Capability Catalog
 
-Stage 14 of the reasoning pipeline. Consumed by Phase 1 today (scene planning); Phase 3 re-checks
-it in M5, once packets carry the keys. The director reasons in **communication capabilities**, never in
+Stage 14 of the reasoning pipeline. Consumed by Phase 1 (scene planning) and re-checked in Phase 3,
+whose frame packets carry the resolved keys to builders (M5). The director reasons in **communication capabilities**, never in
 technology; this file is the only place capabilities become a runtime.
 
 `RUNTIME_PICKER` (the `hyperframes-animation` skill) is the **base truth** for which runtime does

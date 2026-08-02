@@ -9,7 +9,7 @@ The renderer is **HyperFrames** (HTML + GSAP, rendered via headless Chromium). R
 Keep two scopes distinct when editing:
 
 - **This repo** — the skill definition (`SKILL.md`, `workflows/`, `templates/`, `patterns/`, `scripts/`, `design-systems/`). Edits here change behavior for *all* users.
-- **Generated video projects** — created by the skill at runtime in `{project-dir}/`. They contain `project-plan.md`, `.hve/brief-state.json`, `context.md`, `storyboard.md`, `DESIGN.md`, `public/screenshots/`, `scenes/*.html`, `index.html` (root HyperFrames composition), `voiceover.mp3`, `out/final.mp4`. These do **not** live in this repo (except the canonical reference build under `example/`).
+- **Generated video projects** — created by the skill at runtime in `{project-dir}/`. They contain `project-plan.md`, `.hve/brief-state.json`, `context.md`, `storyboard.md`, `DESIGN.md`, `public/screenshots/`, `scenes/*.html`, `index.html` (root HyperFrames composition), `voiceover.mp3`, `out/final.mp4`. These do **not** live in this repo (the canonical reference build under `example/` is being regenerated — that is a human-in-the-loop run, since every phase gate needs a user approval no agent may self-grant).
 
 ## Architecture
 
@@ -43,28 +43,27 @@ SKILL.md (orchestrator)
 - `npx hyperframes` CLI for `init`, `add` (pull catalog blocks, Phase 4), `lint`, `preview`, `check` (required final gate; `inspect`/`validate`/`layout` are deprecated aliases), `snapshot`, `render`, `doctor` (render-environment diagnostics, Phase 5), `transcribe` (preferred voiceover-timing verifier in Phase 5; falls back to standalone Whisper if unavailable), and `tts` (used in Phase 5 when the user explicitly confirms a local Kokoro voice)
 - `mcp__chrome-devtools__screencast_*` + `resize_page` for Phase-2 web-clip capture (experimental, feature-detected — needs `--experimentalScreencast=true`; falls back to screenshots), and optional `asciinema`+`agg` for CLI clip recording (otherwise the authored-terminal path)
 - `mcp__chrome-devtools__list_pages` + `select_page` for the explicit authenticated-session path. The user must first connect the MCP to running Chrome with Chrome 144+ `--autoConnect` (preferred) or the dedicated-profile `--browser-url` fallback; attached capture never navigates and follows `patterns/authenticated-browser-capture.md`.
-- `scripts/generate_voiceover.py` → ElevenLabs API + optional Whisper transcription (Phase 5)
+- `scripts/generate_voiceover.py` → `--assemble-only` section assembler used by both audio paths (exact start times, padding, overrun warning). M6 retired its ElevenLabs acquisition path; narration now comes from the `media-use` audio engine
 - `scripts/caption_gen.py` → backward-compatible ASR drafts plus the Phase-5 reviewed-caption workflow: `draft` creates an audio-bound manifest, `approve` binds explicit user approval to the exact cues, `finalize` transactionally publishes `out/final.srt` + `out/final.vtt` + deterministic state, and `validate` rejects stale audio/manifest/state/outputs (pure stdlib + required `ffprobe`)
 - `scripts/capture_screen.py` → fixed-duration, silent native desktop/region capture orchestrator (pure stdlib): macOS `screencapture`, Windows `gdigrab`, X11 `x11grab`, or feature-detected Wayland `wf-recorder`; WSL/unavailable Wayland return explicit handoffs. It trims via sibling `stitch_clip.py`, validates duration/frame count within one frame, and uses `<clip>.capture.pending` + fingerprinted `<clip>.capture.json` state so failed retakes preserve prior valid media but cannot count as complete.
 - `scripts/stitch_clip.py` → canonical raw-capture normalizer/stitcher for CFR30 H.264 High/yuv420p, even dimensions, no audio, and `+faststart` (pure stdlib wrapper for ffmpeg/ffprobe)
 - `scripts/validate_brief.py` → exact Creative Brief parser, consent-gated legacy placeholder migration, revision-bound story/audio fingerprints, atomic `.hve/brief-state.json`, phase stamps, and stale-prerequisite checks (pure stdlib)
-- `scripts/search_music.py` → Freesound API for CC music (Phase 5)
 - `scripts/check_requirements.sh` → structured toolchain preflight. Default, `--json`, and
   `--plan` are side-effect-free and never use online `npx` probes. Scoped
   `--fix=<id,id>` runs only selected safe user-scoped fixes; bare `--fix` means all safe fixes.
   It never runs system/sudo commands or sets environment variables. Phase -1 consumes its JSON
   only for a direct/default first `new` run; explicit `continue` and `jump` skip onboarding.
 
-`templates/` files are copied into generated projects. `patterns/` files are referenced for visual techniques. `patterns/INDEX.md` is the wayfinding map between local patterns and the deeper `hyperframes` skill references — read it before adding new pattern files. The seam rationale that used to live in a local pattern file is now upstream — the vector law in `motion-doctrine`, render-side compositing and edge artifacts in `seam-craft` via `SEAM_RENDER_MECHANICS`; `patterns/transition-catalog.md` keeps only the moment-to-transition mapping and the energy budget, and `patterns/visual-patterns.md` § DON'Ts keeps the clipPath ban with its rationale.
+`templates/` files are copied into generated projects. `patterns/` files are referenced for visual techniques. `patterns/INDEX.md` is the map of the six *local* pattern files — read it before adding another one; ecosystem wayfinding belongs in `compat/ecosystem.md`, not there. The seam rationale that used to live in a local pattern file is now upstream — the vector law in `motion-doctrine`, render-side compositing and edge artifacts in `seam-craft` via `SEAM_RENDER_MECHANICS`; `patterns/transition-catalog.md` keeps only the moment-to-transition mapping and the energy budget, and `patterns/visual-patterns.md` § DON'Ts keeps the clipPath ban with its rationale.
 
 `design-systems/<slug>/DESIGN.md` is the brand spec consumed by Phase 3 Path A — MIT-licensed, video-focused, authored by this skill. The canonical research source for new contributions is [VoltAgent/awesome-design-md](https://github.com/VoltAgent/awesome-design-md) (MIT, 73 brands, has a `npx getdesign add <slug>` CLI). The skill is **video-only** — it does not produce, render, or analyse web/UI artifacts.
 
 ## Working with the skill scripts
 
 The media scripts run inside generated video projects; `validate_brief.py` runs from the installed
-skill against a generated project via `--project-dir`. Only `generate_voiceover.py` and
-`search_music.py` self-install `requests`; capture, stitch, caption, and Creative Brief validation
-helpers are pure standard library. Caption finalization invokes the required `ffprobe` binary for
+skill against a generated project via `--project-dir`. Every remaining helper — voiceover
+assembly, clip-audio mixing, capture, stitch, caption, and Creative Brief validation — is pure
+standard library. Caption finalization invokes the required `ffprobe` binary for
 duration validation.
 
 ```bash
@@ -85,8 +84,6 @@ python3 /path/to/hve-video-director/scripts/validate_brief.py \
 python3 /path/to/hve-video-director/scripts/validate_brief.py \
   --project-dir /path/to/generated-project migrate
 
-# Music search (from inside a generated project)
-FREESOUND_API_KEY=... python3 scripts/search_music.py
 ```
 
 Both `ELEVENLABS_API_KEY` and `ELEVEN_LABS_API_KEY` are accepted (back-compat).
