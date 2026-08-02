@@ -292,6 +292,15 @@ These are enforced verbally in the `## DON'Ts` section of `SKILL.md` — except 
   `skills-lock.json` only when green (full procedure, incl. the pointer sweep and behavior probes,
   in `compat/ecosystem.md` § Pin and update policy). Cadence: milestone boundaries or monthly,
   whichever comes first.
+- **Edit an agent instruction file** (`CLAUDE.md`, `.github/copilot-instructions.md`, `AGENTS.md`) →
+  they are deliberately *not* copies of each other: the Copilot file is a condensed rewrite for that
+  runtime and `AGENTS.md` is a discovery note. What they must share is **facts**, so
+  `test/unit/test_instruction_parity.py` checks each one against the repository — every
+  `scripts/…`/`workflows/…` path it names must exist, every companion skill it names must be real,
+  and no file may require a deprecated gate. It exists because this drifted twice: the Copilot
+  mirror kept requiring `lint|inspect|validate` after `check` replaced it (M0), then described
+  `search_music.py` and a `gsap` skill after both were gone (M6). Neither was visible in a diff of
+  the two files, because the other file was correct.
 - **Bump skill metadata** → frontmatter at top of `SKILL.md` (especially `allowed-tools` if a new MCP tool is needed).
 - **Bump the GSAP version** → the CDN `<script>` tags carry a Subresource Integrity hash (`integrity="sha384-…" crossorigin="anonymous"`), pinned to `gsap@3.14.2`. Changing the version *requires* recomputing the hash, or the script is blocked and every scene renders without animation (caught by `npx hyperframes check` in Phase 4/5). Update **all** occurrences together — `templates/scene-*.html` and the skeletons in `workflows/phase-3-design.md` + `workflows/phase-4-production.md` (grep the tree; a stale hash anywhere ships silent, animation-free scenes):
   ```bash
