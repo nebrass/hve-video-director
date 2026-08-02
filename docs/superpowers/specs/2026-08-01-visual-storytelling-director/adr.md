@@ -4,6 +4,9 @@
 **Revision note (2026-08-01):** updated after the Principal Engineer review
 (`review-principal.md`): ADR-002 and ADR-005 replaced, ADR-001 and ADR-007 amended,
 ADR-008 added.
+**Revision note (2026-08-02, first end-to-end run):** ADR-003, ADR-006 and ADR-008 amended from
+what a real Phase 0-5 production surfaced. No decision reversed; three consequences added.
+
 **Revision note (2026-08-01, M0.5 implementation):** corrected against the shipped compat layer:
 ADR-007 decision point 2 overstated what `skills-lock.json` protects. No other ADR changed.
 Format: Context → Decision → Consequences → Alternatives rejected. Evidence citations refer to
@@ -115,6 +118,27 @@ validator. The hero-frame check stays local because it requires storyboard inten
 the director has — but it is an **incubate→upstream candidate** (ADR-006): if the CLI's
 opt-in `--frame-check` gate ever accepts intent/expected-content input, delegate it.
 
+**Amendment (2026-08-02, after the first end-to-end run).** The gate ladder has a blind spot that
+no amount of reviewing finds: **defects that exist only once the film is assembled.** A scene is a
+sub-composition, and its script is cloned out of its `<template>` and re-executed in the host
+document — so behaviour in isolation is not behaviour in the film. One run surfaced three, each
+passing `lint`, `check`, motion and contrast:
+
+- a `<script type="module">` loses module semantics when cloned (`page_error` at assembly only);
+- a classic script then runs under injected `window`/`document`/`gsap` Proxies, where calling a
+  native method throws `Illegal invocation`;
+- `hf-seek` carries the **root** clock, so a scene that does not subtract its mount's `data-start`
+  renders **frozen** for its whole beat — and a static WebGL plate is a perfectly valid frame to
+  every gate, to a single still, and to a preview of that scene alone.
+
+The third survived the original build, a full preview render, and a human review of the rendered
+frame. It was found by instrumenting the scene, not by any check.
+
+Consequence: **a real end-to-end production run is part of the verification ladder, not a nicety.**
+It is the only instrument that exercises the clone, the host document and the root clock together.
+This is what makes the `example/` rebuild (#33) a release gate rather than a documentation chore,
+and why it cannot be satisfied by a fabricated artifact.
+
 **Alternatives rejected.** Owning an ffmpeg/render path (out of mission). Keeping the
 `lint|inspect|validate` chain (deprecated; `check` subsumes it — spec M0).
 
@@ -224,6 +248,17 @@ the compat map, propose it upstream once proven, delete the local copy when acce
 examples already queued: `design-systems/` brand packs → `hyperframes-creative`; the
 authenticated-capture protocol + native recorder pattern → ecosystem capture gap; the
 hero-frame check → `--frame-check`, if it gains intent input (ADR-003).
+
+**Retirement rule (added 2026-08-02).** The eight tests decide where a capability *belongs*; they
+do not license deleting a working one. A local path is retired only after its replacement has
+carried a **real end-to-end run** — not when it merely looks superseded.
+
+Evidence: `scripts/search_music.py` was deleted in M6 because the delegated `media-use` engine had
+assumed the music role. In the first real run that engine's generation route stalled two hours on
+an unauthenticated model download and produced nothing, and the script that would have recovered
+the situation no longer existed. M2 had already established deprecate-then-delete for exactly this
+reason and M6 skipped the second half of it. Deprecate, ship a run on the replacement, *then*
+delete — and prefer restoring over re-authoring when a deletion proves premature.
 
 **Consequences.** Every future PR review asks these eight questions; the answer is recorded
 in the PR description. The question-contract test suite enforces test 7 mechanically where it
@@ -342,6 +377,14 @@ determinism/gates (ADR-003).
 transition) are how this precedence becomes mechanical; they are **single-sourced in
 `reasoning/scene-analysis.md`** — every other file cites the budget table, never restates
 numbers (C6 of the Principal review).
+
+**Provenance is part of honesty (added 2026-08-02).** The honesty constraint already bans invented
+data on screen; it extends to the assets themselves. Where two sources serve a beat equally, prefer
+the one whose origin stays auditable — a named author, a stable page, a licence a third party can
+check years later. A Freesound track pinned by its numeric sound id satisfies that; a locally
+generated bed satisfies none of it. This is why the Phase-5 music routes offer catalog retrieval and
+Freesound search but not local generation, even though the validator still accepts a recorded
+`generate` value for projects that already chose one.
 
 **Conflict rule.** When two treatments tie on comprehension, choose the more memorable.
 Engagement never justifies a comprehension cost. A hero beat exists because dimension aids

@@ -1,6 +1,7 @@
 # hve-video-director → Visual Storytelling Director — Design Review & Redesign Spec
 
-**Date:** 2026-08-01 · **Status:** PROPOSED — awaiting user approval; no live skill files modified.
+**Date:** 2026-08-01 · **Status:** IMPLEMENTED — M0 → M6 landed on `refactor/hyperframes-first-m0-m1`
+(PR #34), then validated by a real end-to-end Phase 0–5 production run on 2026-08-02.
 **Scope:** full review of the skill (SKILL.md 492 ln, workflows 3,122 ln, patterns ~1,400 ln,
 templates ~750 ln, design-systems 928 ln, scripts ~4,780 ln, tests 2,699 ln) against the
 complete official HyperFrames ecosystem freshly locked in `.agents/skills/` (25 skills).
@@ -351,6 +352,41 @@ pairs kept, text archetypes migrate to registry blocks with NaN-guard property p
 | M4 | Format adoption | BRIEF.md/STORYBOARD.md/SCRIPT.md/frame.md; `validate_brief.py` v2 fingerprints official artifacts; legacy converter | Full ecosystem citizenship; Studio board/sidecar review for free | L | M1 | **highest-risk step** — parser round-trip tests + consent-gated migration mandatory |
 | M5 | Build re-base | Registry-first scenes; frame packets + builder delta; dispatch economics; retire skeletons | Parallel builds; template debt (SRI ×7) dissolves | M | M3, M4 | block coverage gaps — keep terminal/clip templates as the fallback |
 | M6 | Prune & rebuild example | Disposition table applied; example/ rebuilt end-to-end via the new pipeline; upstream contributions offered | Proof artifact; doc truth | M | M1–M5 | none material |
+
+## 28b. What the first end-to-end run changed
+
+The roadmap was implemented and then *exercised* — a 60s promo built by the skill, on the branch,
+through every phase and gate to a rendered MP4. That run is the reason several things in this
+document are now stated more strongly than they were proposed.
+
+**It found nine defects that four review passes and 220 tests did not.** Five were skill defects
+and are fixed on the branch; the rest were errors in the run's own artifacts. The pattern is what
+matters, not the count:
+
+| Defect | Why nothing else caught it |
+|---|---|
+| Sub-comp scripts lose module semantics | only the host document executes the clone |
+| Classic scripts run under injected Proxies | appears only after converting away from modules |
+| `hf-seek` carries the **root** clock | a frozen WebGL plate is a valid frame to every gate |
+| Phase 1 never offered a validator-accepted music value | no test asserts prompt/validator parity |
+| A cited recipe's inputs were never checked against the frame | the builder, not the gate, hit the contradiction |
+
+The first three are the class ADR-003's amendment now names: **assembly-only defects**. They are
+invisible in isolation, invisible to `lint`/`check`, invisible in a single-scene preview, and
+reachable only at assembly — the latest and most expensive point. This is the architectural
+argument for treating the `example/` rebuild (#33) as a release gate.
+
+**Two decisions were reversed by contact with reality.** M6 deleted `scripts/search_music.py` as
+superseded; the superseding path then stalled for two hours in its first real use, and the script
+was restored (ADR-006 gained a retirement rule). M4's local music *generation* is no longer offered,
+because a generated bed carries none of the provenance the brief is built to pin (ADR-008 gained a
+provenance clause).
+
+**What held up.** The consent machinery behaved exactly as designed: changing `music_strategy`
+bumped the story fingerprint and staled all five phases without being asked to. The capability→
+runtime selection put Three.js on exactly one frame of eight and recorded its rejection on another.
+The caption contract refused three malformed approvals in a row. Builders reported conflicts rather
+than silently resolving them — including one that corrected the orchestrator's own diagnosis.
 
 ## 29. Future-proofing
 
