@@ -69,6 +69,20 @@ owner, never restate its number).
 Transition budget (one primary + accents, types per film) is a budget number: it lives only in
 `reasoning/scene-analysis.md`. `SEAM_LAW` supersedes transition guidance wherever they disagree.
 
+## When the design system and a recipe disagree
+
+A recipe states two different kinds of number and they resolve in opposite directions.
+
+| Kind | Example | Who wins |
+|---|---|---|
+| **Brand parameter** — how the motion *feels* | ease family, entrance duration, stagger step, colour | **`DESIGN.md`.** It is the confirmed identity; a recipe cannot override a brand the user chose. |
+| **Structural constraint** — what makes the motion *work* | element-count range, ordering, the relationship a stagger must keep to its own window, seek-safety | **The recipe.** Break it and the motion stops reading as itself. |
+
+So a recipe asking for a 0.03–0.09s stagger under a design system mandating 0.12–0.18s takes
+the design system's value — and must still satisfy the recipe's structural rule that the whole
+group arrives inside one beat. If the two cannot both hold, the recipe is wrong for this film:
+cite a different one rather than shipping a compromise neither owner would accept.
+
 **Namespace guardrail.** `MG_MOTION_VOCABULARY` is the `motion-graphics` skill's *own*
 primitive→GSAP vocabulary for its Director/Builder pair. It is deliberately excluded, not awaiting
 adoption. Our motion names come from `RULES_INDEX` / `BLUEPRINT_INDEX` / `TECHNIQUES`; never mix

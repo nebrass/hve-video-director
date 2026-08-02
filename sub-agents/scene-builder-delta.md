@@ -33,6 +33,9 @@ desynchronizes from neighbours you cannot see.
 - `goal:` is the acceptance test. A viewer who misses it means the frame failed, however it looks.
 - `tone:` + `energy:` set easing character and reveal rhythm — `calm` drifts, `build` tightens,
   `peak` punches, `resolve` settles.
+- **When `DESIGN.md` and a recipe disagree:** a *brand* parameter (ease, duration, stagger,
+  colour) follows `DESIGN.md`; the recipe's *structural* constraints still hold. Report the
+  substitution — do not silently pick one.
 - `density:` is a hard element count, not a mood. The packet states the count that applies to
   this frame; build to it exactly and reveal only in the disclosure order the frame gives.
 - `camera:` and `metaphor:` are chosen vocabulary — implement the named move and the named concept,

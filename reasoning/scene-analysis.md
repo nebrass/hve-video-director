@@ -41,6 +41,15 @@ Answer all twelve for every frame. One line each, no essays — the answers *are
   3. **explicit additions**, each of which must carry a stated reason on the frame.
   Tags come from the vocabulary owned by `reasoning/capability-catalog.md`. Never invent one.
   A frame citing a spatial camera move while declaring no spatial capability is a derivation bug.
+- **A cited recipe whose inputs the frame cannot supply is the same class of bug.** Q10 names
+  motion; it does not check that the frame can feed it. Two failures found in a real run:
+  a data-viz rule cited on a frame carrying no numbers (the builder must either invent a
+  series — forbidden — or satisfy the rule by analogy), and a rule with a documented count
+  range cited at a count outside it. Before writing `motion:` or `blueprint:`, confirm the
+  frame supplies what the recipe consumes: real values for a data rule, a count inside the
+  range for a count-ranged rule, a bound capture for a rule that frames one. If it cannot,
+  cite a different recipe — never make the builder resolve it, because the builder's only
+  honest options are to break data honesty or to weaken the recipe.
 - **Q12 follows the catalog's procedure.** Not a preference, not a taste call.
 
 A reviewer reading the keys alone must be able to reconstruct *why* every visual choice exists.

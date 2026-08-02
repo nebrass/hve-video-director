@@ -539,6 +539,7 @@ real candidates; selecting a strategy is not permission for the agent to pick a 
     "header": "Music source",
     "options": [
       { "label": "A Freesound track I pick", "description": "You choose a CC0/CC-BY track and give me its URL; Phase 5 confirms that exact track before mixing." },
+      { "label": "Let the media-use engine source it", "description": "The engine retrieves or generates a bed from the storyboard mood; Phase 5 still confirms the exact track and records its provenance before mixing. Needs the media-use skill installed." },
       { "label": "Use my audio file", "description": "I will provide a path; Phase 5 will confirm that exact file before mixing." },
       { "label": "No background music", "description": "Voiceover only; Phase 5 will still require an explicit no-music confirmation." }
     ],
