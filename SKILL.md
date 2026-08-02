@@ -279,7 +279,8 @@ pure-backend tool) or an explicitly abstract brand film. Present a selectable pr
 Then create `{project-dir}/`, generate `project-plan.md` from `templates/project-plan.md`, and
 record the explicit answers in the Creative Brief table as `mode: promo | showcase | tutorial`
 and `product_surface: ui | none`. Do not mark either option selected before the user's response.
-Carry the product surface into `storyboard.md` (`Product surface:`) in Phase 1. Begin Phase 0.
+Carry the product surface into the `storyboard.md` frontmatter (`product_surface`) in Phase 1.
+Begin Phase 0.
 
 **Make the output location crystal-clear (issue #21).** Before creating the directory, resolve and
 show its **absolute** path so the user knows exactly where their work will live, and let them
@@ -348,23 +349,24 @@ If context.md missing → Phase 0
 If validator story.complete is false, story.confirmed is false, or earliest_stale_phase is phase-1
   → Phase 1 (collect/reconfirm the complete story brief before storyboard creation)
 If storyboard.md missing → Phase 1
-Determine whether Phase 2 is needed from storyboard.md:
-  - REQUIRED when Product surface is `ui`, or any scene requests screenshot, screencast,
-    screen-recording, terminal, terminal-clip, or supplied capture.
-  - SKIPPED when Product surface is `none` and no scene requests capture.
+Determine whether Phase 2 is needed from storyboard.md (frame metadata is the `- key: value`
+  bullet block under each `## Frame N` heading; `product_surface` is a frontmatter key):
+  - REQUIRED when frontmatter `product_surface` is `ui`, or any frame's `capture` bullet is
+    screenshot, screencast, screen-recording, terminal, terminal-clip, or supplied.
+  - SKIPPED when frontmatter `product_surface` is `none` and no frame requests capture.
 If Phase 2 is required and any planned capture lacks its accepted output → Phase 2:
-  - screenshot: bound screenshot exists and is non-empty
-  - screencast: exact bound Clip exists and is non-empty, or the storyboard was explicitly
-    rewritten to screenshot and its bound screenshot exists and is non-empty
-  - screen-recording: positive Capture duration is present, optional Capture region is valid
-    x,y,w,h, the exact bound Clip exists and is non-empty, `<Clip>.capture.pending` is absent,
-    `<Clip>.capture.json` is present, and
-    `python3 scripts/capture_screen.py --check --duration "<Capture duration>"`
-    `[--region "<Capture region>"] -o "<Clip>"` passes (including sidecar request match,
+  - screenshot: the frame's bound `screenshot` exists and is non-empty
+  - screencast: the exact bound `clip` exists and is non-empty, or the storyboard was explicitly
+    rewritten to `capture: screenshot` and its bound `screenshot` exists and is non-empty
+  - screen-recording: a positive `capture_duration` is present, an optional `capture_region` is a
+    valid `x,y,w,h`, the exact bound `clip` exists and is non-empty, `<clip>.capture.pending` is
+    absent, `<clip>.capture.json` is present (both named after the bound `clip` path), and
+    `python3 scripts/capture_screen.py --check --duration "<capture_duration>"`
+    `[--region "<capture_region>"] -o "<clip>"` passes (including sidecar request match,
     media contract, and fingerprint)
-  - terminal: authored terminal scene exists and is non-empty
-  - terminal-clip: non-empty MP4 exists, or storyboard was rewritten to terminal and its
-    non-empty scene exists
+  - terminal: the authored terminal scene file exists and is non-empty
+  - terminal-clip: non-empty MP4 exists, or the storyboard was rewritten to `capture: terminal`
+    and its non-empty scene file exists
   - supplied: named supplied file exists and is non-empty
 If no DESIGN.md or scenes/ → Phase 3
 If no index.html → Phase 4
@@ -404,18 +406,22 @@ mix/encode/render. Verify prerequisites:
 Phase 1 requires: context.md
 Phase 2 requires: context.md + storyboard.md + fresh Phase-1 stamp
 Phase 3 requires: context.md + storyboard.md, plus completion of every capture requested by the
-  storyboard, and a fresh Phase-2 stamp. In particular, `screen-recording` requires a positive `Capture duration:`, an
-  optional valid `Capture region: x,y,w,h`, a non-empty file at the exact `Clip:` path, no
-  `<Clip>.capture.pending`, and a matching `<Clip>.capture.json` sidecar. Run
-  `capture_screen.py --check` with the storyboard duration/region/Clip; if any check fails,
-  BLOCK Phase 3 and resume Phase 2 (or return to Phase 1 to repair invalid fields).
-  `product_surface: none` with no requested captures has no Phase-2 artifact prerequisite, but
-  the intentional Phase-2 skip must still have a fresh Phase-2 stamp.
+  storyboard, and a fresh Phase-2 stamp. Read the requests from each frame's `- key: value`
+  bullet block; `product_surface` is a frontmatter key, not a frame bullet. In particular, a
+  frame whose `capture` bullet is `screen-recording` requires a positive `capture_duration`, an
+  optional valid `capture_region: x,y,w,h`, a non-empty file at the exact `clip` path, no
+  `<clip>.capture.pending`, and a matching `<clip>.capture.json` sidecar — both markers are named
+  after the bound `clip` path, not after a file called `clip`. Run
+  `capture_screen.py --check` with that frame's `capture_duration` / `capture_region` / `clip`;
+  if any check fails, BLOCK Phase 3 and resume Phase 2 (or return to Phase 1 to repair invalid
+  fields). Frontmatter `product_surface: none` with no requested captures has no Phase-2 artifact
+  prerequisite, but the intentional Phase-2 skip must still have a fresh Phase-2 stamp.
   Capture-coverage gate (orchestrator-enforced; promo/showcase only): before authoring
-  scenes, if product_surface is `ui` and NO storyboard scene binds an existing real
-  capture (`Screenshot:` or `Clip:`), BLOCK and resolve — return to Phase 2 to capture the
+  scenes, if frontmatter `product_surface` is `ui` and NO storyboard frame binds an existing real
+  capture (a `screenshot` or `clip` bullet naming a real file — `screenshot: none — connective
+  tissue` binds nothing), BLOCK and resolve — return to Phase 2 to capture the
   product, or, if the film is genuinely abstract, set `product_surface: none` in the
-  project-plan.md Creative Brief and `Product surface: none` in storyboard.md. After scene
+  project-plan.md Creative Brief and in the storyboard.md frontmatter. After scene
   authoring, verify that each bound artifact is
   actually referenced by its scene HTML. Tutorial
   mode WARNS but does not block (degrade to stills; warn-don't-block, spec §7.3). This turns
@@ -509,15 +515,21 @@ See [workflows/phase-4-production.md](workflows/phase-4-production.md)
 
 ### Phase 5: Audio &amp; Render
 **Audio generation is delegated to the `media-use` skill.** Its AUDIO_ENGINE produces narration,
-the music bed (BGM) and SFX from one request and returns the assets plus per-line metadata. Word
-timestamps come back only from its HeyGen voice route; on the ElevenLabs and local Kokoro routes
-TRANSCRIBE still supplies caption timing. `scripts/generate_voiceover.py` (ElevenLabs) and
+the music bed (BGM) and SFX from one request and returns the assets plus per-line metadata. The
+word timings in that metadata are **relative to each line's own audio**, so they are never the
+caption clock: composition-absolute timing comes from TRANSCRIBE over the *assembled*
+`voiceover.mp3`, with no provider branch — Phase 5 runs it whichever voice spoke.
+`scripts/generate_voiceover.py` (ElevenLabs) and
 `scripts/search_music.py` (Freesound) remain as the offline fallback and are **deprecated as
 acquisition paths** — removed in **M6**, once the delegated path has proven itself. Voiceover
 *assembly* (`generate_voiceover.py --assemble-only`) is not deprecated: both paths use it to place
-sections at their exact start times. A confirmed voice provider is never
-substituted automatically, and that now includes signing in to HeyGen: recommend, then let the
-user choose.
+sections at their exact start times. A confirmed voice provider is never substituted
+automatically. A HeyGen credential does not change which voice speaks: the brief's `voice`
+vocabulary is `elevenlabs:<name>:<id>` or `kokoro:<id>`, enforced by `scripts/validate_brief.py`,
+so the engine's HeyGen voice route is not selectable through this skill's vocabulary. What the
+credential buys Phase 5 is the engine's catalog retrieval for sound effects and for the music bed
+— the bed being available to retrieve, but not yet recordable as the confirmed track (**M4**; see
+`workflows/phase-5-audio.md` § Delegated retrieval).
 
 What this skill still owns and never delegates: the exact-track music confirmation — whatever
 produced the candidate (catalog retrieval, generation, Freesound, or a user-supplied file), the
@@ -548,7 +560,7 @@ See [workflows/phase-5-audio.md](workflows/phase-5-audio.md)
 - **Never animate `display`, `visibility`, or call `.play()` in timelines** — Breaks HyperFrames' deterministic seek; use `opacity` + `pointer-events`
 - **Never animate `<img>` dimensions directly** — Causes layout recompute that confuses deterministic seek. Wrap each `<img>` in a non-timed `<div>` and animate the wrapper's `transform` (`scale`, `translate`) instead
 - **Never use `tl.from()` for opacity tweens with stagger** — GSAP records the END state at registration; if CSS rest is `opacity:0` the recorded end is `opacity:0` and the animation goes nowhere. With stagger, later instances re-hide elements that earlier instances revealed. **Always use `tl.fromTo(target, {opacity:0,...}, {opacity:1,...}, pos)`.** See `patterns/visual-patterns.md` § "tl.from() stagger trap"
-- **Never ship a bare `<video>` in a clip scene** — the runtime only frame-syncs videos carrying `data-start`; bare videos cross-route with 2+ clip scenes (wrong footage / black) while all gates pass green. Every clip `<video>` carries the explicit contract: `id` + `data-start="0"` + `data-duration` (the loader's full crossfade-extended window) + `data-media-start` (storyboard `Clip in`) + `data-track-index="0"`. See `workflows/phase-3-design.md` § Clip scene
+- **Never ship a bare `<video>` in a clip scene** — the runtime only frame-syncs videos carrying `data-start`; bare videos cross-route with 2+ clip scenes (wrong footage / black) while all gates pass green. Every clip `<video>` carries the explicit contract: `id` + `data-start="0"` + `data-duration` (the loader's full crossfade-extended window) + `data-media-start` (the frame's `clip_in` bullet) + `data-track-index="0"`. See `workflows/phase-3-design.md` § Clip scene
 
 ---
 

@@ -10,12 +10,21 @@ The three defects this script replaced are each pinned by a named test:
     of the soundtrack is rejected before any encode, and a mix that leaves the
     placed window unchanged is refused instead of published.
 (c) every input rejection.
+(d) the double-mix guard — every pass rewrites the canonical soundtrack, so a
+    second pass over a window a clip already occupies must be refused, and only
+    the user (an explicit `--force`, or deleting the record) may lift that.
+    The guard must never lift itself, and a failed run must record nothing.
+(e) the mix candidate's container must match `-c:a libmp3lame`, whatever the
+    soundtrack is named.
 
 No real encoding runs: `run_command` and the probe helpers are patched, so the
 suite is hermetic and passes on a machine without ffmpeg.
 """
 
+import hashlib
 import importlib.util
+import json
+import os
 import re
 import shutil
 import subprocess
@@ -33,6 +42,7 @@ WORK_ROOT = ROOT / "test" / ".work"
 
 CLIP_NAME = "scene-03-demo.mp4"
 SOUNDTRACK_NAME = "voiceover-with-music.mp3"
+STATE_NAME = SOUNDTRACK_NAME + ".clip-mix.json"
 ORIGINAL = b"original soundtrack bytes"
 MIXED = b"mixed soundtrack bytes"
 
@@ -74,13 +84,14 @@ class MixClipAudioTestCase(unittest.TestCase):
         self.clip.write_bytes(b"clip bytes")
         self.soundtrack = self.work / SOUNDTRACK_NAME
         self.soundtrack.write_bytes(ORIGINAL)
+        self.state = self.work / STATE_NAME
 
     def tearDown(self):
         shutil.rmtree(self.work, ignore_errors=True)
 
     # -- helpers ---------------------------------------------------------
 
-    def argv(self, flags=None, clip=None):
+    def argv(self, flags=None, clip=None, force=False):
         options = {
             "--soundtrack": str(self.soundtrack),
             "--clip-in": "2.0",
@@ -94,9 +105,11 @@ class MixClipAudioTestCase(unittest.TestCase):
         for flag, value in options.items():
             if value is not None:
                 argv += [flag, str(value)]
+        if force:
+            argv.append("--force")
         return argv
 
-    def invoke(self, argv=None, *, flags=None, clip=None, durations=None,
+    def invoke(self, argv=None, *, flags=None, clip=None, force=False, durations=None,
                has_audio=True, volumes=(-20.0, -14.0), runner=None, which=True):
         """Run `main()` with ffmpeg/ffprobe fully patched out."""
         table = {CLIP_NAME: 30.0, SOUNDTRACK_NAME: 60.0, "candidate": 60.0}
@@ -128,15 +141,28 @@ class MixClipAudioTestCase(unittest.TestCase):
                                   side_effect=lambda name: f"/usr/bin/{name}" if which
                                   else None):
             with redirect_stdout(out), redirect_stderr(err):
-                code = self.mix_clip_audio.main(argv or self.argv(flags, clip))
+                code = self.mix_clip_audio.main(argv or self.argv(flags, clip, force))
             commands = [call.args[0] for call in runner_mock.call_args_list]
         return Result(code, out.getvalue(), err.getvalue(), commands)
 
-    def assertSoundtrackUntouched(self, result):
+    def assertSoundtrackUntouched(self, result, expect=ORIGINAL, state=None):
+        """Refusals publish nothing: not the audio, and not a record of it.
+
+        `state` is the sidecar bytes that must survive verbatim; the default
+        None means no record may exist — a failed run never counts as done.
+        """
         self.assertEqual(result.code, 1)
-        self.assertEqual(self.soundtrack.read_bytes(), ORIGINAL)
+        self.assertEqual(self.soundtrack.read_bytes(), expect)
         self.assertIn("left unchanged", result.stderr)
         self.assertEqual(sorted(p.name for p in self.work.glob(".*")), [])
+        if state is None:
+            self.assertFalse(self.state.exists(), "a failed run published a mix record")
+        else:
+            self.assertEqual(self.state.read_bytes(), state)
+
+    def recorded(self):
+        """The sidecar's `mixes`, parsed."""
+        return json.loads(self.state.read_text(encoding="utf-8"))["mixes"]
 
     @staticmethod
     def filter_of(command, flag="-af"):
@@ -371,8 +397,10 @@ class MixClipAudioTestCase(unittest.TestCase):
         self.assertEqual(result.code, 0, result.stderr)
         self.assertEqual(self.soundtrack.read_bytes(), MIXED)
         self.assertEqual(sorted(p.name for p in self.work.glob(".*")), [])
+        # The mix record is the one file a successful run adds: the scratch
+        # candidate, its clip audio and the rollback copy are all gone.
         self.assertEqual(sorted(p.name for p in self.work.iterdir()),
-                         sorted([CLIP_NAME, SOUNDTRACK_NAME]))
+                         sorted([CLIP_NAME, SOUNDTRACK_NAME, STATE_NAME]))
         self.assertIn("18.5", result.stdout)
 
         extract, mixdown = result.encodes[0], result.encodes[1]
@@ -395,6 +423,297 @@ class MixClipAudioTestCase(unittest.TestCase):
         self.assertTrue(seen)
         for destination in seen:
             self.assertEqual(destination.parent, self.soundtrack.parent)
+
+        # The record is published by the same `os.replace`, so it and its own
+        # scratch file must be siblings of the soundtrack too. No ffmpeg command
+        # writes them, so `seen` cannot cover this.
+        self.assertEqual(self.state.parent, self.soundtrack.parent)
+        scratch = self.mix_clip_audio._scratch_path(self.soundtrack, "clip-mix", ".json")
+        self.assertEqual(scratch.parent, self.soundtrack.parent)
+
+    # -- (e) the candidate's container must match the encoder --------------
+
+    def test_mix_command_pins_the_container_to_the_encoder(self):
+        command = self.mix_clip_audio.build_mix_command(
+            self.soundtrack, "clip.wav", 60.0, "mixed.mp3")
+        self.assertEqual(command[command.index("-c:a") + 1], "libmp3lame")
+        self.assertEqual(command[command.index("-f") + 1], self.mix_clip_audio.MIX_FORMAT)
+        self.assertEqual(self.mix_clip_audio.MIX_FORMAT, "mp3")
+        self.assertEqual(self.mix_clip_audio.MIX_SUFFIX, ".mp3")
+        # The output path stays last — the tests' runner writes to command[-1].
+        self.assertEqual(command[-1], "mixed.mp3")
+
+    def test_candidate_container_ignores_a_non_mp3_soundtrack_name(self):
+        """Defect (e): the candidate used to inherit `.m4a`, which libmp3lame
+        cannot be muxed into — ffmpeg either fails or mislabels the file."""
+        self.soundtrack = self.work / "voiceover-with-music.m4a"
+        self.soundtrack.write_bytes(ORIGINAL)
+        self.state = self.work / "voiceover-with-music.m4a.clip-mix.json"
+
+        result = self.invoke(durations={"voiceover-with-music.m4a": 60.0})
+        self.assertEqual(result.code, 0, result.stderr)
+
+        mixdown = result.encodes[1]
+        candidate = mixdown[-1]
+        self.assertTrue(candidate.endswith(".mp3"), candidate)
+        self.assertNotIn(".m4a", Path(candidate).name)
+        self.assertEqual(mixdown[mixdown.index("-f") + 1], "mp3")
+        # …and the soundtrack it publishes over keeps its own name.
+        self.assertEqual(self.soundtrack.read_bytes(), MIXED)
+
+    # -- (d) the double-mix guard ------------------------------------------
+
+    def test_the_record_lands_beside_the_soundtrack_and_fingerprints_it(self):
+        result = self.invoke()
+        self.assertEqual(result.code, 0, result.stderr)
+        self.assertEqual(self.state, self.mix_clip_audio.state_path_for(self.soundtrack))
+        self.assertIn(str(self.state), result.stdout)
+
+        document = json.loads(self.state.read_text(encoding="utf-8"))
+        self.assertEqual(document["schema_version"],
+                         self.mix_clip_audio.STATE_SCHEMA_VERSION)
+        self.assertEqual(document["soundtrack"], SOUNDTRACK_NAME)
+        # The fingerprint is of the bytes actually published, so a later run can
+        # tell whether the record still describes the soundtrack on disk.
+        self.assertEqual(document["fingerprint"],
+                         {"algorithm": "sha256",
+                          "value": hashlib.sha256(MIXED).hexdigest()})
+        self.assertEqual(document["fingerprint"]["value"],
+                         hashlib.sha256(self.soundtrack.read_bytes()).hexdigest())
+
+        self.assertEqual(len(document["mixes"]), 1)
+        entry = document["mixes"][0]
+        self.assertEqual(entry["clip"], str(self.clip.resolve()))
+        self.assertEqual(entry["at"], 18.5)
+        self.assertEqual(entry["at_ms"], 18500)
+        self.assertEqual(entry["clip_in"], 2.0)
+        self.assertEqual(entry["clip_out"], 8.0)
+        self.assertEqual(entry["speed"], 1.0)
+        self.assertEqual(entry["volume"], 0.6)
+        self.assertEqual(entry["play_duration"], 6.0)
+
+    def test_re_running_the_same_mix_is_refused(self):
+        """The Step 5.3a loop run twice, or a retry after a transient failure."""
+        self.assertEqual(self.invoke().code, 0)
+        recorded = self.state.read_bytes()
+
+        again = self.invoke()
+        self.assertSoundtrackUntouched(again, expect=MIXED, state=recorded)
+        # Refused before a single encode, not after re-mixing and discarding.
+        self.assertEqual(again.encodes, [])
+        self.assertIn("already mixed into", again.stderr)
+
+    def test_the_refusal_names_both_ways_forward(self):
+        self.assertEqual(self.invoke().code, 0)
+        message = self.invoke().stderr
+        self.assertIn(str(self.state), message)          # what recorded it
+        self.assertIn("18.5", message)                   # where it is placed
+        self.assertIn("rebuild the soundtrack", message)  # fix the level/window
+        self.assertIn("--force", message)                # layer deliberately
+        self.assertIn("Nothing was published", message)
+
+    def test_a_louder_retake_of_the_same_clip_is_refused(self):
+        """The hazard a volume-sensitive key would miss: 0.6 then 0.4 leaves
+        BOTH passes in the soundtrack, and nothing downstream can hear which."""
+        self.assertEqual(self.invoke().code, 0)
+        result = self.invoke(flags={"--volume": "0.4"})
+        self.assertSoundtrackUntouched(
+            result, expect=MIXED, state=self.state.read_bytes())
+        self.assertIn("already mixed into", result.stderr)
+
+    def test_a_mistyped_retake_that_overlaps_the_recorded_window_is_refused(self):
+        """18.5 mistyped as 18.05 is the same double-mix, not a new placement."""
+        self.assertEqual(self.invoke().code, 0)
+        result = self.invoke(flags={"--at": "18.05"})
+        self.assertSoundtrackUntouched(
+            result, expect=MIXED, state=self.state.read_bytes())
+        self.assertIn("overlaps", result.stderr)
+
+    def test_the_same_clip_at_a_separate_placement_is_allowed(self):
+        """One clip may legitimately appear in two scenes — the windows differ."""
+        self.assertEqual(self.invoke().code, 0)          # 18.5s–24.5s
+        result = self.invoke(flags={"--at": "30.0"})     # 30.0s–36.0s
+        self.assertEqual(result.code, 0, result.stderr)
+        self.assertEqual([entry["at"] for entry in self.recorded()], [18.5, 30.0])
+
+    def test_a_different_clip_over_the_same_window_is_allowed(self):
+        other = self.work / "scene-04-other.mp4"
+        other.write_bytes(b"other clip bytes")
+        self.assertEqual(self.invoke().code, 0)
+        result = self.invoke(clip=str(other))
+        self.assertEqual(result.code, 0, result.stderr)
+        self.assertEqual([Path(entry["clip"]).name for entry in self.recorded()],
+                         [CLIP_NAME, other.name])
+
+    def test_the_same_clip_reached_by_another_spelling_is_the_same_clip(self):
+        self.assertEqual(self.invoke().code, 0)
+        # `..`, not `.`: pathlib collapses a `.` component at construction, so a
+        # `.`-spelled path would be byte-identical to the first run's and the
+        # test would pass without `mix_record` resolving anything.
+        (self.work / "sub").mkdir()
+        spelled = str(self.work / "sub" / ".." / CLIP_NAME)
+        self.assertNotEqual(spelled, str(self.clip))
+        result = self.invoke(clip=spelled)
+        self.assertSoundtrackUntouched(
+            result, expect=MIXED, state=self.state.read_bytes())
+        self.assertIn("already mixed into", result.stderr)
+
+    def test_force_layers_a_second_pass_and_records_both(self):
+        self.assertEqual(self.invoke().code, 0)
+        result = self.invoke(force=True)
+        self.assertEqual(result.code, 0, result.stderr)
+        self.assertIn("--force", result.stderr)          # the override is announced
+        self.assertEqual([entry["at"] for entry in self.recorded()], [18.5, 18.5])
+
+    def test_force_does_not_bypass_any_other_guard(self):
+        """An escape hatch for one refusal, not a global override."""
+        cases = (
+            ({"--at": "58.0", "--clip-in": "0", "--clip-out": "6.0"}, "truncated"),
+            ({"--speed": "9.0"}, "--speed"),
+            ({"--volume": "1.4"}, "--volume"),
+        )
+        for flags, expected in cases:
+            with self.subTest(flags=flags):
+                result = self.invoke(flags=flags, force=True)
+                self.assertSoundtrackUntouched(result)
+                self.assertIn(expected, result.stderr)
+
+        with self.subTest(case="no-op mix"):
+            result = self.invoke(force=True, volumes=(-20.0, -20.02))
+            self.assertSoundtrackUntouched(result)
+            self.assertIn("no-op", result.stderr)
+
+    def test_a_record_that_no_longer_matches_the_soundtrack_is_refused(self):
+        """The guard never resets itself: when the soundtrack's bytes moved, the
+        script cannot tell whether the recorded clip audio is still in there, so
+        it refuses and names both remedies instead of guessing one."""
+        self.assertEqual(self.invoke().code, 0)
+        recorded = self.state.read_bytes()
+        self.soundtrack.write_bytes(b"a soundtrack rebuilt in step 5.2")
+
+        result = self.invoke()
+        self.assertSoundtrackUntouched(
+            result, expect=b"a soundtrack rebuilt in step 5.2", state=recorded)
+        self.assertEqual(result.encodes, [])
+        self.assertIn("sha256", result.stderr)
+        self.assertIn(f"delete {self.state}", result.stderr)
+        self.assertIn("--force", result.stderr)
+
+    def test_force_accepts_a_record_that_no_longer_matches_and_keeps_history(self):
+        self.assertEqual(self.invoke().code, 0)
+        self.soundtrack.write_bytes(b"an sfx pass rewrote this")
+
+        result = self.invoke(force=True)
+        self.assertEqual(result.code, 0, result.stderr)
+        self.assertIn("--force", result.stderr)
+        self.assertEqual(len(self.recorded()), 2)
+
+    def test_deleting_the_record_is_safe_and_clears_the_guard(self):
+        """The user's own reset. Nothing but this guard reads the sidecar, so
+        removing it costs a memory, never the soundtrack."""
+        self.assertEqual(self.invoke().code, 0)
+        self.state.unlink()
+
+        result = self.invoke()
+        self.assertEqual(result.code, 0, result.stderr)
+        self.assertEqual(self.soundtrack.read_bytes(), MIXED)
+        self.assertEqual(len(self.recorded()), 1)
+
+    def test_an_unreadable_record_is_refused_and_force_rewrites_it(self):
+        self.state.write_text("{ this is not json", encoding="utf-8")
+        result = self.invoke()
+        self.assertSoundtrackUntouched(result, state=b"{ this is not json")
+        self.assertEqual(result.encodes, [])
+        self.assertIn("cannot be trusted", result.stderr)
+        self.assertIn("--force", result.stderr)
+
+        forced = self.invoke(force=True)
+        self.assertEqual(forced.code, 0, forced.stderr)
+        self.assertEqual(len(self.recorded()), 1)
+
+    def test_a_record_from_another_schema_version_is_refused(self):
+        self.state.write_text(json.dumps({
+            "schema_version": self.mix_clip_audio.STATE_SCHEMA_VERSION + 1,
+            "soundtrack": SOUNDTRACK_NAME,
+            "fingerprint": {"algorithm": "sha256",
+                            "value": hashlib.sha256(ORIGINAL).hexdigest()},
+            "mixes": [],
+        }), encoding="utf-8")
+        result = self.invoke()
+        self.assertEqual(result.code, 1)
+        self.assertIn("schema_version", result.stderr)
+
+    def test_a_record_whose_entries_cannot_disarm_the_guard_is_refused(self):
+        """A NaN `at` would make every overlap comparison false — that is the
+        guard quietly disarming itself, which is what it must never do."""
+        for broken in ({"clip": "x.mp4", "at": float("nan"), "play_duration": 6.0},
+                       {"clip": "x.mp4", "at": 18.5, "play_duration": float("inf")},
+                       {"clip": "x.mp4", "at": 18.5},
+                       "not an entry"):
+            with self.subTest(entry=broken):
+                self.state.write_text(json.dumps({
+                    "schema_version": self.mix_clip_audio.STATE_SCHEMA_VERSION,
+                    "soundtrack": SOUNDTRACK_NAME,
+                    "fingerprint": {"algorithm": "sha256",
+                                    "value": hashlib.sha256(ORIGINAL).hexdigest()},
+                    "mixes": [broken],
+                }), encoding="utf-8")
+                result = self.invoke()
+                self.assertEqual(result.code, 1)
+                self.assertIn("cannot be trusted", result.stderr)
+                self.assertEqual(result.encodes, [])
+                self.assertEqual(self.soundtrack.read_bytes(), ORIGINAL)
+
+    def test_a_failed_mix_leaves_an_earlier_record_byte_identical(self):
+        """A failed retake never counts as complete — and never edits history."""
+        self.assertEqual(self.invoke().code, 0)
+        recorded = self.state.read_bytes()
+
+        other = self.work / "scene-04-other.mp4"
+        other.write_bytes(b"other clip bytes")
+
+        def failing(command):
+            if "-filter_complex" in command:
+                return subprocess.CompletedProcess(command, 1, "", "filter graph aborted")
+            Path(command[-1]).write_bytes(b"clip audio bytes")
+            return subprocess.CompletedProcess(command, 0, "", "")
+
+        result = self.invoke(clip=str(other), runner=failing)
+        self.assertSoundtrackUntouched(result, expect=MIXED, state=recorded)
+        self.assertEqual(json.loads(recorded.decode())["mixes"][0]["clip"],
+                         str(self.clip.resolve()))
+
+    def test_a_disk_failure_before_publishing_reports_the_soundtrack_unchanged(self):
+        """Not a traceback: the rollback copy and the record write are new I/O,
+        and both happen before anything is published, so the standing promise
+        (`Soundtrack left unchanged`) has to survive them failing."""
+        for target, name in ((self.mix_clip_audio.shutil, "copy2"),
+                             (self.mix_clip_audio, "_write_json")):
+            with self.subTest(failing=name):
+                with mock.patch.object(
+                        target, name,
+                        side_effect=OSError(28, "No space left on device")):
+                    result = self.invoke()
+                self.assertSoundtrackUntouched(result)
+                self.assertIn("No space left on device", result.stderr)
+
+    def test_a_record_that_cannot_be_written_rolls_the_soundtrack_back(self):
+        """The mix and its record publish together or not at all: a soundtrack
+        nothing remembers is exactly the state the guard exists to prevent."""
+        real_replace = os.replace
+
+        def replace(source, destination, *args, **kwargs):
+            if Path(destination) == self.state:
+                raise OSError(28, "No space left on device")
+            return real_replace(source, destination, *args, **kwargs)
+
+        with mock.patch.object(self.mix_clip_audio.os, "replace", side_effect=replace):
+            result = self.invoke()
+
+        self.assertSoundtrackUntouched(result)
+        self.assertIn("publishing the mix failed", result.stderr)
+        self.assertEqual(sorted(p.name for p in self.work.iterdir()),
+                         sorted([CLIP_NAME, SOUNDTRACK_NAME]))
 
 
 if __name__ == "__main__":

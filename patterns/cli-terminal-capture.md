@@ -149,21 +149,21 @@ if [ -n "$record_ok" ] && [ -s "$CAST_TMP" ] &&
 else
   clip_ready=
   echo "terminal clip failed — switching this scene to the authored-terminal path" >&2
-  # Stop here, rewrite Capture: terminal, and author the deterministic terminal
+  # Stop here, rewrite `capture` to `terminal`, and author the deterministic terminal
   # scene. Never continue with stale output from a previous attempt.
 fi
 ```
 
 Only author `templates/scene-terminal-clip.html` when `clip_ready=1`. Otherwise rewrite the
-storyboard scene to `Capture: terminal` and author `templates/scene-terminal.html` from the real
+storyboard frame's `capture` to `terminal` and author `templates/scene-terminal.html` from the real
 command output. The fallback is the accepted result, not a successful clip attempt.
 
 The storyboard carries the inputs the skill needs:
 
 ```
-Capture: terminal-clip
-Command: shipfast deploy --env staging
-Record timeout: 8s          # scene duration + ~2s
+- capture: terminal-clip
+- command: shipfast deploy --env staging
+- record_timeout: 8s          # frame duration + ~2s
 ```
 
 Why `--idle-time-limit 1.5` matters: an unmodified `npm install` cast is
@@ -202,7 +202,7 @@ without dragging.
   path.
 - **Commands genuinely needing a human** (interactive prompts, mouse-driven
   TUIs). Out of scope for autonomous mode — switch the storyboard's
-  `Capture:` to `terminal` (authored-typewriter path) or `supplied`
+  `capture` to `terminal` (authored-typewriter path) or `supplied`
   (user provides their own MP4).
 
 ## Recording mode — interactive (sub-case)
@@ -330,7 +330,7 @@ After the MP4 is at `public/clips/scene-{NN}-{slug}.mp4`:
    wrapper per the *no img-dimension tween* DON'T.
 3. Give the scene's `<video>` its explicit clip contract — `id` + `data-start="0"`
    + `data-duration` (= the loader's full crossfade-extended window) +
-   `data-media-start` (= storyboard `Clip in`, `0` if whole) + `data-track-index="0"`
+   `data-media-start` (= storyboard `clip_in`, `0` if whole) + `data-track-index="0"`
    (pre-wired in the template; substitute the `DUR`/`MSTART` placeholders).
    HyperFrames frame-syncs `currentTime` to the scene window from those
    attributes; a bare `<video>` is not time-synced and, with 2+ clip scenes,

@@ -128,8 +128,9 @@ tl.to(stat, {
 ### Step Label / Chapter Overlay
 
 Tutorial scenes carry an on-screen `Step N of M` pill + chapter title, layered over a clip
-or recap scene (authored copy from the storyboard `Step label:`/`Chapter:` fields). `autoAlpha`
-reveal; **no exit tween** — the inter-scene transition owns the exit. Text ≥24px.
+or recap scene (authored copy from the frame's `step_label` / `chapter` bullets in the
+storyboard). `autoAlpha` reveal; **no exit tween** — the inter-scene transition owns the exit.
+Text ≥24px.
 
 ```html
 <div class="chapter-ov">

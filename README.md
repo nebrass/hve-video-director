@@ -50,7 +50,7 @@ hve-video-director is an Agent Skill that orchestrates end-to-end video producti
 3. **Captures your app** automatically via Chrome DevTools, including an explicitly selected already-authenticated Chrome tab
 4. **Authors HTML scene templates** matching your brand DNA — pick from [10 curated design systems](design-systems/) (Stripe, Linear, Apple, Notion, Vercel, Airbnb, GitHub, Cal, Arc, Bento), 8 HyperFrames named styles, or derive from screenshots
 5. **Produces the video** in HyperFrames (HTML + GSAP, headless-Chromium rendered)
-6. **Adds voiceover, music, SFX, and reviewed closed captions** through the `media-use` audio engine — the explicitly chosen voice (ElevenLabs, local Kokoro-82M, or a HeyGen voice once you sign in), a music bed whose exact track you confirm before any mix, word timestamps (HeyGen route) or `npx hyperframes transcribe` for timing, and audio-fingerprinted SRT/VTT delivery
+6. **Adds voiceover, music, SFX, and reviewed closed captions** through the `media-use` audio engine — the explicitly chosen voice (ElevenLabs or local Kokoro-82M), a music bed whose exact track you confirm before any mix, caption timing from `npx hyperframes transcribe` over the assembled voiceover, and audio-fingerprinted SRT/VTT delivery
 
 ### Three Modes
 
@@ -123,10 +123,10 @@ less check_requirements.sh && bash check_requirements.sh --plan
 | HyperFrames companion skills | Phases 3–5 | `npx skills add heygen-com/hyperframes` — installs the `hyperframes` router *and* the domain family it dispatches to |
 | `chrome-headless-shell` | Yes | Used by `npx hyperframes render` for frame capture. System Chrome causes 120s render hangs. Install once: `npx puppeteer browsers install chrome-headless-shell` (one-time, ~170MB, cached). Verify with `npx hyperframes doctor`. |
 | Chrome DevTools MCP | For web capture | Required only when the storyboard requests web screenshots/screencasts. Configure it in the active agent; capability names are resolved per runtime. For an already-authenticated tab, use Chrome 144+ remote debugging plus MCP `--autoConnect` (preferred), or the documented dedicated-profile `--browser-url` fallback. |
-| HeyGen credential | Recommended | `heygen auth login --oauth` (or `HEYGEN_API_KEY`) — unlocks the `media-use` engine's HeyGen voice route, the only route that returns word timestamps, plus catalog music/SFX. The checker reports it as `heygen-credential` and degrades gracefully without it. Phase 5 never substitutes a confirmed provider; it does not currently prompt for HeyGen sign-in. |
-| `ELEVENLABS_API_KEY` | For an ElevenLabs voice | [elevenlabs.io](https://elevenlabs.io) — required when the confirmed voice uses ElevenLabs, on either audio path. This route returns no word timestamps, so caption timing comes from transcription. Choose Kokoro explicitly for no-key local TTS; providers are never substituted automatically. |
+| HeyGen credential | Recommended | `heygen auth login --oauth` (or `HEYGEN_API_KEY`) — lets the `media-use` engine retrieve catalog sound effects and a catalog music bed instead of generating them or falling back to its bundled library; either route is recorded in the brief as `music_strategy: delegated` with a provenance URI (see [Music Strategy](#music-strategy)). It does **not** change the voice: the brief's `voice` vocabulary is `elevenlabs:…` or `kokoro:…` only (enforced by [`scripts/validate_brief.py`](scripts/validate_brief.py)), so the engine's HeyGen voice route is not selectable through this skill's vocabulary. The checker reports it as `heygen-credential` and degrades gracefully without it; Phase 5 never prompts for sign-in and never substitutes a confirmed provider. |
+| `ELEVENLABS_API_KEY` | For an ElevenLabs voice | [elevenlabs.io](https://elevenlabs.io) — required when the confirmed voice uses ElevenLabs, on either audio path. Choose Kokoro explicitly for no-key local TTS; providers are never substituted automatically. |
 | `FREESOUND_API_KEY` | No | [freesound.org/apiv2/apply](https://freesound.org/apiv2/apply/) — CC music search for the deprecated local music fallback; the primary music bed comes from the `media-use` engine |
-| Whisper | Recommended | `pip install openai-whisper` — voiceover timing verification when neither word timestamps nor `npx hyperframes transcribe` are available |
+| Whisper | Recommended | `pip install openai-whisper` — voiceover timing verification when `npx hyperframes transcribe` is unavailable. The engine's per-line word timings never substitute for it: they are relative to each line's own audio, while captions need composition-absolute times over the assembled voiceover. |
 | `espeak-ng` | Optional | `brew install espeak-ng` / `apt install espeak-ng` — only needed for non-English voiceover via a confirmed Kokoro voice |
 | `--experimentalScreencast` (chrome-devtools MCP) | No | Enables `screencast` web-clip capture; without it, web scenes fall back to screenshots. |
 | `asciinema` + `agg` | No | Optional true terminal-clip recording for CLI scenes; without them, CLI scenes use the authored-terminal path. Install: `brew install asciinema agg` (macOS) · `apt install asciinema && cargo install --git https://github.com/asciinema/agg` (Debian/Ubuntu). See [`patterns/cli-terminal-capture.md`](patterns/cli-terminal-capture.md) for the full recording workflow. |
@@ -296,8 +296,8 @@ existing skill directories for `SKILL.md` changes; other agents may require a re
    ```
 
    Optional, and never done for you: sign in to HeyGen (`heygen auth login --oauth`, or set
-   `HEYGEN_API_KEY`). It unlocks the `media-use` engine's HeyGen voice route — the one that
-   returns word timestamps — plus catalog music and SFX.
+   `HEYGEN_API_KEY`). It lets the `media-use` engine retrieve a catalog music bed and sound
+   effects; it does not change the confirmed voice (see § Voices).
    `./scripts/check_requirements.sh` reports it as `heygen-credential` and degrades without it.
 
 2. **Start the skill:**
@@ -359,33 +359,43 @@ Use the invocation syntax from the compatibility table above.
 
 These four ElevenLabs voices remain the user-facing voice contract. Phase 5 synthesizes them
 through the `media-use` audio engine's ElevenLabs route (the deprecated local script is the
-offline fallback); that route returns no word timestamps, so caption timing comes from
-transcription.
+offline fallback). Caption timing does not come from the voice route at all, on any provider:
+Phase 5 transcribes the *assembled* `voiceover.mp3` with `npx hyperframes transcribe`, because
+that is the only place the times are composition-absolute.
 
 **Local option (Kokoro-82M):** choose Kokoro during Phase 1 for no-key local TTS with 54 voices across 8 languages (e.g. `af_nova`, `af_heart`). List them with `npx hyperframes tts --list`; the full catalog is the `media-use` skill's TTS_LOCAL capability (resolved through [`compat/ecosystem.md`](compat/ecosystem.md)). A missing ElevenLabs key never changes a confirmed provider — and neither does the presence or absence of a HeyGen sign-in.
 
 ## Music Strategy
 
-No bundled audio files. Three confirmable sources, plus a delegated path not yet confirmable:
+No bundled audio files. Four confirmable strategies — `music_strategy` in the Creative Brief:
 
-1. **Freesound API** — the confirmed music source today: search Creative Commons
-   music by mood/genre, filter by duration and license, use the `preview-hq-mp3` URL directly
-   (requires `FREESOUND_API_KEY`, free at
+1. **`freesound`** — search Creative Commons music by mood/genre, filter by duration and license,
+   use the `preview-hq-mp3` URL directly (requires `FREESOUND_API_KEY`, free at
    [freesound.org/apiv2/apply](https://freesound.org/apiv2/apply/)). Attribute CC-BY tracks in
-   `CREDITS.md`.
-2. **User-provided** — Bring your own MP3 or URL
-3. **No music** — Voiceover only
+   `CREDITS.md`. The recorded `source` is the exact `freesound.org` track URL carrying its numeric
+   sound ID.
+2. **`delegated`** — a bed the `media-use` audio engine retrieved from a provider catalog or
+   generated locally. Phase 5 asks which of the two routes runs, because they carry different
+   licensing. There is no public page to link and a presigned download URL expires, so the recorded
+   `source` is a provenance URI instead:
+   `<skill-name>:<capability>?mode=<retrieve|generate>&query=<url-encoded request>#sha256=<64 hex>`
+   — who produced it, by which route *actually* taken, from which request, and which bytes came
+   out. `prompt=` replaces `query=` for a full generation prompt; exactly one of the two is
+   required. The digest is the SHA-256 of the file at `path`, so the record stays checkable offline
+   years later with `shasum -a 256 background-music.mp3`. `license` is still required and still
+   yours to state — a generated bed is not automatically unencumbered.
+3. **`user-provided`** — bring your own MP3 or URL; the recorded `source` is the literal
+   `user-provided`.
+4. **`none`** — voiceover only.
 
-The `media-use` audio engine can also retrieve or generate a bed, and Phase 5 uses it for
-narration and SFX today — but it cannot yet be the *confirmed* music source. The Creative Brief
-pins a music track to an exact Freesound URL or the literal `user-provided`, and a delegated
-track satisfies neither, so it cannot pass the audio gate. Widening that vocabulary is a brief
-change (**M4**); until then music routes through the strategy you actually confirmed.
+Never record a delegated track as `user-provided`: that repurposes a Phase-1 answer you gave before
+any candidate existed, and erases the only machine-checked provenance the brief carries.
 
-The strategy is confirmed with the story brief. Whatever produced the candidate — catalog
-retrieval, local generation, Freesound, or your own file — Phase 5 separately confirms the exact
-track (title, project path, source, and license) or explicit `none`; no track is mixed or rendered
-before that confirmation. A generated or retrieved suggestion is a candidate, never the answer.
+The strategy is confirmed with the story brief. Whatever produced the candidate — catalog retrieval,
+local generation, Freesound, or your own file — Phase 5 separately confirms the exact track (title,
+project path, source, and license) or explicit `none`; no track is mixed or rendered before that
+confirmation, on **every** strategy including `delegated`. A generated or retrieved suggestion is a
+candidate, never the answer.
 
 ## Creative Brief validation
 
@@ -413,6 +423,55 @@ Story-field changes stale Phase 1–5. Changing only `final_music_track` stales 
 For pre-schema projects, `status --json` reports `migration_required: true`; migration preserves
 the old plan, inserts placeholders atomically, and returns to the user-owned Phase-1 prompts.
 
+## Storyboard format
+
+Phase 1 writes `storyboard.md` in the **official HyperFrames storyboard format**: YAML frontmatter,
+one `## Frame N — Title` section per frame, `- key: value` metadata bullets, free prose below them.
+Frames are numbered 1-based the way the finished video labels them, while scene *files* stay 0-based
+(`scenes/00-…`). Adopting that shape is what makes the plan reviewable with the ecosystem's own
+tooling — the upstream storyboard parser, the Studio contact-sheet board, and the structured
+per-frame comment sidecar `.hyperframes/frame-comments.json` that a review round writes on submit
+and the next round deletes.
+
+Everything the official key set has no home for rides along as ordinary bullets: the director keys
+(Phase 1's recorded per-frame reasoning), the capture bindings, and this skill's own film-level
+fields such as `content_mode` and `emotional_journey`. The parser preserves unknown keys verbatim
+under a frame's `extra`, which is the only reason they survive. That guarantee is load-bearing
+enough to be tested rather than trusted: `test/unit/test_storyboard_extra_keys.py` round-trips every
+director key through an upstream parser and fails if one is dropped, altered, or captured by a newly
+official key — see the `STORYBOARD_EXTRA_KEYS` probe in
+[`compat/ecosystem.md`](compat/ecosystem.md).
+
+**Older projects keep working.** Nothing in the pipeline is gated on the storyboard's shape, so a
+project created before this format still resumes untouched. Ask the validator which shape a project
+is in, and convert only if you want to:
+
+```bash
+python3 /path/to/hve-video-director/scripts/validate_brief.py \
+  --project-dir ./my-video storyboard --json
+# Converts a pre-adoption storyboard — only when you ask. The original is preserved
+# alongside the converted file, and a legacy line with no official home becomes an
+# extra bullet rather than a guessed value.
+python3 /path/to/hve-video-director/scripts/validate_brief.py \
+  --project-dir ./my-video migrate-storyboard
+```
+
+### Why `BRIEF.md` is deliberately *not* adopted
+
+The ecosystem also publishes a brief format and, with it, a brief **contract**: a run-shape
+derivation that decides how collaborative or autonomous a run should be, and that explicitly *skips
+questions the request already answers*. This skill does the opposite — it recommends but never
+preselects, and never infers an answer you did not give. Adopting the official brief would import a
+contract that contradicts that promise, so `project-plan.md` stays the Creative Brief and the single
+record of the levers you own, and the validator is never re-pointed at `BRIEF.md`.
+
+The storyboard was adopted precisely because it is not that kind of document: it *describes the
+film*, it does not record consent. One visible consequence — the storyboard's frontmatter never
+carries `mode`, which upstream reserves for that interaction mode; this skill's promo / showcase /
+tutorial choice lives in `content_mode`. The full reasoning sits on the `BRIEF_FORMAT` and
+`BRIEF_CONTRACT` rows of [`compat/ecosystem.md`](compat/ecosystem.md); read it before "finishing the
+job", because completing the adoption would quietly replace the consent model.
+
 ## Project Structure
 
 When hve-video-director creates a video project, it generates:
@@ -424,7 +483,10 @@ my-video-project/
 │   ├── brief-state.json      # Atomic confirmation fingerprints + phase freshness stamps
 │   └── captions-state.json   # Final-audio/review/output caption fingerprints
 ├── context.md                # Product context from Phase 0
-├── storyboard.md             # Scene-by-scene plan from Phase 1
+├── storyboard.md             # Frame-by-frame plan from Phase 1, in the official
+                              # HyperFrames storyboard format (see § Storyboard format)
+├── .hyperframes/
+│   └── frame-comments.json   # Only while a Studio frame-review round is open
 ├── DESIGN.md                 # Design contract from Phase 3 (palette, type, motion)
 ├── public/
 │   └── screenshots/          # App captures from Phase 2
@@ -492,14 +554,16 @@ hve-video-director/
 │   ├── caption_gen.py             # ASR drafts → reviewed, audio-bound final caption sidecars
 │   ├── capture_screen.py          # native screen/region capture orchestrator (silent)
 │   ├── stitch_clip.py             # normalize/stitch captures to the CFR30 clip contract
-│   ├── validate_brief.py           # Creative Brief validation + fingerprint state
+│   ├── mix_clip_audio.py          # mix one clip's own audio into the soundtrack + duck the VO
+│   ├── validate_brief.py          # Creative Brief validation, fingerprint state, storyboard read
 │   ├── search_music.py            # deprecated fallback (removed in M6): Freesound CC music search
 │   └── check_requirements.sh      # JSON/plan preflight + consent-scoped safe fixes
 ├── test/
 │   ├── run.sh                     # stdlib unit/integration test entrypoint
 │   └── unit/                      # caption, capture, requirements, onboarding, brief and resolver tests, plus:
 │       ├── test_compat_pointers.py # pointer validity — compat/ecosystem.md is the only holder of upstream paths
-│       └── test_director_keys.py  # docs-as-contract — director keys + the capability-tag vocabulary
+│       ├── test_director_keys.py  # docs-as-contract — director keys + the capability-tag vocabulary
+│       └── test_storyboard_extra_keys.py # behavior probe — director keys survive the official storyboard format
 ├── example/                       # The skill's own promo, built by the skill itself
 │   ├── (out/final.mp4)           # 53s rendered demo (1920×1080, 18 MB) — not committed; regenerable build artifact (attached to the v0.1.0 release)
 │   ├── voiceover.py               # Project-local script with the actual VO timing config

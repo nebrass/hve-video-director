@@ -738,6 +738,22 @@ collect_checks() {
       "gsap skill — not found (recommended)"
   fi
 
+  capture_exact found find_skill_home motion-doctrine 2>/dev/null || found=""
+  if [ -n "$found" ]; then
+    add_check motion-doctrine-skill "motion-doctrine skill" recommended ready "4" \
+      "found in $found; the seam law, the master-seam stamper, and the numeric seam gate are available to Phase 4" \
+      "" manual-online "" \
+      "npx --yes skills add heygen-com/hyperframes --global --yes" \
+      "Companion skills (Phase 4 seams)" "motion-doctrine skill ($found)"
+  else
+    add_check motion-doctrine-skill "motion-doctrine skill" recommended degraded "4" \
+      "not found in any canonical skill home; Phase 4 hand-authors every transition and must report each boundary as unverified" \
+      "" manual-online "" \
+      "npx --yes skills add heygen-com/hyperframes --global --yes" \
+      "Companion skills (Phase 4 seams)" \
+      "motion-doctrine skill — not found (Phase 4 seams are hand-authored and go unverified)"
+  fi
+
   capture_exact found find_skill_home media-use 2>/dev/null || found=""
   if [ -n "$found" ]; then
     add_check media-use-skill "media-use skill" recommended ready "5" \

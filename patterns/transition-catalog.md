@@ -2,7 +2,8 @@
 
 **What this file owns:** *which* transition serves *which* moment in a product video, and how much
 transition energy one film may spend. That is a directorial judgment about product-video pacing,
-and it is the only thing left here.
+and it is nearly all that is left here — the exception is one markup prohibition (§ The markup rule
+with no upstream owner) that no upstream page states and no other file in this repo carries.
 
 **What it does not own:** the mechanics. How a seam is constructed, how two scenes composite across
 it, what parameters a named seam takes — every one of those has an upstream owner now (§ Where the
@@ -86,6 +87,29 @@ a product video:
   uniform smear.
 - **Lens flare** — renders as a visible *shape* rather than an optical artifact.
 - **Hinge / door** — distorts far too fast to read at product-video pacing.
+
+## The markup rule with no upstream owner
+
+Local law, and the one piece of mechanism this file still states — because nobody else states it.
+`hyperframes-core` → `DATA_ATTRIBUTES` gives the *positive* form (`class="clip"` is **required** on
+a visible timed element, and such clips must be direct children of their composition root;
+`<video>` and `<audio>` are exempt), and `SUB_COMPOSITIONS` gives which attributes a host slot
+carries versus the attributes of the loaded file's own root. Neither states the prohibition those
+two imply for this skill's file layout, and a builder who reads only the positive form marks a
+scene root as a clip:
+
+- **A scene file's own root `<div>` is not a clip.** No `class="clip"`, no `data-start`, no
+  `data-duration` on it — it carries `data-composition-id` + `data-width` + `data-height`, and
+  that is all. A scene's *timing* is declared exactly once, on its loader slot in the root
+  `index.html`. Timing attributes on a scene root declare a window nothing renders by
+  (`DATA_ATTRIBUTES` explains why an element that is not a direct child of the composition root is
+  never registered as a clip), so the scene reads as if it owned its own window while only the
+  loader's window is real — every gate stays green, and the two numbers drift apart the first time
+  one of them changes.
+
+The single exception is the `<video>` inside a clip scene, which **does** carry its own
+`data-start`/`data-duration`/`data-media-start`/`data-track-index` and must never be stripped. That
+contract is owned by `workflows/phase-3-design.md` § Clip scene and is not restated here.
 
 ## Where the mechanics live
 

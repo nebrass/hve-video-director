@@ -87,7 +87,10 @@ to be present. An invalid value routes back to Phase 1.
 
 Read the main composition for each scene's exact start, end, and on-screen content, then write one
 section per scene: reference what is on screen, start ~1s after the scene starts, end ~0.5s before
-it ends, and speak the same stat the visual shows. Two failure modes cost real re-renders here:
+it ends, and speak the same stat the visual shows. **Start from the storyboard's own line** — each
+frame's `voiceover` bullet is the narration the user accepted in Phase 1; fit it to the real
+window rather than writing a fresh line, and say so if a beat needs rewording to fit. Two failure
+modes cost real re-renders here:
 
 - **Acronyms.** TTS runs space-separated capitals together as a phonetic blob — "H V E" renders as
   "Sage V E". Write them phonetically: `Aitch Vee Ee`, `A I`, `ay pee eye`, `sass`, `earl`. Periods
@@ -100,8 +103,8 @@ it ends, and speak the same stat the visual shows. Two failure modes cost real r
   later section early.
 
 For a clip scene the window is footage-derived (Phase 4), not VO-derived: fit the VO to the existing
-window, never stretch the clip. **Clip-own audio is opt-in** — default `Clip audio: none` (clips
-muted, only `voiceover-with-music.mp3` plays); a scene that sets `Clip audio: <volume>` gets its
+window, never stretch the clip. **Clip-own audio is opt-in** — default `clip_audio: none` (clips
+muted, only `voiceover-with-music.mp3` plays); a frame that sets `clip_audio: <volume>` gets its
 sound mixed in with the VO ducked under it (Step 5.3a).
 
 ### Prepare the canonical timing assembler
@@ -210,8 +213,8 @@ pauses; regenerate and re-verify. **Repeat until ZERO overlaps. Do NOT ask the u
 If the content-mode is `tutorial`, on-screen VO captions are **mandatory on every footage segment**
 (spec §7.2) and this **intentionally overrides** the default-optional policy in `patterns/INDEX.md`.
 Silence-only segments are exempt, as are segments whose on-screen copy already renders the spoken
-line verbatim (a recap beat, a step title card) — mark those `Captions: carried` on the storyboard
-scene so the skip is a recorded choice, not an oversight. In promo/showcase captions stay optional.
+line verbatim (a recap beat, a step title card) — mark those `captions: carried` on the storyboard
+frame so the skip is a recorded choice, not an oversight. In promo/showcase captions stay optional.
 
 Captions are a HyperFrames caption sub-comp synced to `transcript.json` — see `media-use` →
 `CAPTIONS_AUTHORING` (the GROUPS mechanism) and `TRANSCRIPT_HANDLING` for turning word timings into
@@ -219,8 +222,9 @@ cues, plus the Phase-3 caption-track recipe.
 
 Orchestrator enforcement before render (tutorial mode) — do not advance until all hold:
 1. `transcript.json` exists and passed the timing check.
-2. Every footage scene with VO has a caption track, UNLESS its storyboard marks `Captions: carried`
-   or the window is silence-only. A bare `Captions: auto` scene with VO and no track still blocks.
+2. Every footage scene with VO has a caption track, UNLESS its storyboard frame marks
+   `captions: carried` or the window is silence-only. A frame left at `captions: auto` with VO and
+   no track still blocks.
 3. Each caption group has a hard `tl.set(... {opacity:0, visibility:"hidden"}, group.end)` kill (the
    `CAPTIONS_AUTHORING` `[caption-lint]` self-check warns otherwise).
 
@@ -236,24 +240,108 @@ Follow the user's confirmed `music_strategy`; never silently fall back to anothe
 strategy cannot run, return to the Phase-1 music prompt, update the Creative Brief, and reconfirm
 the story — music strategy is a story field, so changing it stales Phase 1–5.
 
-Whatever finds the candidate, the user confirms the exact track before anything is copied, mixed,
-encoded, or rendered.
+Whatever finds the candidate, the user confirms the exact track before it becomes the soundtrack —
+before it is copied to `background-music.mp3`, mixed, encoded, or rendered.
 
-### Delegated retrieval — available, not yet recordable
+### Delegated strategy
 
-`media-use` → `BGM` is the intended acquisition route: one bed per composition, retrieved from the
-provider catalog when credentialed and generated locally otherwise, driven by the same engine and
-request as the voiceover (`bgm: { mode, query }`, run with `--only bgm`).
+`media-use` → `BGM` produces one bed per composition from the same engine and request as the
+voiceover, by one of two routes: **retrieve** it from the provider catalog (needs a HeyGen
+credential — `scripts/check_requirements.sh` reports it as `heygen-credential`) or **generate** it
+locally. The two carry different licensing, which is what makes the route a user choice rather than
+an implementation detail, and why `BGM`'s own preflight rule is that a missing credential is never
+a silent license to generate. An empty `$MEDIA_SKILL_DIR` means this strategy cannot run at all:
+say so and return to the Phase-1 music prompt rather than substituting another strategy.
 
-**It cannot be the confirmed source yet, and the blocker is local.** `music_strategy` accepts only
-`freesound | user-provided | none`, and `scripts/validate_brief.py` pins a `freesound` track to an
-exact `freesound.org` URL carrying its numeric sound ID, and a `user-provided` track to the literal
-source `user-provided`. A delegated track satisfies neither, so it cannot be written to
-`final_music_track` and cannot pass the audio gate. Do **not** record one as `user-provided`: that
-repurposes a Phase-1 answer the user gave before any candidate existed and erases the only
-machine-checked provenance the brief carries. Unblocking it is a brief-vocabulary change (Phase-1
-prompt + `templates/project-plan.md` + `scripts/validate_brief.py` + its tests, moved together) —
-**M4**, the brief milestone. Until then, route by the strategy the user actually confirmed.
+Ask before running the engine — recommend a route, never preselect one:
+
+```json
+{
+  "questions": [{
+    "question": "Which route should produce the delegated music bed?",
+    "header": "Music route",
+    "options": [
+      { "label": "Retrieve from catalog", "description": "Needs a HeyGen credential. The bed comes from the provider catalog, under the catalog's terms." },
+      { "label": "Generate locally", "description": "No credential needed. You state the license the local generator's terms impose." },
+      { "label": "Change music strategy", "description": "Return to the Phase-1 music prompt; nothing is produced." }
+    ],
+    "multiSelect": false
+  }]
+}
+```
+
+Add the answered route to `audio_request.json` as an **explicit** `mode`, then run the engine for
+the bed alone. Never omit `mode`: an omitted mode is the engine's auto route, which picks by
+whichever credential happens to be present — the same objection as the voice provider in Step 5.1,
+and here it also destroys the record, because `auto` is a request, not provenance. Send exactly one
+of `query` (a mood, derived from the storytelling phase) or `prompt` (a full generation prompt), so
+the request behind the track stays unambiguous.
+
+```json
+{
+  "bgm": { "mode": "retrieve", "query": "calm cinematic underscore" }
+}
+```
+
+```bash
+# Reuse $ENGINE from Step 5.0. --only bgm keeps this call to the music bed.
+node "$ENGINE" --request ./audio_request.json --hyperframes . --out ./audio_meta.json --only bgm
+```
+
+Generation runs detached, so the file is not on disk when the engine returns — run `BGM`'s
+wait/status step and require a ready status before reading anything.
+
+**No candidate is not a fallback.** A skipped retrieval (an explicit `retrieve` with no credential),
+a failed generation, or an empty bgm cue means the delegated strategy produced nothing. Upstream
+treats that as harmless because a missing bed never blocks *its* render; here it is a story-field
+problem, not a render problem. Do not substitute Freesound and do not carry on without music —
+carrying on is a silent switch to `music_strategy: none`. Report what happened and return to the
+Phase-1 music prompt.
+
+**The bytes exist before confirmation, and the gate is unchanged.** A delegated bed has no catalog
+page to preview, so the candidate *is* the file the engine wrote under `assets/bgm/`. That is
+candidate production — the counterpart of a Freesound search result — and it is not the soundtrack.
+Nothing reaches `background-music.mp3`, a mix, an encode, or a render until the exact-track
+confirmation below has passed `require audio`.
+
+**Record the route that ran, not the route you asked for.** `audio_meta.json`'s bgm cue reports the
+`mode` actually taken, the request behind it, and the file written. Build `source` from the cue; if
+it differs from what you sent, the cue is what gets recorded and what you tell the user.
+
+```bash
+BGM_PATH=assets/bgm/track.mp3            # bgm cue: path (the generate route writes .wav)
+BGM_MODE=retrieve                        # bgm cue: mode — the route that RAN
+BGM_KEY=query                            # query, or prompt when that is what produced it
+BGM_REQUEST="calm cinematic underscore"  # bgm cue: the request text, verbatim
+
+python3 - "$BGM_PATH" "$BGM_MODE" "$BGM_KEY" "$BGM_REQUEST" <<'PY'
+import hashlib, pathlib, sys, urllib.parse
+path, mode, key, request = sys.argv[1:5]
+digest = hashlib.sha256(pathlib.Path(path).read_bytes()).hexdigest()
+print(f"media-use:bgm?mode={mode}&{key}={urllib.parse.quote(request, safe='')}#sha256={digest}")
+PY
+```
+
+Paste that line verbatim into `final_music_track.source`. Both halves are hand-editing hazards the
+validator rejects: the digest is 64 lowercase hex characters of the exact bytes (a shortened one
+fails), and the request is URL-encoded so an `&` or a `#` in the mood cannot truncate the record.
+
+Fill the other three fields honestly:
+
+- `path` — `background-music.mp3`, the file the confirmed digest must still describe after
+  materialization below.
+- `title` — a human-readable name: the catalog track's title, or the mood the bed was generated
+  from.
+- `license` — required, and never invented. On `retrieve` the bytes came from the catalog, so the
+  catalog's terms are what apply and the user confirms them with the track. On `generate` the cue
+  records *that* generation ran, not which local backend ran it, and the backends do not share
+  terms — ask the user which license applies before writing the field. A guessed license is a
+  fabricated provenance record.
+
+Never record a delegated track as `user-provided`: that repurposes a Phase-1 answer the user gave
+before any candidate existed and erases the only machine-checked provenance the brief carries. The
+engine's request-side `mode: none` is likewise not a delegated outcome — no music is
+`music_strategy: none`, chosen in Phase 1.
 
 ### Freesound strategy
 
@@ -349,15 +437,41 @@ Any nonzero exit blocks all track download/copy, mixing, encoding, and rendering
 changes only `final_music_track`, the audio fingerprint changes and only the Phase-5 stamp becomes
 stale; Phase 1–4 remain fresh.
 
-Only after `require audio` passes, materialize the confirmed track — `curl -sL
-"<confirmed-preview-hq-mp3-url>" -o background-music.mp3` for Freesound (previews are sufficient for
-a soundtrack; full-quality downloads need OAuth2), or `cp "<confirmed-user-path>"
-background-music.mp3` for a user-provided file. If the confirmed track is CC-BY rather than CC0,
-write `CREDITS.md`:
+Only after `require audio` passes, materialize the confirmed track into `background-music.mp3`:
+
+- **Freesound** — `curl -sL "<confirmed-preview-hq-mp3-url>" -o background-music.mp3` (previews are
+  sufficient for a soundtrack; full-quality downloads need OAuth2).
+- **User-provided** — `cp "<confirmed-user-path>" background-music.mp3`.
+- **Delegated** — copy the cue's file, a **byte copy and never a re-encode**. Re-encoding changes
+  the bytes, so the confirmed `sha256` stops describing the file at `path` and the record's only
+  checkable claim is gone. The `generate` route writes a WAV; copy it under the `.mp3` name anyway
+  — ffmpeg probes by content, so the extension is cosmetic here where the digest is not. Then
+  re-verify:
+
+```bash
+cp assets/bgm/track.mp3 background-music.mp3     # the bgm cue's path; may be .wav
+python3 -c "import hashlib,pathlib;print(hashlib.sha256(pathlib.Path('background-music.mp3').read_bytes()).hexdigest())"
+# must equal the sha256 in the confirmed final_music_track.source
+```
+
+A mismatch means the confirmed record no longer describes the file that would be mixed. Re-run the
+confirmation on the real bytes; never edit the brief to match a file you changed after it was
+confirmed.
+
+If the confirmed license requires attribution — a CC-BY Freesound track, or a delegated bed whose
+stated terms ask for credit — write `CREDITS.md` in whichever form the strategy affords. A
+Freesound track has a public page to cite:
 
 ```
 Background music: "<track name>" by <username> (Freesound, <license>)
 URL: <track page URL>
+```
+
+A delegated bed has none, so credit the producer and route its provenance URI already records:
+
+```
+Background music: "<title>" (<license>)
+Provenance: <the confirmed final_music_track.source>
 ```
 
 ## Step 5.3: Audio Mixing
@@ -499,8 +613,8 @@ in the final soundtrack is a meaningful sound for caption purposes — Step 5.3b
 
 ## Step 5.3a: Clip-own audio (opt-in)
 
-Run only when a storyboard scene sets `Clip audio: <volume>` (not `none`). One reviewed script does
-the whole mix — trim → `Speed` → normalize → place, then the Step 5.2 sidechain with the roles
+Run only when a storyboard frame sets `clip_audio: <volume>` (not `none`). One reviewed script does
+the whole mix — trim → `speed` → normalize → place, then the Step 5.2 sidechain with the roles
 swapped (voice+music ducked under the clip) — and it replaces the canonical soundtrack atomically.
 
 **Every time value is in seconds.** Copy the scene's `data-start` out of `index.html` verbatim into
@@ -514,22 +628,61 @@ python3 "$SKILL_DIR/scripts/mix_clip_audio.py" public/clips/scene-03-demo.mp4 \
   --at 18.5 --volume 0.6
 ```
 
-- the clip path — storyboard `Clip:`
-- `--clip-in` / `--clip-out` — storyboard `Clip in/out`. `--clip-in` MUST equal the scene
-  `<video>`'s `data-media-start`, or the audio desyncs from the picture.
-- `--speed` — storyboard `Speed`; the script chains the `atempo` stages that factor needs.
+- the clip path — the frame's `clip` bullet
+- `--clip-in` / `--clip-out` — the frame's `clip_in` / `clip_out` bullets. `--clip-in` MUST equal
+  the scene `<video>`'s `data-media-start`, or the audio desyncs from the picture.
+- `--speed` — the frame's `speed` bullet; the script chains the `atempo` stages that factor needs.
 - `--at` — the scene's `data-start` **in seconds** (`18.5` is 18.5s, not 18.5ms).
-- `--volume` — the `Clip audio` value.
+- `--volume` — the `clip_audio` value.
 
 It refuses, before encoding anything, a clip that would not fit inside the soundtrack (the real
-failure: audio truncated at the end of the film), a window past the end of the clip, and any
-out-of-range argument. After mixing it re-checks the soundtrack length and that the placed window
-actually changed. Every refusal exits non-zero and leaves `voiceover-with-music.mp3` byte-identical
-— fix what the message names and re-run.
+failure: audio truncated at the end of the film), a window past the end of the clip, a clip that
+carries no audio stream at all, and any out-of-range argument. After mixing it re-checks the
+soundtrack length and that the placed window actually changed. Every refusal exits non-zero and
+leaves `voiceover-with-music.mp3` byte-identical — fix what the message names and re-run.
 
-Run once per opt-in clip (each pass rewrites the canonical file Step 5.4 reads), then re-run the
-`ebur128` check. Expected: ≈ -16 LUFS, true peak at or under -1 dBTP, and the ducked window audibly
-quieter under the clip's sound.
+### A second run for the same clip is refused
+
+Mixing one clip in twice is audible and afterwards **undetectable**: a mix cannot be subtracted, and
+no measurement distinguishes "this clip at 0.6" from "this clip at 0.6 plus this clip at 0.4". So
+each published mix is recorded beside the soundtrack in `voiceover-with-music.mp3.clip-mix.json` —
+the soundtrack's SHA-256 and duration, plus one entry per mix (the resolved clip path, its
+`--clip-in`/`--clip-out`, `--speed`, `--volume`, `--at`, and the play duration those imply). The mix
+and its record publish together or not at all: a record that cannot be written rolls the soundtrack
+back, and a failed run publishes neither.
+
+Three states are then refused, each before any encoding, so the soundtrack stays byte-identical:
+
+1. **This clip is already placed there.** A recorded pass of the *same* clip whose placed window
+   overlaps the requested one. Overlap, not an exact `--at` match — a mistyped retake (`18.5` →
+   `18.05`) is the same double mix — and it cannot false-positive, because one scene cannot play at
+   two overlapping points in the film.
+2. **The record no longer describes the soundtrack on disk.** Its SHA-256 has moved — a Step 5.2
+   rebuild, the sound-effect cues above, a constant `volume=<delta>dB` loudness pass — so nothing
+   can tell whether the recorded clip audio is still inside it.
+3. **The record is unusable** — unreadable JSON, an unexpected schema version, or an entry with no
+   usable clip path or placement.
+
+The guard never resets itself, and the message names the ways forward rather than picking one.
+Resolve a refusal by what actually happened:
+
+- **To change a clip's volume or window** — rebuild the soundtrack from Step 5.2 (voiceover +
+  music, before any clip audio) and mix every opt-in clip into it again. There is no re-mix in
+  place; the first pass is already baked in.
+- **If you rebuilt the soundtrack yourself** — delete `voiceover-with-music.mp3.clip-mix.json` and
+  re-run. Deleting it is safe: nothing but this guard reads it.
+- **`--force`** overrides those three refusals and **nothing else** — never the fit, window,
+  argument, or no-op checks. It layers a second copy of audio that no later step can detect or
+  subtract, so pass it only when that is deliberately what you want: on state 2, when you edited the
+  soundtrack yourself and the recorded clip audio is still inside (earlier entries are kept), or on
+  state 3, where the sidecar is rewritten from this pass alone and every earlier entry is lost.
+  Each prints a `Note:` on stderr saying exactly what it accepted. It is not the way past a refusal
+  you have not read.
+
+Run once per opt-in clip — each pass rewrites the canonical file Step 5.4 reads, and a second pass
+over the same clip and placement is refused rather than silently layered. Then re-run the `ebur128`
+check. Expected: ≈ -16 LUFS, true peak at or under -1 dBTP, and the ducked window audibly quieter
+under the clip's sound.
 
 ## Step 5.3b: Reviewed Closed-Caption Delivery (all modes)
 

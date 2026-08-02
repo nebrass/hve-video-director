@@ -15,6 +15,25 @@ python3 "$SKILL_DIR/scripts/validate_brief.py" \
 
 A nonzero exit routes to the earliest stale prior phase even when capture files exist.
 
+## Reading the storyboard
+
+Every frame value this phase needs — `src`, `duration`, `screenshot`, `clip`, `clip_in`,
+`clip_out`, `speed`, `chapter`, `step_label`, and the director keys — is a `- key: value` bullet in
+that frame's metadata block. Read them through the installed validator rather than by eye; it
+returns official fields and preserved `extra` bullets in one payload:
+
+```bash
+python3 "$SKILL_DIR/scripts/validate_brief.py" \
+  --project-dir "$PROJECT_DIR" storyboard --json
+```
+
+`format: official` is the shape Phase 1 writes. `format: legacy` is a project created before this
+shape: **it parses and it resumes** — nothing here is gated on the shape, and the payload presents
+legacy scenes in the same frame structure, so read it and carry on. If converting the file would
+genuinely help the user, present it as a choice and run `migrate-storyboard` only on an explicit
+yes; that command copies the original aside before writing and never deletes it. Never convert
+because it is tidier, and never write official bullets into a legacy-shape file.
+
 ## Step 3.1: Seed DESIGN.md (4 strategies)
 
 Use the identity path the user explicitly confirmed in Phase 1. Never substitute another path
@@ -323,14 +342,14 @@ from those attributes (Wiring S — render-verified). Two values matter:
   `patterns/transition-catalog.md`). If the video's track ends at the nominal clip length,
   the runtime hides it (`visibility:hidden`) during the transition and the outgoing scene
   shows an empty frame.
-- `data-media-start` = the storyboard's `Clip in` (trim offset into the source, seconds;
+- `data-media-start` = the frame's `clip_in` bullet (trim offset into the source, seconds;
   `0` if the whole clip is used). Without it the runtime plays from source `t=0`, the
-  `Clip in/out` trim is silently ignored, and the footage desyncs from Phase 5's
+  `clip_in` / `clip_out` trim is silently ignored, and the footage desyncs from Phase 5's
   clip-audio extraction (`CIN`).
-- Set the video's `defaultPlaybackRate` and `playbackRate` to the storyboard `Speed` before
+- Set the video's `defaultPlaybackRate` and `playbackRate` to the frame's `speed` bullet before
   registering the timeline. Reject values outside **0.1–5.0** (the HyperFrames runtime's
   supported range). Scene duration and clip-own audio both use the same value; leaving the
-  video at `1.0` desynchronizes footage whenever `Speed != 1`.
+  video at `1.0` desynchronizes footage whenever `speed != 1`.
 
 **Do not omit the contract**: the runtime only seeks
 videos that carry `data-start`, so a bare `<video>` is displayed but never time-synced — safe only
@@ -345,7 +364,7 @@ drop shadow, a vignette toward the brand canvas, a hidden OS cursor replaced by 
 pointer with a click pulse, and a color-grade toward the active design system's tokens. The
 `<video>` stays muted; clip-own audio, if enabled, is mixed separately in Phase 5 Step 5.3a.
 
-- **Tutorial mode:** layer a Step-Label / Chapter overlay (`patterns/visual-patterns.md` § Step Label / Chapter Overlay) so each instructional scene shows `Step N of M` + chapter title (spec §7.2c).
+- **Tutorial mode:** layer a Step-Label / Chapter overlay (`patterns/visual-patterns.md` § Step Label / Chapter Overlay) so each instructional scene shows `Step N of M` + chapter title, taken verbatim from that frame's `step_label` and `chapter` bullets — never re-derived from the frame number, which counts the cold open (spec §7.2c).
 
 ### Caption track for footage scenes (tutorial mode)
 
@@ -398,19 +417,40 @@ Then ask the user:
 }
 ```
 
+### Advance each built frame's `status`
+
+Once the user answers **Looks great**, every frame whose scene file you authored exists with its
+motion done, so advance that frame's `status` bullet from `outline` to `animated` — the rung the
+official format uses for a frame that is built and animated. This is the one write this phase makes
+into the user's own artifact, so it is narrow:
+
+- **A targeted edit to that single line, never a regenerate.** Rewriting the file would reorder
+  every frame's bullets; only the `status:` line changes. Never reflow other bullets, reorder
+  frames, or touch the prose.
+- Only on a storyboard the validator reports as `format: official`. Skip the update entirely on a
+  legacy-shape file; injecting official bullets into one is a migration, and migrations are
+  consent-gated.
+- Only for frames whose scene file you actually authored. Leave every other frame at the value it
+  already carries, and never mark a frame `animated` to make the board look finished.
+
+The official ladder has a middle rung, `built` (layout confirmed, motion not yet added). **This
+pipeline does not drive it**: Step 3.3 lays a scene out and animates it in the same pass, so a frame
+here is either still planned or finished.
+
 ## Output
 
 - `DESIGN.md` — design contract (palette, typography, shape, motion defaults)
 - `scenes/*.html` — brand-matched HyperFrames scene templates
 - `scenes/assets/` — any decorative assets (icons, brand marks) referenced by templates
+- `storyboard.md` — unchanged except for the `status` line of each frame built here
 
 Any Phase-2 artifacts already live at their storyboard-bound paths under `public/screenshots/`,
-`public/clips/`, or `scenes/`. An intentional no-product film with `Capture plan: none` has no
-Phase-2 directory requirement.
+`public/clips/`, or `scenes/`. An intentional no-product film whose frontmatter says
+`capture_plan: none` has no Phase-2 directory requirement.
 
 ## Checkpoint
 
-After the user accepts `DESIGN.md` and the scene templates, stamp Phase 3:
+With the scenes accepted and each built frame's `status` advanced (Step 3.3), stamp Phase 3:
 
 ```bash
 python3 "$SKILL_DIR/scripts/validate_brief.py" \

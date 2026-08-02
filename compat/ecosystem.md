@@ -48,11 +48,11 @@ pointer-validity suite on every `bash test/run.sh` where the ecosystem is instal
 | `TRACKS_AND_CLIPS` | `hyperframes-core` | `references/tracks-and-clips.md` | Track/clip timing rules — unique `data-track-index` for overlapping scenes, clip windows | Phase 4 Step 4.4 (scene overlap during a transition) |
 | `SUB_COMPOSITIONS` | `hyperframes-core` | `references/sub-compositions.md` | Mechanics of a `<template>`-wrapped sub-composition file loaded via `data-composition-src` | Phase 3 (every `scenes/*.html` is a sub-comp) |
 | `COMPOSITION_ARCHITECTURE` | `hyperframes-core` | `references/composition-patterns.md` | **Architecture**: monolithic vs modular, and the thin *Modular Orchestrator* `index.html` that declares slots, mounts audio, and registers a near-empty root timeline | Phase 4 root `index.html` wiring — this repo is always modular |
-| `STORYBOARD_FORMAT` | `hyperframes-core` | `references/storyboard-format.md` | `STORYBOARD.md` shape + the `StoryboardManifest` it parses into; unknown `- key: value` bullets are preserved under `extra` | M1 director keys (see `STORYBOARD_EXTRA_KEYS` probe); Phase 1 `storyboard.md` |
+| `STORYBOARD_FORMAT` | `hyperframes-core` | `references/storyboard-format.md` | `STORYBOARD.md` shape + the `StoryboardManifest` it parses into; unknown `- key: value` bullets are preserved under `extra` | **Adopted at M4** — this repo's `storyboard.md` *is* this shape (frontmatter, `## Frame N — Title`, `- key: value` bullets), so the upstream parser, the Studio board review and the `.hyperframes/frame-comments.json` sidecar all apply to it. Everything the official key set has no home for — the M1 director keys, the capture bindings, this skill's own frontmatter fields — rides in `extra`, which is what the `STORYBOARD_EXTRA_KEYS` probe guards. Phase 1 writes it; `templates/storyboard.md` is the local shape doc |
 | `FRAME_WORKER_CORE` | `hyperframes-core` | `references/frame-worker-core.md` | The workflow-agnostic frame-builder role: reveal paced across the frame's **full** duration (front-loading is the "PowerPoint slide" failure), the exit ban, and what `scene`/`voiceover`/`duration` mean to a builder | M1 `grammar/motion.md` (Reveal, Progressive disclosure, Exit discipline); Phase 3 scene direction |
 | `FULL_SCREEN_MOTION` | `hyperframes-core` | `references/full-screen-motion.md` | One shared continuous background layer + transparent timed content layers, instead of stacked opaque per-scene backgrounds | **Not wired today, and unclaimed** — no M1 module cites it. Registered purely so a continuous-background need resolves to this name instead of a new one. Drop the row if M2 still has no caller |
-| `BRIEF_FORMAT` | `hyperframes-core` | `references/brief-format.md` | `BRIEF.md` — the ecosystem's confirmed-intent document | M4 candidate: re-point `validate_brief.py` at the official artifact. **Not wired today** |
-| `BRIEF_CONTRACT` | `hyperframes-core` | `references/brief-contract.md` | Collaborative/autonomous run-shape derivation; skips questions the request already answers | Reference only — ADR-001 keeps this repo's consent doctrine instead. **Not wired** |
+| `BRIEF_FORMAT` | `hyperframes-core` | `references/brief-format.md` | `BRIEF.md` — the ecosystem's confirmed-intent document | **Deliberately NOT adopted — decided at M4, on ADR-001.** `project-plan.md` stays this skill's Creative Brief and the single record of the levers the user owns; `validate_brief.py` is not re-pointed at `BRIEF.md`. Registered so the name resolves here rather than being re-derived, and so the decision is found before someone "finishes the job". The reason is `BRIEF_CONTRACT` |
+| `BRIEF_CONTRACT` | `hyperframes-core` | `references/brief-contract.md` | Collaborative/autonomous run-shape derivation; skips questions the request already answers | **The reason `BRIEF_FORMAT` is not adopted.** Deriving a run shape and skipping questions the request already answers is the opposite of this skill's consent doctrine — recommend, never preselect; never infer an answer the user did not give (ADR-001). Adopting the brief would import a contract that contradicts the skill's central promise, which is why M4 adopted the *storyboard* (a description of the film) and not the brief (a consent record). **Not wired** — and its interaction `mode` is the one official storyboard frontmatter key this repo never writes |
 
 ### `hyperframes-animation` — motion recipes and transitions
 
@@ -243,6 +243,52 @@ not demand a fix it forbids.
 
 ---
 
+## Registered literal paths — where an upstream path is written out on purpose
+
+**A runnable command cannot indirect through a symbol.** `node "$DIR/$SEAM_VERIFIER"` resolves to
+nothing: a shell expands variables, not this map. So a workflow step that *runs* a skill-resident
+script has to spell the path out, and the prose rule above ("if a path appears there, that is the
+bug") would otherwise make every such step a violation. The sanction is explicit rather than
+implied, and this is where a maintainer learns which paths live in two places.
+
+Three call sites exist today, **all** in `workflows/phase-4-production.md`:
+
+| Literal written out | Registered as | Where it runs |
+|---|---|---|
+| `scripts/seam-stamp.mjs` | `SEAM_STAMP` (`motion-doctrine`) | Step 4.5 — stamp the master seams from the ledger |
+| `scripts/seam-gate.mjs` | `SEAM_VERIFIER` (`motion-doctrine`) | Step 4.5 (`probe` one boundary) and Step 4.6 (`verify` after `check`) |
+| `scripts/animation-map.mjs` | `ANIMATION_MAP` (`hyperframes-animation`) | Step 4.7 — animation-map verification |
+
+All three are skill-resident scripts with **no** `hyperframes <subcommand>` equivalent — the shape
+`ANIMATION_MAP_LOCATION` describes. That absence is the whole justification: a command upstream
+exposes through the CLI needs no literal, because the CLI's command names are stable and already
+live in § CLI surface.
+
+**The sanction is per-line, per-file, and fenced-code only.** The pointer-validity suite carries a
+`(repo-relative file, registered path)` allowlist; a literal is exempt only *inside* a fenced code
+block of exactly that file. Prose in the same file is checked like everywhere else — writing "run
+the seam gate at `scripts/seam-gate.mjs`" outside a fence is still a violation, and so is the same
+command in any other workflow. The exemption covers the registered path and its bare basename
+through one list, not two, so it cannot drift against itself.
+
+```bash
+# The registered pairs, and the only place they live:
+grep -n -A6 'RUNNABLE_PATH_ALLOWLIST' test/unit/test_compat_pointers.py
+```
+
+**Both halves are edited together.** Each call site carries the comment *"Live path — registered as
+`<SYMBOL>` in compat/ecosystem.md; if upstream moves it, edit both."* The registry row stays the
+authority; the literal is a copy of it. Only the row is checked for resolution, so an upstream move
+shows up here as a failing registry path, and the copy has to be repaired by hand from this list.
+
+**Adding a fourth is a cost, not a convenience.** It puts another copy of a churning path in the
+repo, and the suite can only prove the *registry* row resolves. Add one only when the command is
+genuinely runnable and upstream ships no CLI equivalent — never to quiet a sentence. `CONTRAST_REPORT`
+is the fourth script of this shape and is deliberately **not** on the list, because no workflow runs
+it in a fenced command today.
+
+---
+
 ## CLI surface
 
 Package: [`hyperframes`](https://www.npmjs.com/package/hyperframes) — invoked as `npx hyperframes
@@ -281,20 +327,51 @@ automated.
   set are "kept verbatim under the frame's `extra`", and unknown frontmatter keys under
   `globals.extra`. The parser is documented as **lenient**: it never throws and records anything
   surprising as a `warning`.
-- **Why it matters.** The M1 director-key mechanism rides entirely on this. If upstream ever
-  drops unknown keys, every frame silently loses its direction while `lint`, `check`, and the
-  seam gate all stay green — the exact failure class this compat layer exists to catch. A future
-  *strict* parser fails differently (throws / errors) and would at least be loud; a
-  *key-dropping* parser is the silent one.
-- **Probe.** Round-trip: write a storyboard containing custom keys → parse with the official
-  parser (`@hyperframes/core` → `./storyboard`, yielding `StoryboardManifest`) → assert each
-  custom key survives under `frames[].extra` / `globals.extra`.
-- **Status: MANUAL / DEFERRED — no automated probe exists.** `@hyperframes/core` is published on
-  npm (0.7.87 at time of writing) and does export the `./storyboard` subpath, but it is **not
-  resolvable in this repo** — there is no `node_modules`, and the `hyperframes` CLI package does
-  not bundle it. Automating this requires adding a dependency, which is a deliberate decision for
-  M1, not a side effect of M0.5. Until then: re-read `STORYBOARD_FORMAT` on every lock bump and
-  confirm the "any other key → `extra`" row still exists.
+- **Why it matters.** Since M4 adopted the official shape, *everything this skill knows about a
+  frame that upstream has no key for* rides on this: the director keys, the capture bindings, this
+  skill's own frontmatter fields. Two ways it breaks, both silent. Upstream **drops** unknown keys
+  and every frame loses its direction; or upstream **promotes** one of our key names into its own
+  official set, and the value is reinterpreted as upstream's field instead of preserved. `lint`,
+  `check` and the seam gate stay green through either — the exact failure class this compat layer
+  exists to catch. A future *strict* parser fails differently (throws / errors) and would at least
+  be loud; a key-dropping or key-capturing parser is the silent one.
+- **Probe — two halves, both automated.** `test/unit/test_storyboard_extra_keys.py`, inside
+  `bash test/run.sh`.
+  - **Round trip through an upstream parser.** Four installed ecosystem workflow skills —
+    `faceless-explainer`, `music-to-video`, `pr-to-video`, `product-launch-video` — each vendor a
+    dependency-free plain-JS port of the canonical parser at `scripts/lib/storyboard.mjs`, which
+    their own scripts run under plain `node`. The test discovers them **by export name**
+    (`parseStoryboard`) rather than by path, so a relayout inside those skills does not blind it;
+    it writes one frame carrying every director key, runs it through **every** copy found, and
+    asserts each key *and its value* comes back under `frames[].extra`, plus this skill's
+    frontmatter fields under `globals.extra`. Values are asserted, not just names — a parser that
+    kept keys and truncated values would pass a presence-only check — with the backticked
+    comma-separated `motion:` list and an embedded-colon `runtime_rejected:` as the hard cases.
+  - **Documented contract.** Reads `STORYBOARD_FORMAT` — resolved *through this map*, so the test
+    itself holds no upstream path — and asserts the per-frame key table still carries its catch-all
+    "unknown key → `extra`" row, the frontmatter section still names `globals.extra`, the published
+    `StoryboardManifest` still declares `extra`, and, the precise half, that **no director key has
+    appeared in the official per-frame key set**. Structural where phrasing would be brittle, exact
+    where the question is precise: a reworded guarantee must not fail, a collision must not pass.
+    Needs no `node` and no npm anything.
+- **Status: IMPLEMENTED — with one honest gap.** The round trip runs against an upstream-authored
+  **port**, not `@hyperframes/core` itself. Re-verified 2026-08-02: the canonical package is still
+  unreachable here. The repo has no `package.json` and no `node_modules`; `@hyperframes/core` is
+  not a dependency of the published `hyperframes` CLI package and appears in no npx cache. The CLI
+  *does* bundle the parser, but exposes it through **no subcommand** — it is absent from `--help`,
+  from `info --json` and from the dist command set, and the CLI entry module exports nothing. The
+  only execution route to the canonical parser is the Studio HTTP read API behind `preview`, which
+  needs a live server and therefore belongs in the same browser-gated tier as
+  `CHECK_DEPRECATION_SIGNAL`, not the stdlib suite. The port declares itself a faithful copy kept
+  in lockstep with core; a port/core divergence is the residual risk this probe does not cover, so
+  re-read `STORYBOARD_FORMAT` at every lock bump anyway.
+- **Residual limits.** Both halves skip when the ecosystem is not installed. The round trip also
+  skips with no `node` on PATH, and with it goes *alias* detection: an official alias (a synonym of
+  `scene:` or `voiceover:`) captures a bullet into a named field, which only the execution half
+  sees. The probed key set is the fourteen director keys, read from their single source
+  `reasoning/scene-analysis.md`; the capture bindings and frontmatter fields owned by
+  `templates/storyboard.md` are exercised only as a representative sample, so a collision against
+  one of those is caught by the execution half and not by the documented-contract half.
 
 ### `CHECK_DEPRECATION_SIGNAL` — deprecation is machine-detectable
 

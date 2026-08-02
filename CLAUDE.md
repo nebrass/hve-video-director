@@ -11,7 +11,7 @@ The renderer is **HyperFrames** (HTML + GSAP, rendered via headless Chromium). R
 Two things to keep distinct:
 
 - **This repo** — the skill definition (`SKILL.md`, `reasoning/`, `grammar/`, `workflows/`, `templates/`, `patterns/`, `scripts/`, `design-systems/`, `compat/`) plus the canonical demo (`example/`). Edits here change behavior for *all* users.
-- **Generated video projects** — created by the skill at runtime in `{project-dir}/`. They contain `project-plan.md`, `.hve/brief-state.json`, `context.md`, `storyboard.md`, `DESIGN.md`, `public/screenshots/`, `scenes/*.html`, `index.html` (root HyperFrames composition), `voiceover.mp3`, `out/final.mp4`. These do not live in this repo (except `example/`, which is *this skill's own* generated project, committed as the reference build).
+- **Generated video projects** — created by the skill at runtime in `{project-dir}/`. They contain `project-plan.md`, `.hve/brief-state.json`, `context.md`, `storyboard.md` (the official HyperFrames storyboard shape since M4 — see below), `DESIGN.md`, `public/screenshots/`, `scenes/*.html`, `index.html` (root HyperFrames composition), `voiceover.mp3`, `out/final.mp4`, and — only while a Studio review round is open — `.hyperframes/frame-comments.json`. These do not live in this repo (except `example/`, which is *this skill's own* generated project, committed as the reference build).
 
 ## Architecture
 
@@ -49,6 +49,38 @@ SYMBOL through `compat/ecosystem.md` (ADR-007). Capability derivation is mechani
 call (ADR-005), and a user's explicit creative instruction still overrides any derived verdict
 (ADR-001, `user_directed: true`).
 
+**The storyboard is the official format. The brief deliberately is not.** M4 adopted
+`STORYBOARD_FORMAT` for the generated `storyboard.md`: YAML frontmatter, one `## Frame N — Title`
+section per frame, `- key: value` metadata bullets, free prose below them. Frames are 1-based while
+scene *files* stay 0-based, so frame 1's `src` is `scenes/00-…`. Adopting the shape buys the
+upstream parser, the Studio contact-sheet review, and the structured
+`.hyperframes/frame-comments.json` feedback channel. Everything the official key set has no home
+for — the director keys, the capture bindings, this skill's own frontmatter fields — rides along as
+ordinary bullets and is preserved verbatim under the parser's `extra`. That preservation is the
+load-bearing assumption of the whole format; the `STORYBOARD_EXTRA_KEYS` behavior probe in
+`compat/ecosystem.md` guards it, and as of M4 it is automated in `bash test/run.sh`. Local shape
+doc: `templates/storyboard.md`.
+
+`BRIEF_FORMAT` (`BRIEF.md`) was **NOT** adopted, and that is a decision, not an omission. Its
+companion `BRIEF_CONTRACT` derives a collaborative/autonomous run shape and explicitly *skips
+questions the request already answers*. This skill's consent doctrine is the opposite — recommend,
+never preselect; never infer an answer the user did not give (ADR-001) — so adopting the brief
+would import a contract that contradicts the skill's central promise. `project-plan.md` therefore
+remains this skill's Creative Brief and the single record of the levers the user owns. The
+storyboard is different only because it is a *description of the film*, not a consent record. Two
+consequences that are easy to undo by accident:
+
+- **Never write `mode:` into storyboard frontmatter.** Upstream reserves that key for the
+  interaction mode of the run-shape contract above. The content mode lives in `content_mode`.
+- **Never re-point `scripts/validate_brief.py` at `BRIEF.md`.** A milestone that wants the official
+  brief must replace the consent doctrine first, which is an ADR-001 change reviewed as such.
+
+**No generated project is ever stranded or rewritten.** Nothing is gated on the storyboard's shape:
+a project written before M4 still resumes. `validate_brief.py storyboard --json` reports which
+shape a project is in, and `migrate-storyboard` converts one **only when the user asks**,
+preserving the original alongside the converted file. Migration is additive; a legacy line with no
+official home becomes an extra bullet rather than a guessed value.
+
 **Phase prerequisites are enforced in `jump` mode** — see `SKILL.md`. When editing workflows, preserve the file-presence contract:
 - Phase 1 needs `context.md`
 - Phase 2 needs `context.md` + `storyboard.md`
@@ -70,7 +102,7 @@ call (ADR-005), and a user's explicit creative instruction still overrides any d
 - `scripts/capture_screen.py` → fixed-duration, silent native desktop/region capture orchestrator (pure stdlib). Uses macOS `screencapture`, Windows `gdigrab`, X11 `x11grab`, or feature-detected Wayland `wf-recorder`; WSL and unavailable Wayland return explicit recording handoffs. It trims through sibling `stitch_clip.py`, validates duration/frame count within one frame, and uses `<clip>.capture.pending` + fingerprinted `<clip>.capture.json` state so failed retakes preserve prior valid media but cannot count as complete.
 - `scripts/mix_clip_audio.py` → mixes one clip's own audio into the canonical soundtrack (trim → speed → loudnorm → volume → placement, then a sidechain duck under the clip). Pure stdlib, argv-only ffmpeg. Validates its inputs, refuses a placement whose audio would be truncated at the film's end, and replaces the soundtrack atomically only on success — a failed run leaves it byte-identical
 - `scripts/stitch_clip.py` → canonical normalizer/stitcher for raw captures (CFR30, H.264 High/yuv420p, even dimensions, no audio, `+faststart`) via the ffmpeg concat filter (pure stdlib)
-- `scripts/validate_brief.py` → parses the exact `project-plan.md` Creative Brief table, consent-migrates legacy plans with empty placeholders, confirms revision-bound story/audio fingerprints, atomically writes `.hve/brief-state.json`, stamps phases, and rejects stale prerequisites (pure stdlib)
+- `scripts/validate_brief.py` → parses the exact `project-plan.md` Creative Brief table, consent-migrates legacy plans with empty placeholders, confirms revision-bound story/audio fingerprints, atomically writes `.hve/brief-state.json`, stamps phases, and rejects stale prerequisites (pure stdlib). It also **reads** `storyboard.md` — read-only, and deliberately outside every fingerprint, because the storyboard describes the film while the brief records consent: `storyboard --json` reports the shape and frames, `migrate-storyboard` converts a pre-adoption file only on request and preserves the original alongside it
 - `scripts/search_music.py` → **deprecated fallback** (removed in M6): Freesound API for CC music, used in Phase 5 only when the `media-use` engine is unavailable. Whatever produces the candidate, the exact-track confirmation still gates the mix
 - `scripts/check_requirements.sh` → verifies the toolchain (node/python/ffmpeg/chrome-headless-shell/hyperframes CLI + companion skills + env vars). Default, `--json`, and `--plan` are side-effect-free; report modes never use online `npx` probes. `--fix=<id,id>` runs only selected safe user-scoped actions (`chrome-shell`, `hyperframes-skill`, `whisper`), while bare `--fix` retains all-safe behavior. System/sudo/environment actions are printed, never run. Its `SKILL_HOMES` line must stay in lock-step with the canonical list in `SKILL.md` (same parity rule as the Phase 3/5 resolvers).
 
@@ -169,6 +201,26 @@ These are enforced verbally in the `## DON'Ts` section of `SKILL.md` — except 
 - **Change the Creative Brief schema** → update `templates/project-plan.md`,
   `scripts/validate_brief.py`, `example/project-plan.md`, workflow field names, and validator tests
   together. Story fields stale Phase 1–5; only `final_music_track` is audio-only and stales Phase 5.
+  `music_strategy`'s vocabulary is `freesound` | `delegated` | `user-provided` | `none`, and each
+  pins `final_music_track.source` differently — the exact Freesound URL, a provenance URI, the
+  literal `user-provided`, or nothing at all. A **delegated** bed (retrieved from a provider catalog
+  or generated locally by another skill) has no public page to link and an expiring download URL, so
+  its source is a single-line
+  `<skill-name>:<capability>?mode=<retrieve|generate>&query=<url-encoded request>#sha256=<64 hex>`:
+  who produced it, by which route actually taken, from which request, and which bytes came out
+  (`shasum -a 256 <path>` re-checks it offline, years later). `prompt=` substitutes for `query=` on
+  a generation; exactly one of the two is required. Never record a delegated track as
+  `user-provided` — that repurposes a Phase-1 answer given before any candidate existed and erases
+  the only machine-checked provenance the brief carries. The exact-track confirmation gates the mix
+  on **every** strategy, delegated included.
+- **Change the storyboard format** → `templates/storyboard.md` is the shape doc copied into
+  generated projects; `reasoning/scene-analysis.md` owns the director keys; `STORYBOARD_FORMAT`
+  (through `compat/ecosystem.md`) owns the official keys, which this repo does not restate. A new
+  local key must not collide with an official one — `test/unit/test_storyboard_extra_keys.py` fails
+  if it does, because a colliding bullet is reinterpreted as upstream's field instead of preserved
+  under `extra`. Adding a *director* key is an architecture change (the key set is closed); adding a
+  capture binding also means updating `workflows/phase-1-storytelling.md`, the Phase-2/3 readers,
+  and the legacy mapping table in `templates/storyboard.md` so `migrate-storyboard` keeps round-tripping.
 - **Adjust prerequisite checks** → update `scripts/check_requirements.sh` and its stdlib tests. `SKILL.md` Phase -1 consumes `--json` only for direct/default `new` mode with no `project-plan.md`; explicit `continue`/`jump` skip it.
 - **Add a user-interaction prompt in a workflow** → write it as a neutral `{"questions":[...]}` block (the runtime-agnostic schema), introduced by plain prose ("ask the user…", "present selectable options…"). **Never name a picker tool** (`AskUserQuestion`, `ask_user`) or write a literal tool call inside a workflow — the per-runtime binding for the question schema, `Skill(<name>)`, and `multiSelect` lives in **one place**: `SKILL.md` § Runtime Compatibility. This is the "name actions, not tools" rule that keeps the phase content portable; a tool name hard-coded in a phase body is a portability regression. (Qualified MCP names like `mcp__chrome-devtools__*` are *not* a violation — they're identical across runtimes; the rule targets names that *differ* per runtime.)
 - **Change where the skill can be installed** (`$SKILL_HOMES`) → `SKILL.md` § Runtime Compatibility holds the canonical search list. The same `SKILL_ROOT=…` bootstrap and pipe-delimited `SKILL_HOMES="…"` line are repeated in the `SKILL.md` prereq probe, the `SKILL_DIR` resolver of `workflows/phase-3-design.md` + `workflows/phase-5-audio.md`, the `ANIM_SKILL_DIR` resolver of `workflows/phase-4-production.md` (Step 4.7), and `scripts/check_requirements.sh` (shell state can't cross the agent's separate bash calls, so the list is re-stated at each bootstrap point rather than sourced). The `|` delimiter plus `IFS='|'` preserves skill paths containing spaces. Keep all `SKILL_HOMES` lines byte-identical; verify with:

@@ -148,12 +148,18 @@ FIX = (
 # path out. Prose in the same file is still checked.
 #
 #   phase-4 Step 4.7 runs `node "$ANIM_SKILL_DIR/scripts/animation-map.mjs"`.
+#   phase-4 Steps 4.5/4.6 run `node "$DOCTRINE_SKILL_DIR/scripts/seam-stamp.mjs"`
+#     and `.../scripts/seam-gate.mjs` — same shape, same reason: both are
+#     skill-resident scripts with no `hyperframes <subcommand>` equivalent, so a
+#     runnable invocation cannot indirect through SEAM_STAMP / SEAM_VERIFIER.
 #
 # Keep this list at the handful of genuinely runnable call sites. An allowlist
 # that grows to silence prose defeats the test it belongs to.
 RUNNABLE_PATH_ALLOWLIST = frozenset(
     {
         ("workflows/phase-4-production.md", "scripts/animation-map.mjs"),
+        ("workflows/phase-4-production.md", "scripts/seam-stamp.mjs"),
+        ("workflows/phase-4-production.md", "scripts/seam-gate.mjs"),
     }
 )
 
@@ -622,7 +628,7 @@ def recipe_citation_candidates():
     * a capability tag — `reasoning/capability-catalog.md` owns them (ADR-005);
     * a skill name — `KNOWN_SKILLS`, the ecosystem's stable API (ADR-007);
     * a `runtime:` value from the director-keys table (`html-in-canvas`);
-    * a tier-suffixed `camera:` value (`hero-orbit`, `isometric-3d`, …);
+    * a tier-suffixed `camera:` value (`orbit-3d`, `isometric-3d`, …);
     * an identifier carrying a structural prefix (`data-`, `aria-`, `hf-`,
       `vfx-`) — see NON_RECIPE_PREFIXES;
     * one of the NON_RECIPE_TOKENS.
