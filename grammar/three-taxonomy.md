@@ -67,6 +67,21 @@ Camera-move names resolve in `grammar/camera.md`.
 - **Reuse before authoring.** Check `REGISTRY_CATALOG` first — a shipped VFX block spends less of
   the hero budget than a bespoke scene, and arrives already deterministic.
 
+## The sub-composition tax — count it before selecting `three`
+
+`THREE_ADAPTER` documents an ES-module import, and that is correct for a **standalone**
+composition. Every scene here is a **sub-composition**: its `<script>` is cloned out of its
+`<template>` and re-executed in the host document, where module semantics do not survive. A bare
+`import` there throws `Cannot use import statement outside a module` and fails the `check` gate —
+and none of it is visible while the scene is viewed alone. It appears only once Phase 4 assembles
+the film, which is the worst place to find it.
+
+So a `runtime: three` frame is never self-contained. It obliges the root composition to import the
+module once and publish it on a global, and obliges the scene to consume that global from a classic
+script. Phase 4 carries the root half; `sub-agents/scene-builder-delta.md` carries the scene half.
+Count this when a frame competes for a hero beat: the capability is real, and so is the assembly it
+drags in behind it.
+
 ## Rejecting Three.js — and recording it
 
 Reject for a frame when any of these hold:

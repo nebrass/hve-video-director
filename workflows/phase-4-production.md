@@ -134,7 +134,7 @@ white through it.
   <audio id="audio-main" data-start="0" data-duration="42" data-track-index="0"
          src="voiceover-with-music.mp3"></audio>
 
-  <!-- Scene loaders. Two rules the ecosystem references do not cover:
+  <!-- Scene loaders. Three rules the ecosystem references do not cover:
          1. Windows come from the boundary kind — size them only AFTER the
             seam ledger exists (see above).
          2. Initial hidden state has ONE owner per scene. A scene named in the
@@ -142,6 +142,8 @@ white through it.
             off. A scene reached only by a dissolve keeps style="opacity:0".
             Declaring it twice is how a scene ships permanently invisible with
             every gate green.
+         3. A non-default `runtime:` needs a ROOT bootstrap — see below. The
+            scene cannot import it itself.
   -->
 
   <!-- Scene 1 nominally spans 5 → 9 (scene 0 elided). Ledgered cut: no inline opacity. -->
@@ -386,6 +388,33 @@ Environment diagnosis stays with `DOCTOR` (ADR-003) — do not add a parallel br
 missing optional gate never blocks the pipeline, but it does change what you may claim: report at
 the Step 4.6 checkpoint which boundaries were stamped, which were verified, and which went
 unverified and why. "All gates pass" is a false statement when the seam gate never ran.
+
+### Bootstrapping a non-default runtime (cross-frame — the root's job)
+
+A frame whose `runtime:` is `three`, `html-in-canvas` or any other non-default runtime **cannot
+load it itself**. Its `<script>` is cloned out of its `<template>` and re-executed in this
+document, where module semantics do not survive: a bare `import` throws `Cannot use import
+statement outside a module`, the runtime audit of `CHECK_GATE` fails on the page error, and
+nothing shows it while the scene is previewed alone — it appears only here, at assembly.
+
+So the root imports the module **once** and publishes it on a global with a ready-queue, and the
+scene consumes that global from a classic script (`sub-agents/scene-builder-delta.md` binds the
+scene half). Late subscribers must run immediately, so a scene works whether it is cloned before
+or after the module resolves:
+
+```html
+<script type="module">
+  import * as THREE from "<the exact version THREE_ADAPTER pins>";
+  window.THREE = THREE;
+  const pending = window.__threeReady || [];
+  window.__threeReady = { push: (fn) => fn(THREE) };
+  pending.forEach((fn) => fn(THREE));
+</script>
+```
+
+Pin the same version the frame packet gave its builder; two versions in one document is the
+silent-breakage case `THREE_ADAPTER` warns about. Add this only when a frame actually needs it —
+an unused bootstrap is a network fetch on every render.
 
 ## Step 4.6: Preview
 

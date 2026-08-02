@@ -59,7 +59,20 @@ name. Never invent a motion name, and never rename one.
 
 An absent `runtime:` means GSAP; build normally. When it names `three`, `html-in-canvas`, or any
 other non-default runtime, your packet carries that runtime's **adapter excerpt** — follow it
-exactly, including its registration and its seek contract. GSAP stays the timeline owner: every
+exactly, including its registration and its seek contract.
+
+One exception overrides the excerpt, because the excerpt is written for a standalone composition
+and you are building a sub-composition: **never ship `<script type="module">`.** Your script is
+cloned out of its `<template>` and re-executed in the host document, where a bare `import` throws
+and fails the `check` gate — and you cannot see it, because it only appears once the film is
+assembled. The root imports the module and publishes it; you consume it from a **classic** script:
+
+    (window.__threeReady = window.__threeReady || []).push(function (THREE) { /* build here */ });
+
+Split what defers from what does not: the paused GSAP timeline still registers **synchronously** at
+the top level — the runtime's timeline gate depends on it — and only the runtime-specific build goes
+inside the callback. If your packet names a non-default runtime and does not tell you which global
+publishes it, stop and report that rather than importing one yourself. GSAP stays the timeline owner: every
 other runtime hangs off the one paused timeline and renders from its seek, never from its own loop.
 
 ## Real captures are sacred
