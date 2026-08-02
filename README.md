@@ -375,13 +375,16 @@ No bundled audio files. Four confirmable strategies — `music_strategy` in the 
 
 1. **`freesound`** — a Creative Commons track you pick yourself on
    [freesound.org](https://freesound.org): browse by mood or genre, check the license on the track's
-   page, download it, and give Phase 5 the file. **No API key** — the local search script was
-   removed, and the strategy survives as a manual one. Attribute CC-BY tracks in `CREDITS.md`. The
+   page, download it, and give Phase 5 the file — or let Phase 5 search for you with
+   `scripts/search_music.py` (needs a free `FREESOUND_API_KEY`), which prints ranked candidates with
+   duration, licence and track URL. Attribute CC-BY tracks in `CREDITS.md`. The
    recorded `source` is the exact `freesound.org` track URL carrying its numeric sound ID, which is
    what keeps the choice checkable later.
-2. **`delegated`** — a bed the `media-use` audio engine retrieved from a provider catalog or
-   generated locally. Phase 5 asks which of the two routes runs, because they carry different
-   licensing. There is no public page to link and a presigned download URL expires, so the recorded
+2. **`delegated`** — a bed the `media-use` audio engine retrieved from a provider catalog. Phase 5
+   offers retrieval only: local *generation* is a valid value the validator still accepts, but the
+   workflow stopped offering it after a real run stalled two hours on an unauthenticated model
+   download and produced nothing, and because a generated bed has no author, no stable page and no
+   independently auditable licence. There is no public page to link and a presigned download URL expires, so the recorded
    `source` is a provenance URI instead:
    `<skill-name>:<capability>?mode=<retrieve|generate>&query=<url-encoded request>#sha256=<64 hex>`
    — who produced it, by which route *actually* taken, from which request, and which bytes came

@@ -60,11 +60,11 @@ ENGINE="$MEDIA_SKILL_DIR/<AUDIO_ENGINE skill-relative path from compat/ecosystem
 ```
 
 **When the delegated path is unavailable.** An empty `$MEDIA_SKILL_DIR` (skill not installed), or a
-provider the user declines to authenticate, has no local acquisition fallback left: **M6 retired
-both**. `scripts/search_music.py` is gone, and `scripts/generate_voiceover.py` keeps only
-`--assemble-only`, the section assembler both audio paths use — it no longer calls a TTS provider.
-Without the engine, narration and music come from the user (a supplied voiceover file, a supplied
-or user-chosen track) and the confirmation gates are unchanged. Say which path you took; never switch
+provider the user declines to authenticate, still has a music path: `scripts/search_music.py`
+searches Freesound directly and needs no engine. Narration has no local acquisition fallback —
+`scripts/generate_voiceover.py` keeps only `--assemble-only`, the section assembler both paths use
+— so without the engine narration comes from the user (a supplied voiceover file) while music
+still searches normally. The confirmation gates are unchanged either way. Say which path you took; never switch
 silently. `generate_voiceover.py` has a second role that is **not** deprecated: `--assemble-only` is
 the canonical timeline assembler for either path — it places each section at its exact start time,
 pads to `VIDEO_DURATION`, and warns on overrun.
@@ -261,7 +261,7 @@ Ask before running the engine — recommend a route, never preselect one:
     "header": "Music route",
     "options": [
       { "label": "Retrieve from catalog", "description": "Needs a HeyGen credential. The bed comes from the provider catalog, under the catalog's terms." },
-      { "label": "Generate locally", "description": "No credential needed. You state the license the local generator's terms impose." },
+      { "label": "Search Freesound instead", "description": "Switches to `music_strategy: freesound` — a real recording with a human author, a stable URL and an auditable licence. Changing a confirmed brief field re-stamps phases 1-5." },
       { "label": "Change music strategy", "description": "Return to the Phase-1 music prompt; nothing is produced." }
     ],
     "multiSelect": false
@@ -344,15 +344,22 @@ engine's request-side `mode: none` is likewise not a delegated outcome — no mu
 
 ### Freesound strategy
 
-Freesound is a public CC-licensed audio library. **M6 retired the local search script**, so the
-agent no longer queries the API: for `music_strategy: freesound` the user picks the track. Derive
-mood keywords from the storytelling phase, state them, and ask the user for the track page URL of a
-CC0 / CC-BY result that runs at least the composition length. The Creative Brief pins that exact
-`freesound.org` URL with its numeric sound id, which is the provenance the audio gate checks.
+Freesound is a public CC-licensed audio library and the default music path. Derive mood keywords
+from the storytelling phase, then search:
 
-If the user would rather have candidates proposed, that is what `music_strategy: delegated` is for
-— the `media-use` engine retrieves or generates a bed. Never silently switch strategies; the one
-the user confirmed is the one that runs. Present ranked candidates in pages of at most three tracks plus a
+```bash
+FREESOUND_API_KEY=... python3 "$SKILL_DIR/scripts/search_music.py" \
+  "calm cinematic ambient pad" --min-duration 58
+```
+
+Each hit prints title, author, duration, licence, its **track page URL** and a high-quality MP3
+preview URL usable as the soundtrack. The Creative Brief pins that exact `freesound.org` URL with
+its numeric sound id — the provenance the audio gate checks — so present ranked candidates and let
+the user confirm one. Prefer CC0 where the choice is close: it carries no attribution obligation
+and no NonCommercial restriction, which a promo usually needs.
+
+Searching moves; the choice never does. Never silently switch strategies — the one the user
+confirmed is the one that runs. Present ranked candidates in pages of at most three tracks plus a
 **More candidates** option, so no prompt exceeds four:
 
 ```json
