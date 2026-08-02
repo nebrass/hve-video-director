@@ -1,13 +1,20 @@
 # Transition Catalog
 
-One-page index of every transition family available in HyperFrames, mapped to the moments where each fits in a product video. The deep implementations live in the `hyperframes-animation` skill — `TRANSITION_CATALOG`, `TRANSITION_OVERVIEW`, and the per-family `TRANSITION_FAMILIES` pages, whose paths are registered in `compat/ecosystem.md`. This file tells you *which* transition to reach for; those pages show you *how* to wire it.
+**What this file owns:** *which* transition serves *which* moment in a product video, and how much
+transition energy one film may spend. That is a directorial judgment about product-video pacing,
+and it is the only thing left here.
+
+**What it does not own:** the mechanics. How a seam is constructed, how two scenes composite across
+it, what parameters a named seam takes — every one of those has an upstream owner now (§ Where the
+mechanics live). Where this file and one of those disagree, **they win**; a mechanic re-stated here
+would be a fork with no maintainer.
 
 ## Picking by mood
 
 | Moment in the video | Reach for | Why |
 |---|---|---|
 | Default scene-to-scene cut | **Crossfade** or **Blur Crossfade** | Quiet, professional. Default of the dissolve family. |
-| Section boundary (Hook → Pain, Solution → Features) | **Metallic Swoosh** (`patterns/metallic-swoosh.md`) or **Flash through White** | Signals "new chapter" without overpowering. |
+| Section boundary (Hook → Pain, Solution → Features) | **Light Leak** or **Flash through White** | Signals "new chapter" without overpowering — light family. |
 | Hero / product reveal | **Cinematic Zoom** or **Zoom Through** | Earns the visual flourish — scale family. |
 | Stat or proof moment | **Chromatic Radial Split** or **Diamond Iris** | Energetic, pulls eye to the centre — radial family. |
 | Before / after, competitor comparison | **Diagonal Split** or **Push Slide** | Spatial metaphor for "this vs that" — radial + push families. |
@@ -16,56 +23,91 @@ One-page index of every transition family available in HyperFrames, mapped to th
 | Mechanical / countdown | **Shutter** or **Clock Wipe** | Editorial gravitas — mechanical family. |
 | Closing fade-to-end-card | Plain **Crossfade** to a held final frame | Never use a "flashy" transition on the final exit. |
 
-Family names above resolve through `TRANSITION_FAMILIES`; for upstream's own energy/mood selection guidance read `TRANSITION_OVERVIEW`. Both live in the `hyperframes-animation` skill — paths in `compat/ecosystem.md`.
+The names above are moment-to-look mappings, not identifiers this file defines. A **family** name
+resolves through `TRANSITION_FAMILIES`; a **shipped block** name resolves through
+`REGISTRY_CATALOG`; for upstream's own energy/mood selection guidance read `TRANSITION_OVERVIEW`.
 
-## Catalog blocks (use these first)
+**`transition_style: metallic-swoosh`** — the brief vocabulary keeps this name. The look it asks
+for is a full-frame light overlay riding a crossfade at a section boundary, which is the **light**
+family; take the implementation from `TRANSITION_FAMILIES` rather than re-deriving an overlay
+locally. Confirm the style with the user as before, then wire the family recipe.
 
-Before authoring a transition from scratch, pull one of these via `npx hyperframes add <name>` — they're tested, deterministic, and aspect-ratio-aware:
+> **`shimmer-sweep` is not a transition.** `REGISTRY_CATALOG` lists it as a *component* tagged
+> `text, shimmer, highlight, effect` — an element-scoped gradient sweep. It serves the in-scene
+> card shine (`patterns/visual-patterns.md` § In-Scene Shine Sweep) and cannot straddle two scene
+> wrappers. Earlier revisions of this repo called it the cousin of the retired hand-authored
+> swoosh; that was wrong, and wiring it as a seam yields a decoration on one element while every
+> gate stays green.
 
-| Block | What it does | Energy |
+**Reach for a shipped block before hand-authoring.** `flash-through-white`,
+`chromatic-radial-split` and `cinematic-zoom` are real inter-scene transition blocks — tested,
+deterministic and aspect-ratio-aware — and cover most needs above. `REGISTRY_CATALOG`
+(`hyperframes-registry`) is the authoritative list of names `npx hyperframes add` accepts, and the
+place to confirm a name is a transition rather than a component before you wire it as one; this
+file deliberately keeps no copy of that inventory, nor of which named transition sits in which
+family. `REGISTRY_BLOCKS` and `REGISTRY_ADD_EXAMPLE` cover the wiring;
+`workflows/phase-4-production.md` Step 4.2 is the local call site.
+
+## Energy budget
+
+Transitions are a spend, not a decoration. The **numbers** — one primary style plus a small number
+of accents across a film, and the rest of the cognitive-load limits — live in exactly one place:
+the budget table in `reasoning/scene-analysis.md` (ADR-008). Read them there; the judgment for
+spending them is here.
+
+1. **Default to invisible.** Most cuts in a product video should not be noticed. A transition the
+   viewer *sees* has to be paying for something — a new chapter, a reveal, a proof beat. Everything
+   else is a crossfade.
+2. **Match energy to the moment, not to the shot list.** A 0.4s glitch into a pricing table is
+   wrong; a 0.4s glitch into "your data is everywhere" is right. Transition energy should track the
+   `energy:` curve between adjacent frames, which is what the budget table checks it against.
+3. **Match duration to total runtime when *recommending* a speed.** A 30s spot wants transitions
+   around a half-second; a 60s spot can carry longer ones; past a second the film starts to read as
+   sluggish. This is advice for the recommendation you make in Phase 1 — once `transition_speed` is
+   confirmed in the brief, the confirmed value binds (ADR-001). Never silently shorten a `slow`
+   the user deliberately chose.
+4. **Spend the loud ones early-to-middle.** A flourish in the first third sets a register; the same
+   flourish in the last beat competes with the CTA.
+5. **Land a flourish on a narrative boundary, never mid-sentence.** A section transition announces
+   a chapter; firing it while the voiceover is mid-thought contradicts the words and reads as a
+   mistimed edit rather than a beat. Cut it to the boundary in the script, not to a round number.
+6. **Never run two flourishes back-to-back**, even when the count is still under budget. The second
+   one stops registering as an event — the viewer reads "this video does that" and tunes it out.
+   Put a quiet crossfade between them for breathing room.
+7. **Do not transition out of the closing scene.** The video ends on a held frame, not a flourish.
+
+## Banned — tried here, they look fake
+
+Local craft judgment, not an upstream rule. These are available upstream and still not worth it in
+a product video:
+
+- **Star iris** — polygon interpolation is visibly broken at the vertices.
+- **Tilt-shift** — there is no selective CSS blur that survives a seek; the result reads as a
+  uniform smear.
+- **Lens flare** — renders as a visible *shape* rather than an optical artifact.
+- **Hinge / door** — distorts far too fast to read at product-video pacing.
+
+## Where the mechanics live
+
+Nothing in this section is restated locally. Load the owner.
+
+| You need | Owner | Cite |
 |---|---|---|
-| `flash-through-white` | Hard cut with brief white flash | Punchy |
-| `chromatic-radial-split` | RGB-shifted radial wipe | Cinematic |
-| `cinematic-zoom` | Shader zoom transition | Premium |
-| `shimmer-sweep` | Diagonal shine (close cousin of our metallic-swoosh) | Premium |
-| `grain-overlay` | Persistent film-grain texture | Atmosphere |
+| The law of the seam — how Scene A's exit determines Scene B's entry (axis, direction, speed, phase) | `motion-doctrine` | `SEAM_LAW` |
+| Numeric verification of the assembled seams | `motion-doctrine` | `SEAM_VERIFIER` (and `SEAM_STAMP` to pass by construction) |
+| Render-side compositing — the opaque stage-ground white-flash guard, how wrapper overlap, track ping-pong and the incoming/outgoing blend actually work | `seam-craft` | `SEAM_RENDER_MECHANICS` |
+| The named velocity-matched seams and their parameters | `cut-the-curve` | `CUT_CATALOG` |
+| Track/clip timing — unique `data-track-index` for overlapping scenes, clip windows | `hyperframes-core` | `TRACKS_AND_CLIPS` |
+| Why a transition may never animate `display`/`visibility` or call `.play()` | `hyperframes-core` | `DETERMINISM_RULES` |
+| The normative CSS-transition page: hard rules, scene template, shader rules | `hyperframes-animation` | `TRANSITION_CATALOG` |
+| Per-family implementations behind the family names above | `hyperframes-animation` | `TRANSITION_FAMILIES` |
+| Selection guidance from upstream's own point of view | `hyperframes-animation` | `TRANSITION_OVERVIEW` |
+| The machine-readable registry (a curated subset, **not** the full catalog) | `hyperframes-animation` | `TRANSITION_REGISTRY` |
 
-See `workflows/phase-4-production.md` Step 4.2 for how to wire them into the root composition.
+`SEAM_LAW` **supersedes** any local transition guidance where the two disagree. `CUT_CATALOG`
+supplies the parameters underneath it. `SEAM_RENDER_MECHANICS` is the render-side prerequisite that
+makes either composite correctly — including the stage-ground rule, which is why this file no
+longer carries an opinion about what colour the page behind the scenes should be.
 
-## Full CSS transition reference
-
-Everything below is owned by the `hyperframes-animation` skill and registered in `compat/ecosystem.md` — that map is the only place the file paths live:
-
-- `TRANSITION_CATALOG` — the normative page: hard rules, scene template, shader rules.
-- `TRANSITION_OVERVIEW` — selection guidance: energy/mood, narrative position, presets, CSS vs shader.
-- `TRANSITION_FAMILIES` — the per-family implementation pages (dissolve, scale, radial, push and the rest); the map holds the complete, current list.
-- `TRANSITION_REGISTRY` — machine-readable registry, a curated Tier-B subset and **not** the full catalog.
-
-Which named transition lives in which family is upstream's to state, and it changes with upstream: start at `TRANSITION_OVERVIEW`, then open the family page. This file deliberately keeps no copy of that inventory.
-
-## Hard rules (don't skip these)
-
-Seam law is owned by the `motion-doctrine` skill (`SEAM_LAW`; numeric verifier `SEAM_VERIFIER`); render-compositing mechanics by `seam-craft` (`SEAM_RENDER_MECHANICS`).
-
-These come from `TRANSITION_CATALOG` (`hyperframes-animation`) and bite if violated:
-
-- **Scenes must OVERLAP during the confirmed transition window.** Map `transition_speed` once (`quick = 0.4s`, `medium = 0.7s`, `slow = 1.2s`) and extend every non-closing scene's `data-duration` by that value past its nominal end. Start the incoming scene at the nominal boundary. If adjacent scenes do not overlap, neither renders during the transition and the body color flashes through — producing a visible artifact that is one of the most obvious "AI-rendered" tells. See `workflows/phase-4-production.md` § Step 4.4 for the corrected composition pattern.
-- **Track indices must be UNIQUE for overlapping scenes.** HyperFrames rejects same-track overlap. Use 1, 2, 3, 4, 5. Track index doesn't drive visual layering — DOM order does (later in DOM = on top with equal z-index).
-- **Only fade the INCOMING scene's opacity 0→1.** Don't simultaneously fade the outgoing scene 1→0 — that lets the body color contribute to the composite during the crossfade (visible as darkening). The outgoing scene stays at opacity 1 below and is occluded naturally as the incoming one covers it.
-- **Body background should be white** (or whatever neutral matches your scene backgrounds). If anything ever exposes the body — a single-frame timing gap, a clipping artifact — white reads as intentional pacing. Black reads as a render bug.
-- **Scene 1 visible by default** — no `opacity: 0`. Scenes 2+ start at `opacity: 0` on the *container*; GSAP reveals them.
-- **No `class="clip"` on standalone scene divs.** Only the root composition gets `data-composition-id`/`data-start`/`data-duration` — with one exception: the `<video>` inside a clip scene carries its own `data-start`/`data-duration`/`data-media-start`/`data-track-index` per the explicit clip contract (`workflows/phase-3-design.md` § Clip scene). Never strip those.
-- **Z-index on exit-revealing transitions** (gravity drop, zoom out, diagonal split): outgoing scene goes ON TOP (`z-index: 10`) so it exits while revealing the new scene behind (`z-index: 1`).
-- **Light-leak overlays must be larger than the frame (2400px+)** so the edge never crosses the canvas during sweep. A visible-shape leak looks fake.
-- **Glitch RGB overlays at 35% opacity with NORMAL blend mode** — `mix-blend-mode: multiply` is invisible on dark backgrounds, which is exactly when you'd reach for glitch.
-- **Blinds count scales with energy**: 4h/6v calm, 6–8h/8v medium, 12–16h/16v high.
-- **Page burn**: hide scene 1 via `tl.set` at burn end, NEVER `onComplete` (not reversible under seek).
-- **Banned**: star iris (polygon interpolation broken), tilt-shift (no selective CSS blur), lens flare (visible shape, not optical), hinge/door (distorts too fast).
-
-## How to choose
-
-1. **Default to crossfade.** Most scene cuts in a product video should be invisible. Save the heavy artillery for ≤ 2 moments per spot.
-2. **Match transition energy to the moment.** A 0.4s glitch into a pricing table is wrong; a 0.4s glitch into "your data is everywhere" is right.
-3. **Match transition duration to total runtime.** 30s spot → max 0.5s transitions. 60s spot → up to 0.8s. Anything over 1s reads as sluggish.
-4. **Don't transition out of the closing scene.** The video ends on a held frame, not a flourish.
-5. **Pull a catalog block before hand-authoring.** `flash-through-white`, `chromatic-radial-split`, `cinematic-zoom` cover 80% of real needs.
+Every path behind those symbols is resolved by `compat/ecosystem.md`, and lives nowhere else
+(ADR-007).

@@ -475,7 +475,6 @@ hve-video-director/
 ├── patterns/                      # Animation + design reference
 │   ├── INDEX.md                   # Wayfinding: situation → which file
 │   ├── visual-patterns.md         # GSAP easing, scene entries, stagger trap
-│   ├── metallic-swoosh.md         # Premium transition pattern
 │   ├── marker-highlight.md        # 5 word-emphasis modes
 │   ├── transition-catalog.md      # Mood-mapped transition reference
 │   ├── cli-terminal-capture.md    # asciinema + agg real-terminal clip workflow

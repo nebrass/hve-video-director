@@ -55,7 +55,7 @@ SKILL.md (orchestrator)
   It never runs system/sudo commands or sets environment variables. Phase -1 consumes its JSON
   only for a direct/default first `new` run; explicit `continue` and `jump` skip onboarding.
 
-`templates/` files are copied into generated projects. `patterns/` files are referenced for visual techniques. `patterns/INDEX.md` is the wayfinding map between local patterns and the deeper `hyperframes` skill references — read it before adding new pattern files. `patterns/metallic-swoosh.md` documents *why* clipPath transitions are banned (black-sliver artifacts).
+`templates/` files are copied into generated projects. `patterns/` files are referenced for visual techniques. `patterns/INDEX.md` is the wayfinding map between local patterns and the deeper `hyperframes` skill references — read it before adding new pattern files. The seam rationale that used to live in a local pattern file is now upstream — the vector law in `motion-doctrine`, render-side compositing and edge artifacts in `seam-craft` via `SEAM_RENDER_MECHANICS`; `patterns/transition-catalog.md` keeps only the moment-to-transition mapping and the energy budget, and `patterns/visual-patterns.md` § DON'Ts keeps the clipPath ban with its rationale.
 
 `design-systems/<slug>/DESIGN.md` is the brand spec consumed by Phase 3 Path A — MIT-licensed, video-focused, authored by this skill. The canonical research source for new contributions is [VoltAgent/awesome-design-md](https://github.com/VoltAgent/awesome-design-md) (MIT, 73 brands, has a `npx getdesign add <slug>` CLI). The skill is **video-only** — it does not produce, render, or analyse web/UI artifacts.
 
@@ -103,7 +103,7 @@ These are enforced verbally in the `## DON'Ts` section of `SKILL.md`. If you mod
 - **No jitter** (shaking, vibrating motion).
 - **No 360° scene spins.** Subtle `rotateY` ≤ 8° / `rotateZ` ≤ 4° on mockups only.
 - **No 3D transforms in transitions.** 2D only (opacity, position, scale, gradient masks).
-- **No clipPath transitions.** They cause anti-aliased black slivers; use crossfade + shine overlay (see `patterns/metallic-swoosh.md`).
+- **No clipPath transitions.** A polygon `clipPath` sweeping between two scenes leaves an anti-aliased black sliver at the boundary, and no gate catches it. Use a crossfade with a full-frame light overlay over it (the light family, `TRANSITION_FAMILIES`); render-side rules are `SEAM_RENDER_MECHANICS`. See `patterns/visual-patterns.md` § DON'Ts.
 - **No exit animations except on the closing scene.** The inter-scene transition owns the exit.
 - **Never animate `display`, `visibility`, or call `.play()` inside a timeline.** Breaks HyperFrames' deterministic seek; use `opacity` + `pointer-events`.
 - **Never animate `<img>` dimensions directly.** Wrap the `<img>` in a non-timed `<div>` and animate the wrapper's `transform`. Direct dimension tweens trigger layout recompute that breaks deterministic seek.

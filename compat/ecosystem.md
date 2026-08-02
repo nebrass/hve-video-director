@@ -139,7 +139,7 @@ pointer-validity suite on every `bash test/run.sh` where the ecosystem is instal
 | `SEAM_GATE_REFERENCE` | `motion-doctrine` | `references/seam-gate.md` | How the build-gate enforcement of the seam law works | Phase 4 seam verification |
 | `SEAM_VERIFIER` | `motion-doctrine` | `scripts/seam-gate.mjs` | Numeric seam verifier — run after assembling the master timeline | Phase 4 verification |
 | `SEAM_STAMP` | `motion-doctrine` | `scripts/seam-stamp.mjs` | Stamps master seams from a vector ledger so they pass the gate by construction | Phase 4 (authoring order: ledger → stamp → build → verify) |
-| `SEAM_RENDER_MECHANICS` | `seam-craft` | `SKILL.md` | Render-side prerequisites — the opaque stage-ground white-flash guard, wrapper overlap/compositing | `patterns/metallic-swoosh.md`; Phase 4 |
+| `SEAM_RENDER_MECHANICS` | `seam-craft` | `SKILL.md` | Render-side prerequisites — the opaque stage-ground white-flash guard, wrapper overlap/compositing | `patterns/transition-catalog.md`; `patterns/visual-patterns.md`; Phase 4 |
 | `CUT_CATALOG` | `cut-the-curve` | `SKILL.md` (gateway) | The seam *technique* catalog — five velocity-matched seams (zoom-through, inverse zoom-through, cut-the-curve, waterfall cut, rack-focus blur-cut) plus waterfall entry and the nudge curve, with their parameters | M1 `grammar/motion.md` (Continuity — every seam needs a *named carrier*); `patterns/transition-catalog.md`. `SEAM_LAW` still governs; this supplies the parameters and mechanics |
 
 > **These three resolve to the skill root.** `SEAM_LAW`, `SEAM_RENDER_MECHANICS` and `CUT_CATALOG`
@@ -162,7 +162,7 @@ pointer-validity suite on every `bash test/run.sh` where the ecosystem is instal
 | Symbol | Owning skill | Skill-relative path | What it is | Used by |
 |---|---|---|---|---|
 | `REGISTRY_BLOCKS` | `hyperframes-registry` | `references/wiring-blocks.md` | How an installed block (own `data-composition-id`, dimensions, duration, timeline) is wired into a host composition via `data-composition-src` | Phase 4 Step 4.2, after `hyperframes add` |
-| `REGISTRY_ADD_EXAMPLE` | `hyperframes-registry` | `examples/add-block.md` | Worked example of installing a block | Phase 3/4 when pulling `flash-through-white`, `cinematic-zoom`, `shimmer-sweep`, … |
+| `REGISTRY_ADD_EXAMPLE` | `hyperframes-registry` | `examples/add-block.md` | Worked example of installing a block | Phase 3/4 when pulling `flash-through-white`, `cinematic-zoom`, `chromatic-radial-split`, … |
 | `REGISTRY_CATALOG` | `hyperframes-registry` | `references/discovery.md` | The browsable block/component catalog — the exact names `hyperframes add` accepts, including the six VFX blocks (`vfx-portal`, `vfx-shatter`, `vfx-liquid-background`, `vfx-magnetic`, `vfx-iphone-device`, `vfx-text-cursor`) | M1 `grammar/metaphors.md` + `grammar/three-taxonomy.md` — reuse a shipped block before hand-authoring a hero beat |
 | `REGISTRY_VFX_TEMPLATE` | `hyperframes-registry` | `references/templates.md` | Starter templates, incl. the Three.js VFX block pattern: seeded PRNG for anything "random", and render via `onUpdate` — never `requestAnimationFrame` | M1 `grammar/three-taxonomy.md` § Fields (seeded, deterministic instancing) |
 

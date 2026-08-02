@@ -511,7 +511,7 @@ The duration mapping is stable and must be carried into every storyboard transit
 boundaries; quiet transitions between beats inside the same section use `crossfade` at the same
 confirmed duration. The closing scene records `none` because it never transitions out.
 
-**If "Metallic swoosh" selected:** Read [../patterns/metallic-swoosh.md](../patterns/metallic-swoosh.md) before implementing. Uses crossfade + shine overlay — do NOT use clipPath.
+**If "Metallic swoosh" selected:** the look is a full-frame light overlay riding an incoming-only crossfade — the light family, implemented from `TRANSITION_FAMILIES`. See [../patterns/transition-catalog.md](../patterns/transition-catalog.md) and Phase 4 Step 4.5. Never a clipPath wipe ([../patterns/visual-patterns.md](../patterns/visual-patterns.md) § DON'Ts carries the why).
 
 Choose the music acquisition strategy now. The exact track remains unselected until Phase 5 has
 real candidates; selecting a strategy is not permission for the agent to pick a track.

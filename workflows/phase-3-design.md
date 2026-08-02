@@ -307,7 +307,7 @@ scoped (not bare `#id`) so two text scenes in one composition never collide.
 The `data-composition-id` value on the inner `<div>` must match the `data-composition-id` on the loader in the Phase 4 root `index.html`.
 
 Animation pattern reference: `patterns/visual-patterns.md`.
-Transition pattern reference (when an archetype owns its own outgoing flourish): `patterns/metallic-swoosh.md`.
+Scenes do not author their own outgoing flourish — the seam owns the exit. Transition selection: `patterns/transition-catalog.md`; the seam law itself is `SEAM_LAW` (`motion-doctrine`).
 
 **Before authoring a scene from scratch**, check the HyperFrames catalog — blocks like `app-showcase`, `ui-3d-reveal`, `data-chart`, `logo-outro`, and `reddit-post` are drop-in sub-compositions that cover most product-video archetypes. See Phase 4 Step 4.2 for the `npx hyperframes add <name>` workflow. Pulling a catalog block is almost always faster than hand-authoring an equivalent scene.
 

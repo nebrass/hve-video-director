@@ -475,7 +475,12 @@ offset 0.
 
 ```bash
 CUE=assets/sfx/whoosh.mp3       # audio_meta.sfx[].file
-AT_MS=18500                     # scene data-start (from index.html), in milliseconds
+AT_S=18.5                       # scene data-start, copied VERBATIM from index.html — SECONDS.
+                                # data-start is always seconds; adelay wants milliseconds, so the
+                                # conversion below is the only place the two units meet. Writing a
+                                # seconds value into a millisecond field places the cue ~1000x early
+                                # and nothing downstream can detect it.
+AT_MS=$(awk -v s="$AT_S" 'BEGIN{printf "%d", s*1000}')
 SFX_VOL=0.35                    # audio_meta.sfx[].volume
 
 ffmpeg -y -i voiceover-with-music.mp3 -i "$CUE" \
@@ -494,47 +499,37 @@ in the final soundtrack is a meaningful sound for caption purposes — Step 5.3b
 
 ## Step 5.3a: Clip-own audio (opt-in)
 
-Run only when a storyboard scene sets `Clip audio: <volume>` (not `none`). Per clip you need the
-clip path (`Clip:`), the scene `data-start` (from `index.html`), `Clip in/out`, `Speed`, and the
-`<volume>`.
+Run only when a storyboard scene sets `Clip audio: <volume>` (not `none`). One reviewed script does
+the whole mix — trim → `Speed` → normalize → place, then the Step 5.2 sidechain with the roles
+swapped (voice+music ducked under the clip) — and it replaces the canonical soundtrack atomically.
+
+**Every time value is in seconds.** Copy the scene's `data-start` out of `index.html` verbatim into
+`--at`; the script converts to the milliseconds ffmpeg wants.
 
 ```bash
-CLIP=public/clips/scene-03-demo.mp4       # storyboard `Clip:`
-CIN=2.0 ; COUT=8.0                        # `Clip in/out` — CIN MUST equal the scene <video>'s
-                                          # data-media-start, or audio desyncs from picture
-SPEED=1.0                                 # storyboard `Speed`
-AT_MS=18500                               # scene data-start, in milliseconds
-VOL=0.6                                   # `Clip audio` value
-DURATION=$(ffprobe -v error -show_entries format=duration -of csv=p=0 \
-  voiceover-with-music.mp3)               # derive; never hard-code 30/60/90
-
-# 1. Trim to the clip window, apply Speed, normalize, scale by VOL, place at the scene start.
-#    `atempo` takes one factor per stage; if Speed falls outside what a single stage accepts,
-#    chain stages whose product is Speed (e.g. `atempo=2.0,atempo=1.5` for 3.0).
-ffmpeg -y -ss "$CIN" -to "$COUT" -i "$CLIP" \
-  -af "atempo=${SPEED},loudnorm=I=-18:TP=-2:LRA=11,volume=${VOL},adelay=${AT_MS}|${AT_MS}" \
-  -ac 2 clip-audio-03.mp3
-
-# 2. Duck the VO+music under the clip (sidechain), then mix the clip on top. Keep the canonical
-#    output filename — Step 5.4 reads it unchanged.
-ffmpeg -y -i voiceover-with-music.mp3 -i clip-audio-03.mp3 \
-  -filter_complex "
-    [1:a]asplit=2[clip][key-raw];
-    [key-raw]apad=whole_dur=${DURATION},atrim=duration=${DURATION}[key];
-    [0:a][key]sidechaincompress=threshold=0.05:ratio=8:attack=20:release=300[ducked];
-    [ducked][clip]amix=inputs=2:duration=first:dropout_transition=0:normalize=0,
-                  alimiter=limit=0.89[out]" \
-  -map "[out]" -c:a libmp3lame -q:a 2 mixed.mp3
-
-# 3. The mix must not change the soundtrack's length. Compare against $DURATION before replacing.
-ffprobe -v error -show_entries format=duration -of csv=p=0 mixed.mp3
-mv mixed.mp3 voiceover-with-music.mp3
+# Reuse $SKILL_DIR resolved in Step 5.0.
+python3 "$SKILL_DIR/scripts/mix_clip_audio.py" public/clips/scene-03-demo.mp4 \
+  --soundtrack voiceover-with-music.mp3 \
+  --clip-in 2.0 --clip-out 8.0 --speed 1.0 \
+  --at 18.5 --volume 0.6
 ```
 
-If step 3 differs from `$DURATION` by more than ~0.25s the mix is wrong: do **not** replace the
-canonical file — re-check `AT_MS` and the clip window. Repeat per opt-in clip (each pass overwrites
-the canonical file), then re-run the `ebur128` check. Expected: ≈ -16 LUFS, true peak at or under
--1 dBTP, and the ducked window audibly quieter under the clip's sound.
+- the clip path — storyboard `Clip:`
+- `--clip-in` / `--clip-out` — storyboard `Clip in/out`. `--clip-in` MUST equal the scene
+  `<video>`'s `data-media-start`, or the audio desyncs from the picture.
+- `--speed` — storyboard `Speed`; the script chains the `atempo` stages that factor needs.
+- `--at` — the scene's `data-start` **in seconds** (`18.5` is 18.5s, not 18.5ms).
+- `--volume` — the `Clip audio` value.
+
+It refuses, before encoding anything, a clip that would not fit inside the soundtrack (the real
+failure: audio truncated at the end of the film), a window past the end of the clip, and any
+out-of-range argument. After mixing it re-checks the soundtrack length and that the placed window
+actually changed. Every refusal exits non-zero and leaves `voiceover-with-music.mp3` byte-identical
+— fix what the message names and re-run.
+
+Run once per opt-in clip (each pass rewrites the canonical file Step 5.4 reads), then re-run the
+`ebur128` check. Expected: ≈ -16 LUFS, true peak at or under -1 dBTP, and the ducked window audibly
+quieter under the clip's sound.
 
 ## Step 5.3b: Reviewed Closed-Caption Delivery (all modes)
 
@@ -681,7 +676,15 @@ state, or output change routes back to this step.
 4). One render command produces the final MP4 with embedded audio — no separate mux step.
 
 Re-run the composition gate first (`CHECK_GATE`), in case a caption sub-composition overlaps a
-visual element:
+visual element.
+
+**If any scene was re-timed to the voiceover, re-run the seam gate too.** Audio is the clock: a
+scene whose duration moved to fit real word timings has shifted its own cut, so the seam vectors
+Phase 4 stamped and verified no longer describe the boundary. `SEAM_LAW` is explicit that editing a
+scene's first or last ~1s re-opens its seam, and a VO regeneration re-opens every seam it touches.
+Resolve `SEAM_VERIFIER` the same way Phase 4 does (Step 4.5) and re-run it; if the tool is
+unavailable, say plainly that the seams went unverified rather than implying the gate passed.
+Skip only when no scene duration changed in this phase.
 
 ```bash
 npx hyperframes check . --samples 10      # reruns lint (flags "audio element has no id")

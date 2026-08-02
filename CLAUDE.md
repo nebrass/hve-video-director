@@ -24,7 +24,9 @@ SKILL.md (orchestrator)
   ├─ workflows/phase-1-storytelling.md  → produces storyboard.md
   ├─ workflows/phase-2-capture.md       → produces public/screenshots/ (via Chrome DevTools MCP)
   ├─ workflows/phase-3-design.md        → produces DESIGN.md + scenes/*.html (via hyperframes skill)
-  ├─ workflows/phase-4-production.md    → produces root index.html composition (via hyperframes skill)
+  ├─ workflows/phase-4-production.md    → produces the seam ledger + root index.html composition
+  │                                       (via hyperframes skill); seams are stamped from the ledger
+  │                                       (SEAM_STAMP) and enforced numerically by SEAM_VERIFIER
   └─ workflows/phase-5-audio.md         → narration + music bed + SFX via the media-use audio engine,
                                           then the confirmed-track mix, reviewed captions,
                                           and out/final.mp4 (npx hyperframes render)
@@ -52,7 +54,7 @@ call (ADR-005), and a user's explicit creative instruction still overrides any d
 - Phase 2 needs `context.md` + `storyboard.md`
 - Phase 3 needs capture artifacts (`public/screenshots/` and/or `public/clips/`)
 - Phase 4 needs context + storyboard + `DESIGN.md` + `scenes/*.html`
-- Phase 5 needs `index.html` (root composition) and passing `npx hyperframes lint` + `npx hyperframes check`
+- Phase 5 needs `index.html` (root composition), a passing seam gate (`SEAM_VERIFIER` — re-run it when scenes are re-timed to the voiceover), and passing `npx hyperframes lint` + `npx hyperframes check`
 - Tutorial content mode prefers `public/clips/` but degrades to stills with a warning when clips are absent (warn-don't-block, spec §7.3); only missing captions is a hard check in tutorial mode
 
 **External dependencies the skill calls out to:**
@@ -66,12 +68,13 @@ call (ADR-005), and a user's explicit creative instruction still overrides any d
 - `scripts/generate_voiceover.py` → two roles, only one deprecated. `--assemble-only` is the canonical voiceover-section assembler for **both** audio paths (exact start times, pad to duration, overrun warning) and is **not** deprecated. Generating with the ElevenLabs API + optional Whisper transcription is the **deprecated acquisition fallback** (removed in M6) used only when the `media-use` engine is unavailable
 - `scripts/caption_gen.py` → preserves legacy ASR `voiceover.srt`/`.vtt` drafts and implements the Phase-5 `draft` → human review → `approve` → `finalize` → `validate` contract. Approval fingerprints the exact speech/speaker/meaningful-sound cues; final sidecars and deterministic state publish as one rollback-protected set. Pure stdlib with required `ffprobe`.
 - `scripts/capture_screen.py` → fixed-duration, silent native desktop/region capture orchestrator (pure stdlib). Uses macOS `screencapture`, Windows `gdigrab`, X11 `x11grab`, or feature-detected Wayland `wf-recorder`; WSL and unavailable Wayland return explicit recording handoffs. It trims through sibling `stitch_clip.py`, validates duration/frame count within one frame, and uses `<clip>.capture.pending` + fingerprinted `<clip>.capture.json` state so failed retakes preserve prior valid media but cannot count as complete.
+- `scripts/mix_clip_audio.py` → mixes one clip's own audio into the canonical soundtrack (trim → speed → loudnorm → volume → placement, then a sidechain duck under the clip). Pure stdlib, argv-only ffmpeg. Validates its inputs, refuses a placement whose audio would be truncated at the film's end, and replaces the soundtrack atomically only on success — a failed run leaves it byte-identical
 - `scripts/stitch_clip.py` → canonical normalizer/stitcher for raw captures (CFR30, H.264 High/yuv420p, even dimensions, no audio, `+faststart`) via the ffmpeg concat filter (pure stdlib)
 - `scripts/validate_brief.py` → parses the exact `project-plan.md` Creative Brief table, consent-migrates legacy plans with empty placeholders, confirms revision-bound story/audio fingerprints, atomically writes `.hve/brief-state.json`, stamps phases, and rejects stale prerequisites (pure stdlib)
 - `scripts/search_music.py` → **deprecated fallback** (removed in M6): Freesound API for CC music, used in Phase 5 only when the `media-use` engine is unavailable. Whatever produces the candidate, the exact-track confirmation still gates the mix
 - `scripts/check_requirements.sh` → verifies the toolchain (node/python/ffmpeg/chrome-headless-shell/hyperframes CLI + companion skills + env vars). Default, `--json`, and `--plan` are side-effect-free; report modes never use online `npx` probes. `--fix=<id,id>` runs only selected safe user-scoped actions (`chrome-shell`, `hyperframes-skill`, `whisper`), while bare `--fix` retains all-safe behavior. System/sudo/environment actions are printed, never run. Its `SKILL_HOMES` line must stay in lock-step with the canonical list in `SKILL.md` (same parity rule as the Phase 3/5 resolvers).
 
-`templates/` files are copied into generated projects. `patterns/` files are referenced for visual techniques — `metallic-swoosh.md` documents *why* clipPath transitions are banned (black-sliver artifacts), and `cli-terminal-capture.md` documents the `asciinema` + `agg` workflow for the optional real-terminal-clip path (the dependency-free authored-terminal path uses `templates/scene-terminal.html`; the asciinema clip path uses `templates/scene-terminal-clip.html`).
+`templates/` files are copied into generated projects. `patterns/` files are referenced for visual techniques — `transition-catalog.md` maps moments to transition families under `SEAM_LAW` (the seam rationale that used to live in a local pattern file is now upstream: the vector law in `motion-doctrine`, render-side compositing and edge artifacts in `seam-craft` via `SEAM_RENDER_MECHANICS`; the repo keeps only the narrowing clipPath/3D bans in `SKILL.md` § DON'Ts), and `cli-terminal-capture.md` documents the `asciinema` + `agg` workflow for the optional real-terminal-clip path (the dependency-free authored-terminal path uses `templates/scene-terminal.html`; the asciinema clip path uses `templates/scene-terminal-clip.html`).
 
 ## Working with the skill scripts
 
@@ -131,13 +134,12 @@ Both `ELEVENLABS_API_KEY` and `ELEVEN_LABS_API_KEY` are accepted (back-compat).
 
 ## Editing rules — DON'Ts that are easy to violate
 
-These are enforced verbally in the `## DON'Ts` section of `SKILL.md`. If you modify workflows or patterns, do not reintroduce them:
+These are enforced verbally in the `## DON'Ts` section of `SKILL.md` — except the seam rules, which `SEAM_VERIFIER` enforces numerically. If you modify workflows or patterns, do not reintroduce them:
 
 - **No jitter** (shaking, vibrating motion).
 - **No 360° scene spins.** Subtle `rotateY` ≤ 8° / `rotateZ` ≤ 4° on mockups only.
-- **No 3D transforms in transitions.** 2D only (opacity, position, scale, gradient masks).
-- **No clipPath transitions.** They cause anti-aliased black slivers; use crossfade + shine overlay (see `patterns/metallic-swoosh.md`).
-- **No exit animations except on the closing scene.** The inter-scene transition owns the exit.
+- **Seams belong to `SEAM_LAW`, not to this repo.** The vector law (axis/direction/speed/phase), the ban on a scene authoring its own exit — only the closing scene may animate out — and the fact that a crossfade carries nothing across the cut (a dissolve, not a seam) are `motion-doctrine`'s, stamped by `SEAM_STAMP` and checked by `SEAM_VERIFIER`. **The numeric gate is authoritative where local prose disagrees**; fix the seam ledger, not the assertion. It still never overrides the user's confirmed transition style — it governs execution, not choice (ADR-001).
+- **Additive seam bans this repo keeps** (narrowing only, never overriding the law): no `clipPath`-driven inter-scene wipe (anti-aliased black sliver at the boundary; render-side rules are `SEAM_RENDER_MECHANICS`) and no 3D/perspective transforms as a seam effect — a Z seam is a signed *scale* change.
 - **Never animate `display`, `visibility`, or call `.play()` inside a timeline.** Breaks HyperFrames' deterministic seek; use `opacity` + `pointer-events`.
 - **Never animate `<img>` dimensions directly.** Wrap the `<img>` in a non-timed `<div>` and animate the wrapper's `transform`. Direct dimension tweens trigger layout recompute that breaks deterministic seek.
 - **Never use `tl.from()` for opacity tweens.** GSAP records the end-state at registration; if the CSS rest is `opacity:0` the recorded end is `opacity:0` (the tween goes nowhere), and under stagger later instances re-hide elements earlier ones revealed. Always use `tl.fromTo(target, {opacity:0,...}, {opacity:1,...}, pos)`.
@@ -156,6 +158,13 @@ These are enforced verbally in the `## DON'Ts` section of `SKILL.md`. If you mod
   `search_music.py` are the deprecated **acquisition** fallback until **M6** (assembly via
   `--assemble-only` survives); if that milestone moves, update the deprecation note in `SKILL.md`,
   `README.md`, `workflows/phase-5-audio.md`, both script headers, and this file together.
+- **Change a transition** → edit that seam's row in the **seam ledger**, then re-stamp and re-verify
+  (`SEAM_STAMP` → `SEAM_VERIFIER`). Never hand-tune easing at the boundary until the gate goes
+  green: the mechanics are `motion-doctrine`'s (`SEAM_LAW`, row schema `SEAM_GATE_REFERENCE`), the
+  named seam techniques and their parameters are `cut-the-curve`'s (`CUT_CATALOG`), and the numeric
+  gate outranks any prose in this repo. The ledger's location and its place in the Phase-4 order are
+  in `workflows/phase-4-production.md`; `patterns/transition-catalog.md` only maps moments to
+  families. This repo adds nothing but the narrowing bans in `SKILL.md` § DON'Ts.
 - **Change phase logic** → edit the relevant `workflows/phase-N-*.md`; update the prerequisite list in `SKILL.md` if a new required file is introduced.
 - **Change the Creative Brief schema** → update `templates/project-plan.md`,
   `scripts/validate_brief.py`, `example/project-plan.md`, workflow field names, and validator tests

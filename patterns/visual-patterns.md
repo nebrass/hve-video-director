@@ -257,15 +257,20 @@ tl.fromTo(root + ' .spotlight-dim',
   { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.5, ease: "power2.out" }, 1.0);
 ```
 
-**Emphasis budget (enforce):**
+**Emphasis budget (enforce).** The emphasis and marker-highlight limits are counted from the
+budget table in `reasoning/scene-analysis.md` — the only place those numbers live (ADR-008). The
+judgment for spending them:
 
-- **One emphasis device per scene — EITHER a marker highlight OR a spotlight, never both.** Two attention cues on one region cancel each other out.
-- **Respect the one-marker-per-video cap.** A marker highlight is a deliberate editorial beat; the project default allows **one per video** (`marker-highlight.md` § When to use which mode). A spotlight is the lighter-weight alternative when you've spent the marker elsewhere.
+- **Pick EITHER a marker highlight OR a spotlight, never both on one region.** Two attention cues
+  aimed at the same place cancel each other out; the eye reads "busy", not "look here".
+- **A marker highlight is a reserved editorial beat, not a tool.** Spend it on the single moment
+  that most deserves it (`marker-highlight.md` § When to use which mode). A spotlight is the
+  lighter-weight alternative once the marker is spent.
 - **Reveal via `autoAlpha` — never `display`/`visibility`, never `clipPath`** (§ DON'Ts). The dim overlay's hole is a static `radial-gradient` mask or `box-shadow` inset; you fade the overlay in, you don't animate the cutout's shape.
 
 ### In-Scene Shine Sweep
 
-A one-shot specular pass over a UI card — an absolutely-positioned gradient overlay whose `background-position` animates across the element once, as the card settles. Same technique as the inter-scene metallic swoosh, scoped to a single card inside a scene. Pull `shimmer-sweep` from the catalog (`npx hyperframes add shimmer-sweep`) before hand-authoring — it's the tested cousin of this effect.
+A one-shot specular pass over a UI card — an absolutely-positioned gradient overlay whose `background-position` animates across the element once, as the card settles. This is **intra-scene**: it lives inside one scene and decorates one card. Nothing here applies to a scene-to-scene seam — that is `SEAM_LAW` / `SEAM_RENDER_MECHANICS` territory (`patterns/transition-catalog.md`). Pull `shimmer-sweep` from the catalog (`npx hyperframes add shimmer-sweep`) before hand-authoring — it's the tested version of this effect. Note what it is: `REGISTRY_CATALOG` lists it as an element-scoped *component*, which is precisely why it belongs here and cannot serve a seam.
 
 ```html
 <div class="card-shine" aria-hidden="true"></div>
@@ -291,7 +296,7 @@ tl.to(root + ' .card-shine', { opacity: 0, duration: 0.08, ease: "power1.in" }, 
 **Guardrails:**
 
 - **One-shot, not an ambient loop.** A shine that keeps sweeping the whole scene is the looping-motion tell (`anti-slop.md` § P2). Fire it once when the card lands.
-- **Self-police `mix-blend-mode: screen` luminance.** If you add `mix-blend-mode: screen` for a hotter pop, `check` does not detect luminance overflow — it is not a luminance audit. Preview against your **brightest** scene background by eye; `screen` blending can push near-white past 100% luminance and produce a flash. If that happens, drop the band's `rgba` alpha to ~0.65, or remove the blend mode and rely on `opacity` alone (carried verbatim in spirit from `metallic-swoosh.md` § Validation).
+- **Self-police `mix-blend-mode: screen` luminance.** If you add `mix-blend-mode: screen` for a hotter pop, `check` does not detect luminance overflow — it is not a luminance audit. Preview against your **brightest** scene background by eye; `screen` blending can push near-white past 100% luminance and produce a flash. If that happens, drop the band's `rgba` alpha to ~0.65, or remove the blend mode and rely on `opacity` alone. This caveat holds for **any** `screen`-blended band in this repo, in a scene or across a seam.
 
 ### Masked Reveal (mask-position)
 
@@ -319,22 +324,24 @@ tl.to(root + ' .masked-reveal',
   0.8);
 ```
 
-**Guardrail:** this is **distinct from the banned `clipPath` transitions** (§ DON'Ts; `metallic-swoosh.md` — clipPath leaves an anti-aliased black sliver because two half-planes never share an exact subpixel boundary). `mask-position` does **no polygon vertex interpolation** — the mask geometry is constant, only its offset moves, so there is no seam to mis-render. Keep the mask shape static; do not interpolate the mask's stops or use it as an inter-scene transition (that's still the crossfade + shine's job).
+**Guardrail:** this is **distinct from the banned `clipPath` transitions** (§ DON'Ts, which carries the why). `mask-position` does **no polygon vertex interpolation** — the mask geometry is constant, only its offset moves, so there is no seam to mis-render. Keep the mask shape static; do not interpolate the mask's stops, and do not press this into service as an inter-scene transition — a seam is `SEAM_LAW`'s, not a scene's.
 
-## Transition Ideas
+## Transitions are not a scene's business
 
-Scene-to-scene transitions are authored at the **composition level**, not inside a scene. HyperFrames supports CSS transitions for most cases and shader transitions for cinematic moments.
+Nothing in this file authors a scene-to-scene seam. A seam is a **composition-level** concern and
+belongs to the doctrine:
 
-| Transition | Best For | Implementation |
-|------------|----------|---------------|
-| Crossfade | Default everywhere | Outgoing scene `opacity: 1 → 0` on a `gsap.to()` synchronized with incoming `opacity: 0 → 1`. |
-| Metallic Swoosh | Section changes, brand beats | See `metallic-swoosh.md` (CSS gradient + GSAP). |
-| Zoom Through | Feature reveals | Outgoing `scale: 1 → 1.15, opacity: 1 → 0`; incoming `scale: 0.95 → 1, opacity: 0 → 1`. |
-| Slide Up | Sequential narrative beats | Outgoing `y: 0 → -80, opacity → 0`; incoming `y: 60 → 0, opacity → 1`. |
-| Wipe | Before/after reveals | Mask the outgoing scene with a CSS `linear-gradient` whose `background-position` is animated. |
+- *Which* transition serves this moment, and how much transition energy the film can spend →
+  `patterns/transition-catalog.md`.
+- The law of the handoff — how this scene's exit determines the next scene's entry → `SEAM_LAW`
+  (`motion-doctrine`), verified numerically by `SEAM_VERIFIER`.
+- How the two scenes actually composite across the seam → `SEAM_RENDER_MECHANICS` (`seam-craft`).
+- The named velocity-matched seams and their parameters → `CUT_CATALOG` (`cut-the-curve`).
 
-Transition duration comes from the confirmed brief: `quick = 0.4s`, `medium = 0.7s`,
-`slow = 1.2s`. Slow is intentionally dramatic; do not silently shorten it after the user chose it.
+The two consequences that bind scene authoring are already in § DON'Ts: **no exit animation on a
+non-final scene** (the seam owns the exit) and **no `clipPath` transitions**. Transition duration
+comes from the confirmed `transition_speed` in the brief and is never quietly shortened after the
+user chose it (ADR-001); `workflows/phase-4-production.md` Step 4.5 is the wiring call site.
 
 ## Color Psychology
 
@@ -364,7 +371,7 @@ HyperFrames' `check` enforces WCAG AA contrast (4.5:1 normal text, 3:1 large tex
 - **No jitter or shake** — looks cheap; HyperFrames `check` will not catch this, you must self-police.
 - **No full 360° rotations** — disorienting. Subtle `rotateY` ≤ 8° or `rotateZ` ≤ 4° only.
 - **No exit animations on non-final scenes** — let the transition handle the exit. Animating the same element out and then transitioning the scene out is double-motion.
-- **No `clipPath` for transitions** — produces anti-aliased black slivers between scenes. Use crossfade + shine instead (see `metallic-swoosh.md`).
+- **No `clipPath` for transitions** — *the why, learned the hard way in this repo:* a polygon `clipPath` that sweeps between two scenes leaves a **1px anti-aliased black sliver** along the moving edge, because the exiting and entering half-planes never share an exact subpixel boundary — each anti-aliases its own edge against nothing, and the page behind shows through the gap. It survives every gate (`check` reads layout and contrast, not a hairline seam) and only appears in the rendered frames. Reach for a crossfade with a full-frame light overlay over it instead — the light family in `TRANSITION_FAMILIES` — and let `SEAM_RENDER_MECHANICS` own the compositing. **This bans `clipPath` as a *seam*, not as a static shape** — a fixed `clip-path` on an element, or an animated `mask-position` over a static mask (§ Masked Reveal), interpolates no vertices and has no seam to mis-render.
 - **Never animate `display`, `visibility`, or call `.play()` inside a timeline** — GSAP can't tween `display`/`visibility` (they're binary), and `.play()` from inside a timeline breaks HyperFrames' deterministic seek. Use `autoAlpha` (which tweens opacity AND toggles visibility) or `opacity` + `pointer-events: none`:
   ```js
   // ✅ correct — autoAlpha tweens opacity AND toggles visibility
