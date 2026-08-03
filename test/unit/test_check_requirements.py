@@ -237,27 +237,41 @@ class RequirementsCheckerTestCase(unittest.TestCase):
             self.assertNotIn("generate_voiceover.py cannot run", check["detail"])
             self.assertNotIn("deprecated", check["detail"])
 
-    def test_no_check_reports_the_retired_freesound_fallback(self):
-        """An env var no code path reads must not cost a phase.
+    def test_freesound_key_is_reported_because_search_music_reads_it(self):
+        """FREESOUND_API_KEY is the one env var a script in this repo reads.
 
-        `scripts/search_music.py` was the only consumer of FREESOUND_API_KEY;
-        with it gone the check would report a gap that changes nothing. Scans
-        every field an agent or user reads, so a reintroduction anywhere in the
-        report — id, label, detail, human message, or fix command — fails here.
+        This assertion used to say the opposite — that no check may mention
+        Freesound at all — on the premise that M6 had retired
+        `scripts/search_music.py`. The script was then restored, deliberately:
+        a real recording has an author, a stable URL and an auditable licence.
+        The premise was reverted and the assertion was not, so the suite went on
+        certifying the absence of a probe the recommended music strategy needs.
+        A user could pick "Search Freesound" in Phase 1, pass setup clean, and
+        fail in Phase 5 on a key Phase -1 had pronounced irrelevant.
+
+        Kept as a named test rather than deleted, because the failure mode is
+        specific: a green suite asserting a gap is correct.
         """
         self.install_required_shims()
-        self.install_optional_shims()
         self.install_skills()
+
         env = self.environment()
         env["FREESOUND_API_KEY"] = "test"
+        _, checks = self.json_checks(env=env)
+        ready = checks["freesound-key"]
+        self.assertEqual(ready["state"], "ready")
+        self.assertEqual(ready["tier"], "recommended")
+        self.assertEqual(ready["phases"], [5])
 
-        result, checks = self.json_checks(env=env)
-        self.assertNotIn("freesound-key", checks)
-        blob = json.dumps(checks) + self.run_checker(env=env).stdout
-        for retired in ("FREESOUND", "freesound", "search_music"):
-            self.assertNotIn(retired, blob)
-        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        # Both report modes ran with every shim present; neither may install.
+        _, checks = self.json_checks()
+        absent = checks["freesound-key"]
+        self.assertEqual(absent["state"], "degraded")
+        # Recommended, not required: the other three music strategies need no key,
+        # so a missing key must never block a run that was never going to search.
+        self.assertEqual(absent["tier"], "recommended")
+        self.assertEqual(absent["fixability"]["kind"], "manual-env")
+        self.assertIn("music strategy", absent["detail"])
+        # An env var is the user's to export; the checker may never set one.
         self.assertFalse(self.log.exists())
 
     def test_heygen_credential_reports_presence_without_running_the_cli(self):
@@ -344,7 +358,7 @@ class RequirementsCheckerTestCase(unittest.TestCase):
             "node", "npx", "python", "ffmpeg", "ffprobe", "chrome-shell",
             "hyperframes-cli", "hyperframes-skill", "gsap-skill",
             "motion-doctrine-skill", "media-use-skill", "heygen-credential",
-            "elevenlabs-key", "whisper", "espeak-ng",
+            "elevenlabs-key", "freesound-key", "whisper", "espeak-ng",
             "terminal-capture",
         }
         # Exact equality, not issubset: `docker-wsl` is the only conditional

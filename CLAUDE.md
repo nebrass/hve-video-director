@@ -194,6 +194,13 @@ Run the stdlib tests with `bash test/run.sh`; the suite covers brief validation/
 question-contract integration, mocked platform capture, and a synthetic ffmpeg normalization
 integration test when ffmpeg/ffprobe are installed.
 
+`scripts/check_requirements.sh` probes `FREESOUND_API_KEY` — the **only** environment variable a
+script in this repo reads (`search_music.py`), and `freesound` is the recommended music strategy, so
+an unset key is a Phase-5 failure chosen in Phase 1. `test/unit/test_requirements_coverage.py`
+enforces the general rule: every env var read under `scripts/` must be both probed and reported.
+It exists because the reverse assertion outlived its premise — a test required that *no* Freesound
+check exist, written when M6 retired `search_music.py`, and stayed green after the script came back.
+
 `scripts/check_requirements.sh` accepts both `ELEVENLABS_API_KEY` and `ELEVEN_LABS_API_KEY`
 (back-compat). Since M6 no script in this repo reads either one — the key serves the delegated
 engine's ElevenLabs route, which is the only path that still consumes it.

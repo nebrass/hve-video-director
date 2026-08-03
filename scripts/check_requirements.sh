@@ -822,12 +822,21 @@ collect_checks() {
       "whisper not found (recommended for VO timing)"
   fi
 
-  # No FREESOUND_API_KEY check: M6 retired scripts/search_music.py and nothing
-  # left in this skill reads that variable. Reporting an env var that no code
-  # path consumes would attribute a phase cost to a gap that has none. The
-  # `freesound` music strategy survives as a manual one — browse the site,
-  # download the track, record its exact URL in the Creative Brief — and that
-  # needs no API key.
+  # FREESOUND_API_KEY is the one environment variable a script in THIS repo
+  # actually reads (scripts/search_music.py), and `freesound` is the recommended
+  # music strategy, so an unset key is a Phase-5 failure the user chose in Phase 1.
+  # Recommended rather than required: the other three strategies need no key.
+  if [ -n "${FREESOUND_API_KEY:-}" ]; then
+    add_check freesound-key "FREESOUND_API_KEY" recommended ready "5" \
+      "set; scripts/search_music.py can present Creative Commons candidates for the freesound music strategy" \
+      "" manual-env "" "export FREESOUND_API_KEY=<key>" Recommended \
+      "FREESOUND_API_KEY set (Freesound music search)"
+  else
+    add_check freesound-key "FREESOUND_API_KEY" recommended degraded "5" \
+      "not set; the recommended freesound music strategy cannot search. Either get a free key (https://freesound.org/apiv2/apply), pick a track manually and record its exact URL, or choose another music strategy in Phase 1" \
+      "" manual-env "" "export FREESOUND_API_KEY=<key>" Recommended \
+      "FREESOUND_API_KEY not set — Freesound search unavailable; supply a track manually or pick another music strategy"
+  fi
 
   if command -v espeak-ng >/dev/null 2>&1; then
     add_check espeak-ng "espeak-ng" optional ready "5" \
