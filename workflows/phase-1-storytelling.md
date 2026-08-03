@@ -550,13 +550,18 @@ would have earned one records the rejection so the user can see what the choice 
 }
 ```
 
-Record `visual_runtime: derived | flat`. On `flat`, carry it into Phase 3 as a hard bar; never
-re-offer it per frame, and never treat `derived` as the user asking for 3D.
+Record `visual_runtime: derived | flat`. Never re-offer it per frame, and never treat `derived`
+as the user asking for 3D.
 
-**It lives in the brief only.** Phases 3 and 4 read it from `.hve/brief-state.json`, not from
-storyboard frontmatter — the brief is the consent record, and a lever the user owns belongs
-where the other ten are. Writing it into frontmatter would also put a local key in the one
-namespace `STORYBOARD_FORMAT` owns.
+**It is consumed in Step 1.6, not later.** Runtime is decided where the director keys are
+written, so the ceiling applies there — step 2b of the selection procedure in
+`reasoning/capability-catalog.md`. Phases 3 and 4 only build the runtime the storyboard
+already names; there is nothing left for them to re-check, and prose telling them to would
+describe a gate that does not exist.
+
+**It lives in the brief only** — never in storyboard frontmatter. The brief is the consent
+record, and a lever the user owns belongs where the other ten are; a local key in frontmatter
+would also sit in the namespace `STORYBOARD_FORMAT` owns.
 
 Choose the music acquisition strategy now. The exact track remains unselected until Phase 5 has
 real candidates; selecting a strategy is not permission for the agent to pick a track.
@@ -710,6 +715,21 @@ file**; do not wait for an exit code. Anything other than `format: official` on 
 step just wrote is a defect in what you wrote: `legacy` means the frontmatter and the metadata
 bullets are both missing, `unknown` that no frame heading was found at all. Fix the file. Never run
 `migrate-storyboard` here — that command exists for projects created before this shape.
+
+### Say what the ceiling cost
+
+When `visual_runtime: flat`, name every frame whose derivation reached for a barred runtime and what
+it became instead, in the same message as the storyboard. The rejections are already on the frames
+(`runtime_rejected: … — visual_runtime: flat`); this step only surfaces them — the user answered
+that question in Step 1.5 **before a single frame existed**, and this is the first moment the answer
+has anything visible attached to it. A choice the user cannot see the consequences of is not one
+they can revise.
+
+Say nothing when the ceiling cost nothing. A film that never reached for a barred runtime has no
+tradeoff to report, and manufacturing one reads as pressure to lift a setting the user meant.
+
+Changing the answer is a brief edit that re-confirms the story and re-runs this step — never a
+per-frame negotiation.
 
 ### Capture type per frame (optional)
 
