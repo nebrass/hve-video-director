@@ -13,78 +13,55 @@ A nonzero exit routes back to the earliest stale phase even when `DESIGN.md` and
 
 ## Step 4.1: Initialize the Project
 
-By the time you reach Phase 4, `{project-dir}/` already has `DESIGN.md` and `scenes/*.html` from Phase 3. `npx hyperframes init {project-dir}` would clobber those files. **The supported flow is to skip `init` for hve-video-director projects** — author `index.html` directly in the existing directory.
+By the time you reach Phase 4, `{project-dir}/` already has `DESIGN.md` and `scenes/*.html` from
+Phase 3, and `npx hyperframes init {project-dir}` would clobber both. **The supported flow skips
+`init` entirely** — author `index.html` directly in the existing directory; to render you need only
+that file, the Phase 3 `scenes/*.html`, and the Phase 5 audio (Step 4.3 has the full layout).
+`INIT_SCAFFOLD` documents `init` and its starter examples for projects built *outside* this skill —
+worth reading as reference compositions, but never run `init` against `{project-dir}/` itself.
 
-You only need three things in the project directory to render:
-
-```
-{project-dir}/
-├── index.html           ← write this in Step 4.4 below
-├── scenes/*.html        ← from Phase 3
-└── (audio files)        ← from Phase 5
-```
-
-`npx hyperframes` (no local install required) handles `lint`, `inspect`, `validate`, `preview`, and `render`. If you want to run the bundled verification scripts (`animation-map.mjs`, `contrast-report.mjs` — see Step 4.7), install the package locally first:
-
-```bash
-npm init -y                              # one-time, creates package.json
-npm install hyperframes                  # installs into node_modules/
-```
-
-After that, both CLI subcommands and bundled scripts work. The local install is optional — skip it if you don't plan to run animation-map.
-
-### Starter templates (reference only; not used in the hve-video-director flow)
-
-If you're building a HyperFrames project *outside* hve-video-director from scratch, `npx hyperframes init <dir>` supports `--example <name>` to seed with a richer starter than `blank`:
-
-| Template | Best for |
-|---|---|
-| `blank` | Default — minimal scaffold |
-| `product-promo` | Marketing |
-| `warm-grain` | Editorial / documentary tone |
-| `swiss-grid` | Clean SaaS / data-heavy |
-| `vignelli` | Modernist typography |
-| `play-mode` | Playful / kinetic |
-| `kinetic-type` | Type-driven hero |
-| `decision-tree` | Explainers / flow diagrams |
-| `nyt-graph` | Data-viz / chart-heavy |
-
-These are useful as reference compositions to study. **Don't run `init` against `{project-dir}/` itself** — it will overwrite Phase 3 output.
+`npx hyperframes` (no local install required) handles `lint`, `check`, `snapshot`, `preview`, and `render`. The bundled generation and verification scripts ship with the companion skills rather than the CLI: `hyperframes-animation` → `ANIMATION_MAP` (Step 4.7), `hyperframes-creative` → `CONTRAST_REPORT`, and `motion-doctrine` → `SEAM_STAMP` + `SEAM_VERIFIER` (Steps 4.5 and 4.6). Every path is registered in `compat/ecosystem.md`, and each script needs its owning skill's install directory resolved before it can run — there is no `hyperframes <subcommand>` equivalent for any of them.
 
 ## Step 4.2: Pull Catalog Blocks (Optional but Recommended)
 
-HyperFrames ships a **catalog of pre-built, drop-in blocks** that handle the most common motion-design needs. Pulling a block via `npx hyperframes add <name>` copies a ready-to-wire sub-composition into your project. This is the conventional path used by first-party HyperFrames templates — composing catalog blocks is usually faster and more polished than authoring transitions and effects from scratch.
+`npx hyperframes add <name>` copies a ready-to-wire sub-composition into the project — the path
+first-party templates take, and usually faster and more polished than authoring an effect from
+scratch. `REGISTRY_CATALOG` lists the names `add` accepts, `REGISTRY_BLOCKS` the wiring contract,
+and `REGISTRY_ADD_EXAMPLE` a worked install; a pulled block already carries its own wrapper and
+registered timeline, so you supply only its window and track in the root composition.
 
-Most useful blocks for hve-video-director productions:
-
-| Block | What it is | Use For |
-|---|---|---|
-| `flash-through-white` | Hard cut with brief white flash | Punchy section changes |
-| `chromatic-radial-split` | RGB-shifted radial wipe | Cinematic moments |
-| `cinematic-zoom` | Shader zoom transition | Hero reveals |
-| `shimmer-sweep` | Diagonal shine sweep (similar to our metallic-swoosh) | Premium beats |
-| `grain-overlay` | Film-grain texture overlay | Atmosphere on dark scenes |
-| `logo-outro` | Wordmark assembly + bloom glow | Closing card |
-| `app-showcase` | Three-phone / desktop hybrid frame | Product feature scenes |
-| `ui-3d-reveal` | UI panel flies in from z-depth | Screenshot reveals |
-| `data-chart` | Animated bar/line chart | Stat/proof scenes |
-| `reddit-post` | Stylised social-card overlay | Pull-quotes, social proof |
+The ones that earn their place here — as seams: `flash-through-white` (punchy section change),
+`chromatic-radial-split` (cinematic moment), `cinematic-zoom` (hero reveal); as scene furniture:
+`app-showcase` (device frame), `ui-3d-reveal` (screenshot reveal), `data-chart` (stat/proof beat),
+`reddit-post` (social proof), `logo-outro` (closing card), `grain-overlay` (atmosphere on dark
+scenes). `shimmer-sweep` is an element-scoped *component*, **not** a seam — in-scene accents only.
 
 ```bash
-# Pull a few blocks at the start of Phase 4.
-npx hyperframes add flash-through-white
-npx hyperframes add chromatic-radial-split
-npx hyperframes add logo-outro
+npx hyperframes add flash-through-white   # …and any other block named above
 ```
 
-Each `add` drops a sub-composition file (typically under `blocks/` or `catalog/`) which you then wire into the root `index.html` via `data-composition-src`, exactly like a Phase 3 scene template. The block's own `<template>` wrapper and registered timeline are already correct — you set its `data-start`, `data-duration`, `data-track-index` in the root composition.
+Use a block only when it implements the confirmed transition style and can be retokenized to the
+confirmed theme without changing its identity. The user's `transition_style`, `transition_speed`,
+and `theme` always win; a block's convenience never introduces a white flash into a dark
+composition, or an unselected transition anywhere.
 
-Use a catalog block only when it implements the confirmed transition style and can be retokenized
-to the confirmed theme without changing its identity. The user's `transition_style`,
-`transition_speed`, and `theme` always win; never introduce a white flash into a dark composition
-or an unselected transition because a block is convenient.
+## Step 4.3: Accept the Scene Set, Reconcile Assets
 
-## Step 4.3: Reconcile Assets
+Every `scenes/*.html` came from a builder holding **one frame's packet** — that frame's storyboard
+block with its director keys, the design spec, the inlined bodies of the recipes it cites, its
+canvas, and its bound capture paths. Assume what the packet guaranteed and do not re-derive it: a
+`<template>`-wrapped sub-composition registering one paused timeline, whose layout, motion and copy
+answer that frame's `goal:` / `tone:` / `energy:` / `density:`, and whose tokens and capture `src`
+paths are the ones it was handed.
+
+**Verify what no packet could reach.** A builder saw one frame and ran no CLI, so everything
+cross-frame and every gate belongs to this phase: the loader wiring Step 4.4 lays out (values
+`DATA_ATTRIBUTES`, track uniqueness `TRACKS_AND_CLIPS`, canvas parity and single-owner initial state
+in that step's own comments); one design language and one theme across all scenes; no scene
+animating its own exit; a real capture on screen somewhere in the film; and `lint` / `check` / seam
+gate / hero-frame check, none of which means anything until the project is assembled.
+Composition-level failures are repaired here — a failure *inside* one scene file goes back to its
+builder (Step 4.6 § Re-dispatch a failing frame).
 
 Confirm the directory layout. The Phase 4 composition expects:
 
@@ -92,266 +69,454 @@ Confirm the directory layout. The Phase 4 composition expects:
 {project-name}/
 ├── DESIGN.md                  # from Phase 3
 ├── index.html                 # root composition (this phase)
-├── scenes/                    # from Phase 3
-│   ├── 00-title-card.html
-│   ├── 01-pain-point.html
-│   └── ...
-├── public/screenshots/        # from Phase 2
-└── package.json               # optional — only if you ran `npm install hyperframes`
-                               #            in Step 4.1 to enable animation-map (Step 4.7)
+├── scenes/*.html              # from Phase 3
+└── public/screenshots/        # from Phase 2
 ```
 
 Screenshots stay at `public/screenshots/` — referenced from `index.html` via relative `<img src="public/screenshots/…">` tags.
 
 ## Step 4.4: Build the Root Composition
 
-`index.html` is a single HyperFrames composition whose total duration equals the storyboard total. Standalone compositions (the root) do **not** use a `<template>` wrapper — the `data-composition-id` div sits directly in `<body>`. Sub-compositions loaded via `data-composition-src` are the only ones that need `<template>`.
+`index.html` is a single HyperFrames composition whose total duration equals the storyboard total.
+It is the *modular orchestrator* shape `COMPOSITION_ARCHITECTURE` describes: no `<template>`
+wrapper (only the sub-compositions it loads have one), a slot per scene, the audio mount, and a
+near-empty root timeline.
+
+**The master clock comes from each frame's `duration` bullet, accumulated in frame order** — one
+loader per frame, its `src` naming the scene file. A frame's `window` bullet is a reading aid, not a
+source: where the two disagree, `duration` wins and the disagreement is worth reporting, because it
+usually means a hand-edit landed in one place only. Read the frames through
+`validate_brief.py … storyboard --json` (Phase 3 § Reading the storyboard) rather than by eye;
+`duration_seconds` there is the parsed number. Frame headings are 1-based while scene files and
+composition ids stay 0-based, so **frame 1 is `scene-00-…`** — the loader comments below count
+files, not frames.
 
 Read `theme`, `transition_style`, and `transition_speed` from the confirmed Creative Brief before
 writing the root. Resolve the root canvas and every transition overlay from the single
 confirmed-theme token set in `DESIGN.md`; no root, loading, or overlap frame may expose an
 opposite-theme default. Map speed exactly once: `quick = 0.4s`, `medium = 0.7s`, `slow = 1.2s`.
-Call that value `D`. Every non-closing loader remains alive for its nominal scene duration plus
-`D`; clip-scene inner videos use that same full loader window. Replace every uppercase color and
-timing token below with computed literals before linting.
+Call that value `D` — it is the whole seam's time budget at every boundary. Replace every uppercase
+color and timing token below with computed literals before linting.
+
+**Loader windows follow the boundary kind, and Step 4.5 decides which kind each boundary is.**
+Write the ledger first, then size the loaders from it:
+
+- **Cut boundary** (a ledger row) — instantaneous, so the two scenes never co-exist: the outgoing
+  loader ends at the cut time and the incoming loader's `data-start` **is** that time, never earlier.
+  Read `SEAM_LAW`'s clip-gating note first — a loader that opens before its entry tween is un-hidden
+  sits at its initial state and fails the zero-overlap check, the commonest seam-gate failure.
+- **Dissolve boundary** (no ledger row — `crossfade`, `metallic-swoosh`) — both scenes must be alive
+  together: the outgoing loader stays alive `D` past its nominal end and the incoming starts at the
+  nominal boundary, or the canvas flashes through.
+
+A clip scene's inner `<video>` mirrors *its own loader's* full window either way. Paint `#root`
+opaque in the confirmed theme — a render prerequisite, not a style choice; `SEAM_RENDER_MECHANICS`
+(`seam-craft`) says which seam windows open a summed-opacity gap and why an unpainted root flashes
+white through it.
 
 ```html
-<!doctype html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <link rel="stylesheet" href="styles.css">
-  <style>
-    html, body { margin: 0; background: THEME_CANVAS; }
-  </style>
-</head>
-<body>
-  <div id="root"
-       data-composition-id="main"
-       data-width="1920"
-       data-height="1080"
-       data-start="0"
-       data-duration="42">
-    <!-- data-width / data-height MUST match the Phase 1 aspect choice and
-         every scene template's own data-width / data-height. Supported:
-           16:9 → 1920×1080  (default, horizontal)
-           9:16 → 1080×1920  (vertical / TikTok / Reels / Shorts)
-           1:1  → 1080×1080  (square)
-           4:5  → 1080×1350  (portrait IG feed) -->
+<!-- Document head, stylesheet mount and body wrapper per COMPOSITION_ARCHITECTURE. -->
+<style>
+  html, body { margin: 0; background: THEME_CANVAS; }
+  /* Opaque stage ground — required, see SEAM_RENDER_MECHANICS. */
+  #root { background: THEME_CANVAS; }
+</style>
 
-    <!-- Audio (voiceover + music mixed in Phase 5).
-         `id` is required — HyperFrames lint flags <audio> elements without
-         an id, and the renderer silently drops audio that lacks one. -->
-    <audio id="audio-main" data-start="0" data-duration="42" data-track-index="0"
-           src="voiceover-with-music.mp3"></audio>
+<div id="root"
+     data-composition-id="main"
+     data-width="1920" data-height="1080"
+     data-start="0" data-duration="42">
+  <!-- data-width / data-height MUST match the canvas confirmed in Phase 1
+       Step 1.1 and every scene template's own data-width / data-height. -->
 
-    <!-- Scene clips. CRITICAL invariants:
-           1. data-composition-id on the loader must match the inner sub-comp's id.
-           2. Adjacent scenes must OVERLAP during the confirmed transition window D —
-              each non-closing scene's data-duration extends D past its nominal end.
-              The incoming scene starts at the nominal boundary. Both render during the transition;
-              otherwise the body color flashes through.
-           3. Track indices must be UNIQUE for overlapping scenes — HyperFrames
-              rejects same-track overlap. Use 1,2,3,4,5 (or any unique integers).
-              data-track-index doesn't drive visual layering — DOM order does (with
-              same z-index, later elements paint on top).
-    -->
+  <!-- Audio (voiceover + music mixed in Phase 5). `id` is required: lint
+       flags an <audio> without one, and the renderer silently drops it. -->
+  <audio id="audio-main" data-start="0" data-duration="42" data-track-index="0"
+         src="voiceover-with-music.mp3"></audio>
 
-    <!-- Scene 0 nominally spans 0 → 5; full loader window is 5 + D. -->
-    <div data-composition-id="scene-00-title-card"
-         data-composition-src="scenes/00-title-card.html"
-         data-start="0" data-duration="SCENE_00_NOMINAL_PLUS_D"
-         data-track-index="1"></div>
+  <!-- Scene loaders. Three rules the ecosystem references do not cover:
+         1. Windows come from the boundary kind — size them only AFTER the
+            seam ledger exists (see above).
+         2. Initial hidden state has ONE owner per scene. A scene named in the
+            ledger gets its base state from SEAM_STAMP — leave its inline style
+            off. A scene reached only by a dissolve keeps style="opacity:0".
+            Declaring it twice is how a scene ships permanently invisible with
+            every gate green.
+         3. A non-default `runtime:` needs a ROOT bootstrap — see below. The
+            scene cannot import it itself.
+  -->
 
-    <!-- Scene 1 nominally spans 5 → 9; full loader window is 4 + D. -->
-    <div data-composition-id="scene-01-pain-point"
-         data-composition-src="scenes/01-pain-point.html"
-         data-start="5" data-duration="SCENE_01_NOMINAL_PLUS_D"
-         data-track-index="2"
-         style="opacity:0"></div>
+  <!-- Scene 1 nominally spans 5 → 9 (scene 0 elided). Ledgered cut: no inline opacity. -->
+  <div data-composition-id="scene-01-pain-point"
+       data-composition-src="scenes/01-pain-point.html"
+       data-start="SCENE_01_CUT_IN" data-duration="SCENE_01_LOADER_WINDOW"
+       data-track-index="2"></div>
 
-    <!-- Closing scene: nominal duration only; it never transitions out. -->
-    <div data-composition-id="scene-02-feature"
-         data-composition-src="scenes/02-feature.html"
-         data-start="9" data-duration="SCENE_02_NOMINAL"
-         data-track-index="3"
-         style="opacity:0"></div>
-    <!-- … etc … -->
-  </div>
+  <!-- Closing scene: nominal duration only; it never seams out.
+       Reached by a dissolve here, so it owns its own initial state. -->
+  <div data-composition-id="scene-02-feature"
+       data-composition-src="scenes/02-feature.html"
+       data-start="9" data-duration="SCENE_02_NOMINAL"
+       data-track-index="3"
+       style="opacity:0"></div>
+  <!-- … etc … -->
+</div>
 
-  <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js" integrity="sha384-sG0Hv1tP1lZCk9KQmrIbY/XNwi+OY84GQqhMscbnsoBFqAz8KNCil1kvfL3Hbbk2" crossorigin="anonymous"></script>
-  <script>
-    // The root composition needs a registered timeline too, even if it only
-    // hosts inter-scene transitions and ambient effects.
-    window.__timelines = window.__timelines || {};
-    const tl = gsap.timeline({ paused: true });
-    const D = Number("TRANSITION_DURATION_SECONDS");
-    if (!Number.isFinite(D) || D <= 0) {
-      throw new Error("Replace TRANSITION_DURATION_SECONDS from transition_speed");
-    }
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js" integrity="sha384-sG0Hv1tP1lZCk9KQmrIbY/XNwi+OY84GQqhMscbnsoBFqAz8KNCil1kvfL3Hbbk2" crossorigin="anonymous"></script>
+<script>
+  // The root needs a registered timeline too, even if it only hosts seams.
+  window.__timelines = window.__timelines || {};
+  const tl = gsap.timeline({ paused: true });
 
-    // Crossfade pattern: ONLY animate the INCOMING scene's opacity 0→1.
-    // The outgoing scene stays at opacity 1 below and is occluded as the
-    // incoming one rises. Don't fade both simultaneously — that lets the
-    // body color show through compositing math and creates a flash artifact.
+  // <seams:auto>
+  // SEAM_STAMP owns everything between these two markers: base states plus
+  // every seam tween, generated from ledger.json in Step 4.5. Leave the
+  // markers in place and never hand-edit between them — a re-stamp discards
+  // whatever is here; without them the stamper appends after the
+  // registration below instead.
+  // </seams:auto>
 
-    tl.to('[data-composition-id="scene-01-pain-point"]',
-      { opacity: 1, duration: D, ease: "power2.inOut" }, 5);
-    tl.to('[data-composition-id="scene-02-feature"]',
-      { opacity: 1, duration: D, ease: "power2.inOut" }, 9);
-    // This skeleton shows crossfade wiring. Replace each main-section boundary
-    // with the confirmed style's Step 4.5 recipe; do not leave it as crossfade.
+  // Everything hand-authored goes BELOW the markers so a re-stamp cannot
+  // clobber it: dissolve boundaries (no ledger row), the carrier handoff of
+  // a match-cut / morph row, and ambient root-level effects.
+  // Keep the next four lines ONLY if the film has at least one dissolve
+  // boundary, and substitute the token; delete them outright when every
+  // boundary is a stamped cut, or the unsubstituted token throws at load.
+  const D = Number("TRANSITION_DURATION_SECONDS");
+  if (!Number.isFinite(D) || D <= 0) {
+    throw new Error("Replace TRANSITION_DURATION_SECONDS from transition_speed");
+  }
 
-    window.__timelines["main"] = tl;
-  </script>
-</body>
-</html>
+  window.__timelines["main"] = tl;
+</script>
 ```
 
-Use the `hyperframes` skill for the composition authoring rules — the most important invariants:
-
-- **Standalone root** has no `<template>` wrapper; sub-compositions do.
-- Every clip has `data-start`, `data-duration`, `data-track-index`. Times are seconds; sub-second precision is fine (e.g. `data-duration="0.4"`).
-- Visual clips share track index 1 or higher; audio uses track 0; transitions sit on a separate high track (e.g. 9) only to avoid same-track overlap — paint order is controlled by CSS `z-index` (and DOM order when `z-index` is equal), NOT by the track index (see the CRITICAL invariant above and `patterns/metallic-swoosh.md`).
-- Layout the resting state first; add motion only after `npx hyperframes inspect` reports zero overlaps at any sampled timestamp.
+The composition contract itself is upstream's, and this workflow does not restate it:
+`COMPOSITION_ARCHITECTURE` for the modular root and its `<template>`-free shape,
+`DATA_ATTRIBUTES` for every `data-*` value and its units, `TRACKS_AND_CLIPS` for track assignment
+and overlap, `SEAM_RENDER_MECHANICS` for seam compositing. One local ordering rule on top: lay out
+the resting state first, and add motion only once `npx hyperframes check` reports zero overlaps at
+every sampled timestamp.
 
 ### Clip scenes (footage timing)
 
 - A clip scene's root-loader `data-duration` = the clip's on-screen length =
-  `(out − in) / speed` (from the storyboard `Clip in/out` + `Speed`). Set the
+  `(out − in) / speed` (from the frame's `clip_in` / `clip_out` + `speed` bullets). Set the
   scene window from the footage — do **not** stretch a clip scene to fit VO; VO
   is written to fit the footage-derived window in Phase 5.
-- **Each clip scene's inner `<video>` carries its own timing** — `id` + `data-start="0"`
-  + `data-duration` + `data-media-start` + `data-track-index="0"`. The runtime
-  only frame-syncs videos that have `data-start`; without it the clip isn't synced and, with
-  2+ clip scenes, cross-routes (one scene plays another's footage, another plays black). The
-  `scene-clip.html` / `scene-terminal-clip.html` archetypes pre-wire this — keep it.
-  - The inner video's `data-duration` = the **loader's full window including the confirmed
-    transition-duration extension** (Step 4.5), NOT the bare clip length — the runtime hides an expired track
-    (`visibility:hidden`), so a video that ends at the nominal length blanks the frame during
-    every transition out of the scene.
-  - `data-media-start` = the storyboard's `Clip in` (trim offset, seconds; `0` if whole).
-    Omitting it plays the source from `t=0`, discards the `Clip in/out` trim, and desyncs the
-    footage from Phase 5's clip-audio window (`CIN`/`COUT`, Step 5.3a).
-  - Set `defaultPlaybackRate` and `playbackRate` on the `<video>` to the storyboard `Speed`;
-    reject values outside **0.1–5.0**, which HyperFrames clamps internally. Scene duration,
-    footage, and clip-own audio must all use the same speed.
+- **Verify the inner `<video>`'s attribute contract; never re-derive it here.** It is
+  `workflows/phase-3-design.md` § Clip scene, over `DATA_ATTRIBUTES` — confirm the builder wired it
+  from the frame's bullets, because the runtime frame-syncs only a video declaring `data-start` and
+  a bare one cross-routes across 2+ clip scenes (one plays another's footage, another plays black)
+  while every gate stays green.
+  One value only Phase 4 can supply: the inner video's `data-duration` is **its own loader's full
+  window**, read off the loader you sized above — not the bare clip length. The runtime hides an
+  expired track, so a video ending before its loader blanks the frame for the rest of the window,
+  seam out included.
 - A rigid real-time clip (e.g. a live command run) sets its own budget: keep it at
-  `Speed: 1.0` and size the scene to the real length; speed-ramp **only** explicitly
+  `speed: 1.0` and size the scene to the real length; speed-ramp **only** explicitly
   marked dead air.
 - Overlays on a clip scene (captions, punch-in zoom, cursor emphasis) are keyed to
-  **footage timecodes**; if `Speed` ≠ 1, remap those keys proportionally.
-- **Promo framing check (orchestrator-enforced):** when `Mode: promo`, every clip
+  **footage timecodes**; if `speed` ≠ 1, remap those keys proportionally.
+- **Promo framing check (orchestrator-enforced):** when the confirmed `mode` is `promo`, every clip
   scene MUST use the device-frame wrapper — bare-edge footage is not allowed in
-  promo. Verify by eye in `npx hyperframes inspect` before advancing. (There is no
+  promo. Verify by eye in `npx hyperframes snapshot` before advancing. (There is no
   programmatic gate; see spec §5.5/§14.)
-- **Legibility check (orchestrator-enforced, spec §7.2a):** narrative-critical UI text in footage must read ≥24px effective in the rendered frame. If raw capture is below that, add a footage-time punch-in on the `.clip-frame` wrapper (see `patterns/visual-patterns.md` § Camera Moves on Stills — the "When footage text is too small" subsection). Verify by eye in `npx hyperframes inspect . --at <focal-t>`; there is no programmatic gate.
+- **Legibility check (orchestrator-enforced, spec §7.2a):** narrative-critical UI text in footage must read ≥24px effective in the rendered frame. If raw capture is below that, add a footage-time punch-in on the `.clip-frame` wrapper (see `patterns/visual-patterns.md` § Camera Moves on Stills — the "When footage text is too small" subsection). Verify by eye in `npx hyperframes snapshot . --at <focal-t>`; there is no programmatic gate.
 - **Segment cap (spec §7.2b, orchestrator-enforced):** no continuous instructional run exceeds ~90s without an authored recap beat. Insert a `scenes/NN-recap.html` (from `templates/scene-recap.html`) listing the steps just covered, then resume. Self-police; no programmatic gate.
 
-## Step 4.5: Wire Transitions
+## Step 4.5: Author and Stamp the Seams
 
-The storyboard is authoritative at each boundary. It was derived from the confirmed
+Seams belong to `motion-doctrine`. Load `SEAM_LAW` — the vector law (axis, direction, speed,
+phase), the film's current, carriers, causal motion, the build gate — before writing a single
+transition tween; it routes on to `cut-the-curve` (`CUT_CATALOG`) for technique parameters and
+`seam-craft` (`SEAM_RENDER_MECHANICS`) for render-side compositing. **`SEAM_LAW` supersedes the
+selection guidance in `patterns/transition-catalog.md` wherever the two disagree**, but never
+supersedes a confirmed Creative Brief field — see the dissolve case below. Follow its authoring
+order exactly: **vector ledger → stamp the master seams → name a sustained-motion route per scene →
+carriers and causes → build the comps → verify** (that last rung is Step 4.6's, after `check`).
+
+### What this workflow still decides
+
+Upstream owns *how* a seam is built and *whether* it is correct. Three decisions stay here:
+
+1. **Which boundary gets which technique** — a narrative call, read off the `transition_in` bullet
+   of the frame the boundary leads *into* and the adjacent frames' `energy:` keys. The tone →
+   transition table in `reasoning/scene-analysis.md` is the prior.
+2. **The energy budget** — transition types per film, cited from the budget table in
+   `reasoning/scene-analysis.md`. That table is the only place those numbers live; never copy one
+   into this file or into a scene.
+3. **The film's current** — one dominant direction, chosen once for the whole film. `SEAM_LAW`
+   owns what each vector *means* and when a reserved one may be spent; deciding which beat is worth
+   spending it on is a story judgment, and it is ours.
+
+Everything else — travel distances, ease pairs, blur values, exit/entry ratios, the Z scale-sign
+rule — is `CUT_CATALOG`'s, read there per seam and never restated in this repo (ADR-002).
+
+### Classify every boundary before writing anything
+
+The storyboard is authoritative at each boundary and already carries the confirmed
 `transition_style` / `transition_speed`: main section boundaries use the chosen style, connective
-cuts inside a section use `crossfade`, and the closing scene uses `none`. Never replace
-`zoom-through`, `slide-from-bottom`, `medium`, or `slow` with a quiet 0.4s crossfade.
+cuts inside a section use `crossfade`. **A boundary is recorded on the frame it leads into**, as
+that frame's `transition_in` (plus `transition_speed`) bullet — so the boundary between frames N and
+N+1 is read off frame **N+1**. Frame 1 carries no `transition_in`, and the closing frame is followed
+by no boundary at all. Never quietly downgrade a confirmed `zoom-through`, `slide-from-bottom`,
+`medium`, or `slow`.
 
-Use one duration `D` everywhere:
+`D` is the seam's whole time budget (`quick / medium / slow` mapped once in Step 4.4). Split it into
+the row's exit and entry durations using the ratio the chosen technique states in `CUT_CATALOG`, and
+honor the confirmed pacing — never clamp a confirmed `slow` down to a technique's nominal total.
 
-| `transition_speed` | `D` |
-|---|---:|
-| `quick` | `0.4s` |
-| `medium` | `0.7s` |
-| `slow` | `1.2s` |
+| Incoming frame's `transition_in` | Seam kind | Ledger row? |
+|---|---|---|
+| `zoom-through` | velocity-matched Z cut | yes — a `cut` row on the Z axis |
+| `slide-from-bottom` | velocity-matched Y cut; both sides travel the incoming scene's direction | yes — a `cut` row on the Y axis |
+| `crossfade` | dissolve | **no** |
+| `metallic-swoosh` (crossfade + shine) | dissolve | **no** |
+| `cut` | a hard cut with no seam motion | no — nothing to verify |
+| *(absent — frame 1, and after the closing frame)* | not a boundary; open cold, then hold the final frame | no |
 
-For every non-closing boundary at nominal time `AT`, extend the outgoing loader by `D`, start the
-incoming loader at `AT`, and wire exactly one recipe below in the root timeline. Scene-internal
-timelines do not own these exits.
+A cut boundary where one concrete element genuinely persists across it — the same card, cursor, or
+mark — is stronger as a `match-cut` or `morph` row carrying that carrier pair. That is an upgrade
+within the confirmed style, not a substitute for it: the vector still runs in the confirmed
+direction.
 
-### `crossfade`
+A dissolve cannot be a ledger row, and that is structural rather than an omission: a `cut` row has
+to show zero overlap and a match-cut/morph row has to name a carrier, and a dissolve has neither by
+definition. `SEAM_LAW` classes a carrier-less dissolve as an anti-pattern for that same reason.
 
-Keep the outgoing scene opaque underneath and reveal only the incoming scene:
+**State the consequence out loud, because the gate will not.** Under a confirmed `crossfade` or
+`metallic-swoosh` *every* boundary is a dissolve, `ledger.json` is empty, and the verifier reports
+zero seams and exits 0 — a green gate that verified nothing; even under `zoom-through` or
+`slide-from-bottom` the connective cuts inside a section stay unverified. Count the unverified
+boundaries and report the number at the Step 4.6 checkpoint every time. Recommend the
+velocity-matched alternative — the only route to a numerically verified film — then comply with
+whatever the user decides (ADR-001). Changing `transition_style` is a **Phase-1 brief revision** (it
+re-stales the story fingerprint and needs re-confirmation and a re-stamp), so never rewrite the
+field from inside Phase 4.
 
-```js
-tl.to(INCOMING, { opacity: 1, duration: D, ease: "power2.inOut" }, AT);
+### Resolve the seam tooling
+
+`SEAM_STAMP` and `SEAM_VERIFIER` ship inside the `motion-doctrine` skill; neither is a
+`hyperframes` subcommand. Resolve that skill's install directory the same way Step 4.7 resolves
+`hyperframes-animation`:
+
+```bash
+# $SKILL_HOMES is the canonical home list defined in SKILL.md § Runtime Compatibility.
+# Keep this line identical to that definition; edit it there, not here.
+SKILL_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+SKILL_HOMES="$HOME/.claude/skills|$HOME/.copilot/skills|$HOME/.agents/skills|$HOME/.pi/agent/skills|$HOME/.config/opencode/skills|$HOME/.cursor/skills|$HOME/.codex/skills|/etc/codex/skills|.claude/skills|.github/skills|.agents/skills|.pi/skills|.opencode/skills|.cursor/skills|.codex/skills|$SKILL_ROOT/.claude/skills|$SKILL_ROOT/.github/skills|$SKILL_ROOT/.agents/skills|$SKILL_ROOT/.pi/skills|$SKILL_ROOT/.opencode/skills|$SKILL_ROOT/.cursor/skills|$SKILL_ROOT/.codex/skills"
+DOCTRINE_SKILL_DIR=$(
+  OLD_IFS=$IFS
+  IFS='|'
+  for h in $SKILL_HOMES; do
+    [ -d "$h/motion-doctrine" ] && { echo "$h/motion-doctrine"; break; }
+  done
+  IFS=$OLD_IFS
+)
+[ -n "$DOCTRINE_SKILL_DIR" ] || { echo "WARN: motion-doctrine install dir not found — set DOCTRINE_SKILL_DIR manually, or take the degraded path below" >&2; }
+node --version   # the verifier needs the minimum SEAM_GATE_REFERENCE states
 ```
 
-### `metallic-swoosh`
+Shell state does not survive between bash calls, so **every command block below re-runs that
+resolver in the same call.**
 
-Use the incoming-only crossfade above plus the shine overlay from
-`patterns/metallic-swoosh.md`. Set the overlay's `data-duration` and every tween from the same `D`;
-align the shine peak to `AT + D / 2`. Keep this style to the storyboard's main section boundaries
-(normally no more than two in a 30–60s video).
+### Author `ledger.json`
 
-### `zoom-through`
+Write it at the project root, one row per seam. `SEAM_GATE_REFERENCE` (`motion-doctrine`) owns the
+field shape; read the schema there rather than inferring it. What *this* workflow supplies per row is
+the storyboard boundary it stands for, its cut time on the master clock, the technique chosen above,
+and the vector — same axis, same signed direction on both sides. Exit and entry must agree in the
+**plan**; a mismatched row is fixed by fixing the plan, never by re-easing a tween.
 
-Use a 2D scale transition in the root timeline. The transition owns the outgoing scale; scene
-templates still have no exit animation. No `rotateX`, `rotateY`, perspective, or other 3D motion:
+**The first pass is not circular.** Draft the loaders in Step 4.4 at the storyboard's nominal
+boundaries, write the ledger against the root-loader selectors you just gave them, then resize
+those loaders from the ledger's cut times and stamp. A boundary may instead be carried by a hero
+element *inside* the sub-composition; probing is how you correct such a row once the gate reports
+the motion is not on the wrapper:
 
-```js
-tl.set(INCOMING, { opacity: 0, scale: 0.92, transformOrigin: "50% 50%" }, AT);
-tl.to(OUTGOING,
-  { scale: 1.08, transformOrigin: "50% 50%", duration: D, ease: "power2.in" }, AT);
-tl.to(INCOMING,
-  { opacity: 1, scale: 1, duration: D, ease: "power2.out" }, AT);
+```bash
+# Re-run the resolver above in this same call.
+# Live path — registered as SEAM_VERIFIER in compat/ecosystem.md; if upstream moves it, edit both.
+node "$DOCTRINE_SKILL_DIR/scripts/seam-gate.mjs" probe --t CUT_TIME_SECONDS --project .
 ```
 
-### `slide-from-bottom`
+### Stamp the master seams
 
-Keep the outgoing scene static while the incoming scene covers it from below:
-
-```js
-tl.set(INCOMING, { opacity: 1, yPercent: 100 }, AT);
-tl.to(INCOMING, { yPercent: 0, duration: D, ease: "power3.inOut" }, AT);
+```bash
+# Re-run the resolver above in this same call.
+# Live path — registered as SEAM_STAMP in compat/ecosystem.md; if upstream moves it, edit both.
+node "$DOCTRINE_SKILL_DIR/scripts/seam-stamp.mjs" --ledger ledger.json --write index.html
 ```
 
-For every recipe:
+This rewrites the `<seams:auto>` block in the root composition (Step 4.4) with the base states and
+every seam tween. **`cut` rows are generated in full and pass the gate by construction — do not
+hand-tune them**; re-stamp after any ledger edit instead.
 
-- Resolve `OUTGOING` / `INCOMING` to the exact root loader selectors for that boundary.
-- No `clipPath` transitions (anti-aliased black slivers).
-- No 3D rotations or perspective in transitions.
-- Do not add a transition after the closing scene; hold its final frame.
+Exactly one thing is hand-authored: the **carrier handoff of a `match-cut` or `morph` row**. The
+stamper emits only visibility sets for those rows, so the handoff itself is yours, written below
+the markers, and the gate still checks its carrier continuity and overlap. `SEAM_LAW` § transition
+vocabulary states that hand-written shared-element morphs do not count against a transition
+budget — apply that when counting against the budget table in `reasoning/scene-analysis.md`.
+
+Dissolve boundaries are hand-authored below the markers too. When the confirmed style is
+`metallic-swoosh`, the shine is a **full-frame light overlay** riding that dissolve — the light
+family; take the implementation from `TRANSITION_FAMILIES`, size its window from `D`, and centre
+the brightest moment on the dissolve window. **Not `shimmer-sweep`:** `REGISTRY_CATALOG` lists that
+as an element-scoped *component* (`text, shimmer, highlight, effect`), not a seam — wired across a
+boundary it decorates one element while every gate passes (see `patterns/transition-catalog.md`).
+
+Three local rules survive the handover and bind everything you hand-author:
+
+- Scene-internal timelines never own an exit. The seam is the exit; only the closing scene animates
+  out (`TRANSITION_OVERVIEW` states the ban and its final-scene exception).
+- No `clipPath` in any seam — it produces anti-aliased black slivers in this renderer
+  (`patterns/visual-patterns.md` § DON'Ts records the finding and its cause).
+- No 3D rotation and no perspective in a seam.
+
+### When the seam tooling is unavailable
+
+Feature-detect; never assume. The two scripts have different needs, so degrade in tiers:
+
+| Detected | `SEAM_STAMP` | `SEAM_VERIFIER` | Do this |
+|---|---|---|---|
+| `motion-doctrine` under no `$SKILL_HOMES` entry | unavailable | unavailable | hand-author every seam from `CUT_CATALOG`; **all** boundaries unverified |
+| `node --version` below the minimum in `SEAM_GATE_REFERENCE` | unavailable | unavailable | as above |
+| no local Chrome — `npx hyperframes doctor --json` reports no usable browser | works | unavailable | stamp anyway; stamped seams still pass by construction, but **all** boundaries go unverified |
+
+Environment diagnosis stays with `DOCTOR` (ADR-003) — do not add a parallel browser probe here. A
+missing optional gate never blocks the pipeline, but it does change what you may claim: report at
+the Step 4.6 checkpoint which boundaries were stamped, which were verified, and which went
+unverified and why. "All gates pass" is a false statement when the seam gate never ran.
+
+### Bootstrapping a non-default runtime (cross-frame — the root's job)
+
+A frame whose `runtime:` is `three`, `html-in-canvas` or any other non-default runtime **cannot
+load it itself**. Its `<script>` is cloned out of its `<template>` and re-executed in this
+document, where module semantics do not survive: a bare `import` throws `Cannot use import
+statement outside a module`, the runtime audit of `CHECK_GATE` fails on the page error, and
+nothing shows it while the scene is previewed alone — it appears only here, at assembly.
+
+So the root imports the module **once** and publishes it on a global with a ready-queue, and the
+scene consumes that global from a classic script (`sub-agents/scene-builder-delta.md` binds the
+scene half). Late subscribers must run immediately, so a scene works whether it is cloned before
+or after the module resolves:
+
+```html
+<script type="module">
+  import * as THREE from "<the exact version THREE_ADAPTER pins>";
+  window.THREE = THREE;
+  const pending = window.__threeReady || [];
+  window.__threeReady = { push: (fn) => fn(THREE) };
+  pending.forEach((fn) => fn(THREE));
+</script>
+```
+
+Pin the same version the frame packet gave its builder; two versions in one document is the
+silent-breakage case `THREE_ADAPTER` warns about. Add this only when a frame actually needs it —
+an unused bootstrap is a network fetch on every render.
 
 ## Step 4.6: Preview
 
-Open the composition in the HyperFrames Studio (headless Chrome + scrubbable timeline UI). The studio lists every composition in the project — `main` plus each scene sub-composition — so you can scrub them individually:
+Scrub the composition in the studio, then iterate against the gates. `PREVIEW_RENDER` owns the studio
+and `CHECK_GATE` the `lint` / `check` / `snapshot` semantics — what each audits, that all take the
+project **directory** rather than a file, that `check` reruns `lint`, and how to fail on warnings.
 
 ```bash
-npx hyperframes preview .
+npx hyperframes preview .              # studio: every composition — `main` plus each scene sub-comp
+npx hyperframes lint .                 # fast static pass after each structural change
+npx hyperframes check . --samples 10   # the required gate
 ```
 
-Iterate. Then run the three gates before moving on:
+Local sampling convention: `--samples 10` for a 30s spot, `--samples 15` for denser
+transition-heavy cuts; `--at 1.5,4,7.25` instead for specific hero frames. `check` must pass
+cleanly, or report only overflows you have consciously marked intentional.
+
+### Seam gate (numeric — runs after `check`, before the hero-frame check)
+
+The gate ladder is **`lint` → `check` → seam gate → hero-frame check → user approval**, and the
+order is load-bearing: `check` proves the composition is structurally sound in a browser, the seam
+gate then samples real motion at every cut, and only a composition surviving both is worth a human's
+eyes.
 
 ```bash
-npx hyperframes lint     .                # project DIR, not a file — finds index.html (flags missing audio id, track overlaps, etc.)
-npx hyperframes inspect  . --samples 10   # visual layout audit (no overlaps) — use 15 for dense cuts
-npx hyperframes validate .                # WCAG AA contrast + console errors in headless Chrome
+# Re-run the Step 4.5 $DOCTRINE_SKILL_DIR resolver in this same call — shell state
+# does not cross bash calls.
+# Live path — registered as SEAM_VERIFIER in compat/ecosystem.md; if upstream moves it, edit both.
+node "$DOCTRINE_SKILL_DIR/scripts/seam-gate.mjs" verify --ledger ledger.json --project .
 ```
 
-All gates take the project **directory** (they resolve `index.html` inside it), not a file path — `lint index.html` errors with "Not a directory". `lint` reports issues like "audio element has no id" by default. To fail a build on warnings, use `inspect --strict` or `render --strict` / `--strict-all` (`lint` and `validate` have no `--strict`).
+Prefer `--project`: it spawns a fresh preview server and kills it afterwards, so it cannot serve a
+stale bundle. Reuse a running `preview` server with `--url <preview-url>` only if you restart it
+after every composition edit — otherwise you verify the previous build. `--json` for machine output.
 
-`--samples` controls how many timestamps `inspect` seeks to. Typical convention: `--samples 10` for 30s spots, `--samples 15` for denser transition-heavy cuts. Use `--at 1.5,4,7.25` instead if you want to audit specific hero frames.
+Read the report per seam rather than only the exit code:
 
-All three must pass cleanly (or report only overflows you've consciously marked intentional).
+- **FAIL** — a real seam defect; `SEAM_GATE_REFERENCE` enumerates exactly what the gate measures
+  and why each measurement fails. Fix the **ledger row**, re-stamp (Step 4.5), and re-run; never
+  hand-patch a stamped tween.
+- **WARN** — most often a speed mismatch. Judge it against the beat, but never silence it by
+  editing the ledger to match the measurement.
+- **`0 seams`** — not a pass. It means nothing was ledgerable; say so explicitly at the checkpoint.
+
+Two rules the script cannot check, and which reopen a seam that already passed: **any edit to a
+scene's opening or closing motion invalidates that boundary's audit**, and **audio is the clock** —
+re-timing scenes to a new voiceover in Phase 5 reopens every seam it touches. `SEAM_LAW` states
+both; re-run this gate after either. If the tooling is unavailable, skip the gate per the degrade
+table in Step 4.5 and carry the unverified-boundary count into the checkpoint below; a skipped
+optional gate does not block Phase 5.
 
 ### Hero-frame content check (mandatory — gates can't see "wrong content")
 
-`lint`, `inspect`, and `validate` are mechanical: structure, layout overflow, contrast. **None of them judges whether each scene is showing the *right* content** — a clip wired to the wrong footage or a stale `<img src>` passes all three GREEN (this is exactly how the bare-`<video>` clip cross-route shipped unnoticed). Catch it here, cheaply, *before* the full render in Phase 5.
+`lint` and `check` are mechanical: structure, layout overflow, contrast. **Neither judges whether each scene is showing the *right* content** — a clip wired to the wrong footage or a stale `<img src>` passes both GREEN (this is exactly how the bare-`<video>` clip cross-route shipped unnoticed). Catch it here, cheaply, *before* the full render in Phase 5.
 
-Re-run `inspect` at the **midpoint of each scene** (not a uniform sweep) so every scene contributes one readable hero frame:
+Capture a `snapshot` at the **midpoint of each scene** (not a uniform sweep) so every scene contributes one readable hero frame:
 
 ```bash
-# Midpoints from the storyboard scene windows, e.g. scene 0 spans 0–5 → 2.5, etc.
-npx hyperframes inspect . --at 2.5,7,12,18,24,30
+# Midpoints from the frame durations accumulated in order, e.g. frame 1 spans 0–5 → 2.5, etc.
+npx hyperframes snapshot . --at 2.5,7,12,18,24,30
 ```
 
-Then **Read each `.hyperframes/inspect/*.png`** and confirm, scene by scene, that the frame shows what the storyboard calls for — correct screenshot, correct clip footage, correct copy. This re-uses the headless-Chrome frames `inspect` already writes (no `ffmpeg`, no rendered MP4 needed — the render doesn't exist until Phase 5). Do not advance until every scene's hero frame matches its storyboard intent.
+Then **Read each PNG `snapshot` writes to the project's snapshots directory** and confirm, scene by scene, that the frame shows what the storyboard calls for — correct screenshot, correct clip footage, correct copy. These are headless-Chrome stills (no `ffmpeg`, no rendered MP4 needed — the render doesn't exist until Phase 5). Do not advance until every scene's hero frame matches its storyboard intent.
 
 **Capture-coverage backstop:** if `product_surface: ui`, confirm at least one hero frame shows a real on-screen capture (the product framed) — this is the visual confirmation of the Phase-3 capture-coverage gate (`SKILL.md` § Entry Modes → `jump`). A promo/showcase whose hero frames are all text/CTA means the spine never made it on screen; return to Phase 3.
 
 **Theme backstop:** confirm every hero frame, browser/terminal mockup, clip matte, root canvas, and
-transition overlap visibly matches the Creative Brief theme. Any opposite-theme default routes
+seam frame visibly matches the Creative Brief theme. Any opposite-theme default routes
 back to Phase 3; do not approve it as an intentional contrast unless the Creative Brief itself is
 changed and reconfirmed.
+
+### Re-dispatch a failing frame
+
+Re-dispatch is a **return arc into `check`**, not a sixth rung of the ladder. A finding is
+re-dispatchable when it lives **inside one scene file and is fixable from that frame's own packet**:
+a `check` overflow or contrast failure in one scene, an `ANIMATION_MAP` flag on one scene's tween
+(Step 4.7), a hero frame whose copy contradicts the storyboard. Everything else is yours and is
+repaired here — loader windows, track indices, the ledger and its stamped tweens (fix the row and
+re-stamp), the audio mount, the root canvas. Two look re-dispatchable and are not: a **wrong capture
+binding**, because a builder re-handed the same packet re-emits the same path — fix the binding
+upstream in Phase 2/3; and a **caption sub-comp** defect, because those are built from Phase 5's
+transcript and wired here, not by a frame builder. A caption-*zone* finding against a scene's own
+small critical text *is* the builder's — the delta gives it that courtesy rule — so it re-dispatches
+normally.
+
+To re-dispatch, regenerate that frame's packet exactly as Phase 3 assembles it — recipe bodies
+re-read from the installed skill, never cached — and append the one concrete finding: the gate that
+reported it, the scene file, the element or selector, the timestamp, and measured vs expected. "Make
+it better" is not a finding and is not dispatchable. The builder returns the same single file,
+overwritten; it still runs no CLI, edits no storyboard, and touches no other frame.
+
+**One retry per frame.** If the second pass still fails, stop dispatching: repair it here, install a
+shipped registry block that already does the job (Step 4.2), or take it to the user at the
+checkpoint below. Inline repair is usually cheaper anyway — the measured fan-out economics Phase 3
+dispatches under only pay beyond ~6 frames, so fan out re-dispatches only when more than ~6 frames
+carry findings, and then batch 2–3 frames per worker in a single wave.
+
+**Two things Phase 4 re-asserts afterwards.** A returned clip scene cannot know its loader's full
+window — that is computed here, after the ledger — so re-assert the inner `<video>`'s
+`data-duration` and `data-media-start` against the loader you sized in Step 4.4 before re-running
+anything. And a scene edit reopens that boundary's audit (§ Seam gate above), so re-run `check`
+**and** the seam gate, not only the rung that failed.
 
 Ask:
 
@@ -373,52 +538,50 @@ Iterate on feedback before proceeding.
 
 ## Step 4.7: Animation Map Verification (Optional)
 
-Before the aesthetic critique, run the bundled `animation-map.mjs` script to get a structural audit of every tween in the composition. It outputs an ASCII Gantt timeline, flags problematic tweens, and surfaces dead zones (long intervals with no motion).
-
-This step requires a local `hyperframes` install (`npm install hyperframes` — see Step 4.1). The script ships inside the npm package; it's not exposed as a CLI subcommand.
+Before the aesthetic critique, run the `ANIMATION_MAP` verifier for a structural audit of every
+tween — its report shape, flag names and dead-zone rule are its own. The script ships inside the
+`hyperframes-animation` skill; it is not a CLI subcommand. Resolve that skill's install directory
+the same way Phase 3 resolves this one:
 
 ```bash
-# One-time, if you haven't already:
-[ -f package.json ] || npm init -y
-[ -d node_modules/hyperframes ] || npm install hyperframes
+# $SKILL_HOMES is the canonical home list defined in SKILL.md § Runtime Compatibility.
+# Keep this line identical to that definition; edit it there, not here.
+SKILL_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+SKILL_HOMES="$HOME/.claude/skills|$HOME/.copilot/skills|$HOME/.agents/skills|$HOME/.pi/agent/skills|$HOME/.config/opencode/skills|$HOME/.cursor/skills|$HOME/.codex/skills|/etc/codex/skills|.claude/skills|.github/skills|.agents/skills|.pi/skills|.opencode/skills|.cursor/skills|.codex/skills|$SKILL_ROOT/.claude/skills|$SKILL_ROOT/.github/skills|$SKILL_ROOT/.agents/skills|$SKILL_ROOT/.pi/skills|$SKILL_ROOT/.opencode/skills|$SKILL_ROOT/.cursor/skills|$SKILL_ROOT/.codex/skills"
+ANIM_SKILL_DIR=$(
+  OLD_IFS=$IFS
+  IFS='|'
+  for h in $SKILL_HOMES; do
+    [ -d "$h/hyperframes-animation" ] && { echo "$h/hyperframes-animation"; break; }
+  done
+  IFS=$OLD_IFS
+)
+[ -n "$ANIM_SKILL_DIR" ] || { echo "ERROR: hyperframes-animation install dir not found — set ANIM_SKILL_DIR to the skill's path manually" >&2; }
 
-# Run the script (HYPERFRAMES_SKILL_BOOTSTRAP_DEPS=1 is required on first run):
-HYPERFRAMES_SKILL_BOOTSTRAP_DEPS=1 \
-  node node_modules/hyperframes/dist/skills/hyperframes/scripts/animation-map.mjs . \
-  --out .hyperframes/anim-map
+# Live path — registered as ANIMATION_MAP in compat/ecosystem.md; if upstream moves it, edit both.
+node "$ANIM_SKILL_DIR/scripts/animation-map.mjs" . --out .hyperframes/anim-map
 ```
 
-(If you ran `npx hyperframes init`, the script is also copied to `skills/hyperframes/scripts/animation-map.mjs` in your project.)
-
-The script reports:
-
-- **Per-tween summaries** — every animation with start time, duration, properties, target
-- **ASCII Gantt timeline** — visual overview of when each element animates
-- **Flag tally** — counts of `paced-fast` (<0.2s, may feel rushed), `paced-slow` (>2s, may feel sluggish), `offscreen` (animation target outside canvas), `collision` (multiple animations on same property at same time), `degenerate` (zero-duration or no-effect), `invisible` (animates a hidden element)
-- **Dead zones** — windows >1s with no animation (acceptable for "hold" beats; suspicious for active scenes)
-- **Stagger detection** — confirms intentional staggers vs accidental uniform timing
-
-Fix or justify each flagged tween. Examples:
+Fix or justify each flagged tween — the tool flags, you judge (a dead zone is fine on a deliberate
+hold beat, suspicious on an active scene). Examples:
 
 - `paced-fast` on a critical reveal → extend duration to 0.4s+
 - `paced-slow` on a hover/microinteraction → tighten to under 0.3s
 - `collision` on `opacity` → almost always the `tl.from() + tl.to()` race bug — switch to `tl.fromTo()` (see `patterns/visual-patterns.md` § stagger trap)
 - `dead zone` spanning a whole scene → either add ambient motion (cursor pulse, grain shimmer) or accept as a deliberate hold
 
-Skip this step for trivial edits. Run on every new composition or after significant animation changes.
+A per-scene flag is re-dispatchable (Step 4.6). Skip this step for trivial edits; run it on every new composition or after significant animation changes.
 
 ## Step 4.8: Aesthetic Critique (Optional but Recommended)
 
-`hyperframes lint`, `inspect`, and `validate` are mechanical gates — they catch syntax errors, layout overflow, and contrast failures, but they cannot judge whether the composition is *good*. This step adds an aesthetic gate before Phase 5 commits the design with voiceover.
+The mechanical gates cannot judge whether the composition is *good*. This step adds an aesthetic one before Phase 5 commits the design with voiceover.
 
-### If the `critique` skill is installed
-
-Invoke it on the rendered composition's HTML + sampled screenshots:
+### If the `critique` skill is installed — invoke it on the HTML + sampled stills
 
 ```
 Invoke: Skill(critique)
 Context: "Run a 5-dimension review on the HyperFrames composition at index.html.
-Sample inspect screenshots are at .hyperframes/inspect/*.png. Audit for:
+Sample hero-frame stills are in the project's snapshots directory. Audit for:
 - Philosophy (one declared direction, held through every decision)
 - Hierarchy (does the eye know where to land?)
 - Detail (timing, spacing, micro-decisions)
@@ -426,17 +589,12 @@ Sample inspect screenshots are at .hyperframes/inspect/*.png. Audit for:
 - Innovation (does it feel like every other AI-generated promo?)"
 ```
 
-The critique output is three lists:
+The critique returns three lists — **Keep** (working; do not touch), **Fix** (visually expensive
+P0/P1 issues), **Quick wins** (5–15 minute tweaks with disproportionate impact). If there are
+P0/P1 Fix items, iterate Step 4.4 / 4.5 / 4.6 then re-critique. Do not move to Phase 5 until the
+Fix list is empty or each remaining item is consciously accepted.
 
-- **Keep** — what's working; do not touch
-- **Fix** — visually expensive issues (P0/P1); address before Phase 5
-- **Quick wins** — 5-15 minute tweaks with disproportionate impact
-
-If there are P0/P1 Fix items, iterate Step 4.4 / 4.5 / 4.6 then re-critique. Don't move to Phase 5 until the Fix list is empty or each remaining item is consciously accepted.
-
-### If `critique` skill is not installed
-
-Prompt the user with a self-review checklist instead:
+### If `critique` is not installed — prompt a self-review checklist instead
 
 ```json
 {
@@ -468,13 +626,15 @@ For each checked item, propose 1-2 fixes and iterate. See `patterns/anti-slop.md
 
 ## Output
 
-- `index.html` — root HyperFrames composition referencing every Phase 3 scene template
-- Passing `lint` + `inspect` + `validate` runs
+- `index.html` — root HyperFrames composition referencing every Phase 3 scene template, with its
+  `<seams:auto>` block generated from the ledger
+- `ledger.json` — the vector ledger at the project root, one row per ledgerable seam
+- Passing `lint` + `check` runs, and a passing seam gate over every ledgered seam
 - (If `critique` skill ran) Empty Fix list or consciously-accepted residual items
 
 ## Checkpoint
 
-After the user accepts the preview and all three HyperFrames gates pass, stamp Phase 4:
+After the user accepts the preview and the HyperFrames gates pass, stamp Phase 4:
 
 ```bash
 python3 "$SKILL_DIR/scripts/validate_brief.py" \
@@ -483,6 +643,10 @@ python3 "$SKILL_DIR/scripts/validate_brief.py" \
 
 Do not advance on a nonzero exit.
 
-> "Composition built. [N] scenes, [duration]s, all screenshots integrated. `hyperframes inspect` and `validate` pass. Aesthetic critique complete.
+Report the seam result honestly — the counts, not an adjective. If the gate did not run, name the
+reason instead of the numbers.
+
+> "Composition built. [N] scenes, [duration]s, all screenshots integrated. `hyperframes check` passes.
+> Seams: [S] stamped and verified, [U] dissolve boundaries carrying no verified vector[, seam gate skipped — reason]. Aesthetic critique complete.
 >
 > Ready to move to Phase 5: Audio & Render?"

@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 
 import json
-import os
 import shutil
 import subprocess
+import tempfile
 import unittest
 import uuid
 from pathlib import Path
@@ -22,6 +22,8 @@ class RequirementsCheckerTestCase(unittest.TestCase):
         self.log = self.work / "commands.log"
         self.bin.mkdir(parents=True)
         self.home.mkdir()
+        self.sandbox = Path(tempfile.mkdtemp(prefix="hve-checker-cwd-"))
+        self.addCleanup(shutil.rmtree, self.sandbox, ignore_errors=True)
         self.write_executable("uname", "printf 'Darwin\\n'")
 
     def tearDown(self):
@@ -70,16 +72,29 @@ class RequirementsCheckerTestCase(unittest.TestCase):
         for name in names:
             self.write_executable(name, "exit 0")
 
-    def install_skills(self):
-        for name in ("hyperframes", "gsap"):
+    def install_skills(self, *names):
+        # Defaults to the pair every pre-existing test assumed. Companion skills
+        # under test are passed explicitly so their absent case stays absent.
+        for name in names or ("hyperframes", "gsap"):
             skill = self.home / ".claude" / "skills" / name / "SKILL.md"
             skill.parent.mkdir(parents=True, exist_ok=True)
             skill.write_text(f"# {name}\n", encoding="utf-8")
+        return self.home / ".claude" / "skills"
+
+    def json_checks(self, *args, env=None):
+        result = self.run_checker("--json", *args, env=env)
+        report = json.loads(result.stdout)
+        return result, {check["id"]: check for check in report["checks"]}
 
     def run_checker(self, *args, env=None, cwd=None):
+        # The default cwd MUST stay outside this repository: $SKILL_HOMES holds
+        # cwd-relative homes (.claude/skills, .agents/skills, …) and
+        # $SKILL_ROOT-relative ones, and $SKILL_ROOT falls back to $PWD. Running
+        # from ROOT would let the repo's own installed skills — and any repo
+        # .npmrc or node_modules/ — decide what the checker reports.
         return subprocess.run(
             ["/bin/bash", str(SCRIPT), *args],
-            cwd=cwd or ROOT,
+            cwd=cwd or self.sandbox,
             env=env or self.environment(),
             text=True,
             capture_output=True,
@@ -101,10 +116,7 @@ class RequirementsCheckerTestCase(unittest.TestCase):
         self.install_optional_shims()
         self.install_skills()
         env = self.environment()
-        env.update({
-            "ELEVENLABS_API_KEY": "test",
-            "FREESOUND_API_KEY": "test",
-        })
+        env.update({"ELEVENLABS_API_KEY": "test"})
         ready = self.run_checker(env=env)
         self.assertEqual(ready.returncode, 0, ready.stdout + ready.stderr)
         self.assertIn("hve-video-director requirements check", ready.stdout)
@@ -133,6 +145,206 @@ class RequirementsCheckerTestCase(unittest.TestCase):
         self.assertIn("All required dependencies satisfied.", result.stdout)
         self.assertIn("○", result.stdout)
 
+    def assert_companion_skill_degrades(self, name, check_id, phases):
+        """A recommended companion skill: present -> ready, absent -> degraded.
+
+        Both directions run the side-effect-free JSON report, so the assertions
+        double as proof that discovery never reaches for an installer: the `npx`
+        shim appends to $CHECKER_TEST_LOG, and that file must never appear.
+
+        Returns the absent-case check so the caller can assert on the wording
+        that is specific to its skill.
+        """
+        self.install_required_shims()
+        home = self.install_skills("hyperframes", "gsap", name)
+
+        present, checks = self.json_checks()
+        check = checks[check_id]
+        self.assertEqual(present.returncode, 0, present.stdout + present.stderr)
+        self.assertEqual(check["state"], "ready")
+        self.assertEqual(check["tier"], "recommended")
+        self.assertEqual(check["phases"], phases)
+        self.assertIn(str(home), check["detail"])
+        # No new safe fix ID: these are bundle installs, and the one safe ID
+        # that installs the bundle gates on `hyperframes` being absent, so
+        # reusing it here would report "already ready" while this skill is
+        # still missing.
+        self.assertEqual(check["fixability"]["kind"], "manual-online")
+        self.assertIsNone(check["fixability"]["id"])
+        self.assertEqual(
+            check["fixability"]["command"],
+            "npx --yes skills add heygen-com/hyperframes --global --yes",
+        )
+        self.assertFalse(self.log.exists())
+
+        shutil.rmtree(home / name)
+        absent, checks = self.json_checks()
+        check = checks[check_id]
+        # Degraded, never blocked: a missing recommended companion costs a
+        # capability, it does not stop the pipeline.
+        self.assertEqual(absent.returncode, 0, absent.stdout + absent.stderr)
+        self.assertEqual(check["state"], "degraded")
+        self.assertEqual(check["tier"], "recommended")
+        self.assertEqual(check["phases"], phases)
+        self.assertFalse(self.log.exists())
+        return check
+
+    def test_motion_doctrine_skill_degrades_without_blocking_phase_4(self):
+        check = self.assert_companion_skill_degrades(
+            "motion-doctrine", "motion-doctrine-skill", [4]
+        )
+        # The seam gate is a quality gate. Losing it changes what Phase 4 may
+        # claim, which is what the degraded detail has to say.
+        self.assertIn("unverified", check["detail"])
+
+    def test_media_use_skill_degrades_to_local_synthesis_plus_assembly(self):
+        """M6 left no local *acquisition* fallback, only local assembly.
+
+        The degraded detail has to say what actually survives, or an agent
+        reads it as "run the old ElevenLabs script" — a path that no longer
+        exists. Narration comes from a confirmed local voice, the music bed
+        from the user, and only the placement is still this skill's.
+        """
+        check = self.assert_companion_skill_degrades(
+            "media-use", "media-use-skill", [5]
+        )
+        self.assertIn("--assemble-only", check["detail"])
+        self.assertIn("user-provided", check["detail"])
+        self.assertNotIn("search_music", check["detail"])
+
+    def test_elevenlabs_key_is_reported_as_the_delegated_route_only(self):
+        """The key gates the engine's ElevenLabs route, nothing local.
+
+        Post-M6 the assembler needs no key, so a degraded detail claiming the
+        local script "cannot run" would send a user hunting for a credential
+        that stopped mattering to it.
+        """
+        self.install_required_shims()
+        self.install_skills()
+
+        env = self.environment()
+        env["ELEVENLABS_API_KEY"] = "test"
+        _, checks = self.json_checks(env=env)
+        ready = checks["elevenlabs-key"]
+        self.assertEqual(ready["state"], "ready")
+        self.assertEqual(ready["phases"], [5])
+
+        _, checks = self.json_checks()
+        absent = checks["elevenlabs-key"]
+        self.assertEqual(absent["state"], "degraded")
+        self.assertEqual(absent["tier"], "recommended")
+        for check in (ready, absent):
+            self.assertNotIn("generate_voiceover.py cannot run", check["detail"])
+            self.assertNotIn("deprecated", check["detail"])
+
+    def test_freesound_key_is_reported_because_search_music_reads_it(self):
+        """FREESOUND_API_KEY is the one env var a script in this repo reads.
+
+        This assertion used to say the opposite — that no check may mention
+        Freesound at all — on the premise that M6 had retired
+        `scripts/search_music.py`. The script was then restored, deliberately:
+        a real recording has an author, a stable URL and an auditable licence.
+        The premise was reverted and the assertion was not, so the suite went on
+        certifying the absence of a probe the recommended music strategy needs.
+        A user could pick "Search Freesound" in Phase 1, pass setup clean, and
+        fail in Phase 5 on a key Phase -1 had pronounced irrelevant.
+
+        Kept as a named test rather than deleted, because the failure mode is
+        specific: a green suite asserting a gap is correct.
+        """
+        self.install_required_shims()
+        self.install_skills()
+
+        env = self.environment()
+        env["FREESOUND_API_KEY"] = "test"
+        _, checks = self.json_checks(env=env)
+        ready = checks["freesound-key"]
+        self.assertEqual(ready["state"], "ready")
+        self.assertEqual(ready["tier"], "recommended")
+        self.assertEqual(ready["phases"], [5])
+
+        _, checks = self.json_checks()
+        absent = checks["freesound-key"]
+        self.assertEqual(absent["state"], "degraded")
+        # Recommended, not required: the other three music strategies need no key,
+        # so a missing key must never block a run that was never going to search.
+        self.assertEqual(absent["tier"], "recommended")
+        self.assertEqual(absent["fixability"]["kind"], "manual-env")
+        self.assertIn("music strategy", absent["detail"])
+        # An env var is the user's to export; the checker may never set one.
+        self.assertFalse(self.log.exists())
+
+    def test_heygen_credential_reports_presence_without_running_the_cli(self):
+        self.install_required_shims()
+        self.install_skills()
+        # Installed throughout: if a presence branch broke, the check would fall
+        # through to the CLI-found-but-no-credential degrade instead of silently
+        # passing on some other signal.
+        self.write_executable(
+            "heygen",
+            'printf "heygen %s\\n" "$*" >> "$CHECKER_TEST_LOG"\nexit 0',
+        )
+
+        for variable in ("HEYGEN_API_KEY", "HYPERFRAMES_API_KEY"):
+            with self.subTest(signal=variable):
+                env = self.environment()
+                env[variable] = "test-token"
+                _, checks = self.json_checks(env=env)
+                check = checks["heygen-credential"]
+                self.assertEqual(check["state"], "ready")
+                self.assertIn(f"{variable} is set", check["detail"])
+                self.assertFalse(self.log.exists(), "the heygen CLI was run")
+
+        with self.subTest(signal="default credential file"):
+            credential = self.home / ".heygen" / "credentials"
+            credential.parent.mkdir(parents=True)
+            credential.write_text("token\n", encoding="utf-8")
+            _, checks = self.json_checks()
+            check = checks["heygen-credential"]
+            self.assertEqual(check["state"], "ready")
+            self.assertIn(str(credential), check["detail"])
+            self.assertFalse(self.log.exists(), "the heygen CLI was run")
+            shutil.rmtree(credential.parent)
+
+        with self.subTest(signal="HEYGEN_CONFIG_DIR"):
+            custom = self.work / "heygen config dir"
+            custom.mkdir()
+            (custom / "credentials").write_text("token\n", encoding="utf-8")
+            env = self.environment()
+            env["HEYGEN_CONFIG_DIR"] = str(custom)
+            _, checks = self.json_checks(env=env)
+            check = checks["heygen-credential"]
+            self.assertEqual(check["state"], "ready")
+            self.assertIn(str(custom / "credentials"), check["detail"])
+            self.assertFalse(self.log.exists(), "the heygen CLI was run")
+
+    def test_heygen_credential_degrades_with_and_without_the_cli(self):
+        self.install_required_shims()
+        self.install_skills()
+
+        nothing, checks = self.json_checks()
+        check = checks["heygen-credential"]
+        self.assertEqual(nothing.returncode, 0, nothing.stdout + nothing.stderr)
+        self.assertEqual(check["state"], "degraded")
+        self.assertEqual(check["tier"], "recommended")
+        self.assertEqual(check["phases"], [5])
+        self.assertIn("no heygen CLI", check["detail"])
+
+        cli = self.write_executable(
+            "heygen",
+            'printf "heygen %s\\n" "$*" >> "$CHECKER_TEST_LOG"\nexit 0',
+        )
+        installed, checks = self.json_checks()
+        check = checks["heygen-credential"]
+        self.assertEqual(installed.returncode, 0, installed.stdout + installed.stderr)
+        self.assertEqual(check["state"], "degraded")
+        self.assertIn(str(cli), check["detail"])
+        self.assertFalse(
+            self.log.exists(),
+            "presence detection executed the heygen CLI — it must resolve the "
+            "binary without running it",
+        )
+
     def test_json_is_parseable_and_complete_without_node_or_python(self):
         result = self.run_checker("--json")
         self.assertEqual(result.returncode, 1)
@@ -145,10 +357,15 @@ class RequirementsCheckerTestCase(unittest.TestCase):
         expected_ids = {
             "node", "npx", "python", "ffmpeg", "ffprobe", "chrome-shell",
             "hyperframes-cli", "hyperframes-skill", "gsap-skill",
-            "elevenlabs-key", "whisper", "freesound-key", "espeak-ng",
+            "motion-doctrine-skill", "media-use-skill", "heygen-credential",
+            "elevenlabs-key", "freesound-key", "whisper", "espeak-ng",
             "terminal-capture",
         }
-        self.assertTrue(expected_ids.issubset(checks))
+        # Exact equality, not issubset: `docker-wsl` is the only conditional
+        # check and this run is pinned to Darwin, so the id set is fully
+        # determined here. An added check that no test names is exactly how
+        # `media-use-skill` and `heygen-credential` shipped uncovered.
+        self.assertEqual(set(checks), expected_ids)
         self.assertEqual(checks["node"]["state"], "blocked")
         self.assertEqual(checks["python"]["state"], "blocked")
 

@@ -2,18 +2,23 @@
 """
 hve-video-director — Background Music Search (Freesound)
 
-Searches Freesound APIv2 for CC-licensed music matching mood/genre keywords.
-Filters by duration and license. Returns ready-to-use preview URLs (HQ MP3,
-no OAuth2 required).
+The supported way to find a music bed. Searches Freesound for Creative Commons
+tracks, filters by duration and licence, and prints candidates with their exact
+track-page URL — the provenance `scripts/validate_brief.py` pins for
+`music_strategy: freesound`.
 
-Usage:
-    python3 search_music.py "<query>" [--min-duration 30] [--max-duration 180]
+It returns *candidates only*. The exact-track confirmation stays with the user
+in Phase 5 (ADR-001): searching moves, the choice never does.
 
-Environment:
-    FREESOUND_API_KEY  — Required. Get one at https://freesound.org/apiv2/apply
+Why this is the default rather than a delegated engine: a Freesound track is a
+real recording with a human author, a stable URL and an auditable licence. A
+generated bed has none of those, and generation is slow and failure-prone in
+practice — a real run stalled two hours on an unauthenticated model download
+before producing nothing. Catalog *retrieval* through `media-use` remains a
+legitimate alternative where a credential exists; local *generation* is not
+offered by the Phase-5 workflow.
 
-Output: prints a numbered list of hits with preview URLs and license info.
-        Pipe through `jq` if you want JSON.
+Requires FREESOUND_API_KEY (free: https://freesound.org/apiv2/apply/).
 """
 from __future__ import annotations
 

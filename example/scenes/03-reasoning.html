@@ -1,0 +1,253 @@
+<template id="scene-03-reasoning-template">
+  <div data-composition-id="scene-03-reasoning"
+       data-width="1920" data-height="1080" data-duration="9"
+       style="position:absolute;inset:0;overflow:hidden">
+
+    <!-- Frame 4 — questions resolve one by one into a plan.
+         blueprint: agent-progress-theater (trigger -> working state -> receipt cascade)
+         motion:    card-morph-anchor (the asking card IS the plan panel; uniform scale +
+                    paint-only channels, then a pixel-identical handoff)
+         camera:    multi-phase (settle -> hold -> slow push, on .r3-world) -->
+
+    <div class="clip r3-bg" data-start="0" data-duration="9" data-track-index="0"></div>
+
+    <div class="clip r3-stage" data-start="0" data-duration="9" data-track-index="1">
+      <div class="r3-world">
+
+        <!-- DOM order = stacking: the handoff anchor renders BEFORE the morph card -->
+        <div class="r3-panel" style="opacity:0">
+          <div class="r3-rows">
+            <div class="r3-cursor" style="opacity:0"></div>
+
+            <div class="r3-row" style="top:0px;opacity:0">
+              <span class="r3-badge">
+                <svg class="r3-check" viewBox="0 0 24 24"><path d="M6 12.5 L10.2 16.6 L18 8.4"/></svg>
+              </span>
+              <span class="r3-key" style="opacity:0.5">goal</span>
+            </div>
+
+            <div class="r3-row" style="top:65px;opacity:0">
+              <span class="r3-badge">
+                <svg class="r3-check" viewBox="0 0 24 24"><path d="M6 12.5 L10.2 16.6 L18 8.4"/></svg>
+              </span>
+              <span class="r3-key" style="opacity:0.5">tone</span>
+              <span class="r3-val" style="opacity:0">curiosity</span>
+            </div>
+
+            <div class="r3-row" style="top:130px;opacity:0">
+              <span class="r3-badge">
+                <svg class="r3-check" viewBox="0 0 24 24"><path d="M6 12.5 L10.2 16.6 L18 8.4"/></svg>
+              </span>
+              <span class="r3-key" style="opacity:0.5">energy</span>
+              <span class="r3-val" style="opacity:0">build</span>
+            </div>
+
+            <div class="r3-row" style="top:195px;opacity:0">
+              <span class="r3-badge">
+                <svg class="r3-check" viewBox="0 0 24 24"><path d="M6 12.5 L10.2 16.6 L18 8.4"/></svg>
+              </span>
+              <span class="r3-key" style="opacity:0.5">density</span>
+              <span class="r3-val" style="opacity:0">composed</span>
+            </div>
+
+            <div class="r3-row" style="top:260px;opacity:0">
+              <span class="r3-badge">
+                <svg class="r3-check" viewBox="0 0 24 24"><path d="M6 12.5 L10.2 16.6 L18 8.4"/></svg>
+              </span>
+              <span class="r3-key" style="opacity:0.5">camera</span>
+              <span class="r3-val" style="opacity:0">multi-phase</span>
+            </div>
+
+            <div class="r3-row" style="top:325px;opacity:0">
+              <span class="r3-badge">
+                <svg class="r3-check" viewBox="0 0 24 24"><path d="M6 12.5 L10.2 16.6 L18 8.4"/></svg>
+              </span>
+              <span class="r3-key" style="opacity:0.5">metaphor</span>
+              <span class="r3-val" style="opacity:0">Agent working</span>
+            </div>
+
+            <div class="r3-row" style="top:390px;opacity:0">
+              <span class="r3-badge">
+                <svg class="r3-check" viewBox="0 0 24 24"><path d="M6 12.5 L10.2 16.6 L18 8.4"/></svg>
+              </span>
+              <span class="r3-key" style="opacity:0.5">motion</span>
+              <span class="r3-val" style="opacity:0">card-morph-anchor</span>
+            </div>
+
+            <div class="r3-row" style="top:455px;opacity:0">
+              <span class="r3-badge">
+                <svg class="r3-check" viewBox="0 0 24 24"><path d="M6 12.5 L10.2 16.6 L18 8.4"/></svg>
+              </span>
+              <span class="r3-key" style="opacity:0.5">capabilities</span>
+              <span class="r3-val" style="opacity:0">ui-micro-motion</span>
+            </div>
+
+            <div class="r3-row" style="top:520px;opacity:0">
+              <span class="r3-badge">
+                <svg class="r3-check" viewBox="0 0 24 24"><path d="M6 12.5 L10.2 16.6 L18 8.4"/></svg>
+              </span>
+              <span class="r3-key" style="opacity:0.5">runtime</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- the morph card: shot one (the machine asking) -> shot two (the plan panel) -->
+        <div class="r3-card" style="opacity:0">
+          <div class="r3-old">
+            <span class="r3-spin"></span>
+            <span class="r3-keys">
+              <span class="r3-k r3-k1" style="opacity:0">goal</span>
+              <span class="r3-k r3-k2" style="opacity:0">tone</span>
+              <span class="r3-k r3-k3" style="opacity:0">camera</span>
+            </span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <style>
+      [data-composition-id="scene-03-reasoning"]{
+        position:absolute;inset:0;overflow:hidden;
+        font-family:"sohne-var","Inter","SF Pro Display",system-ui,-apple-system,"Helvetica Neue",Arial,sans-serif;
+        font-feature-settings:"ss01";
+        color:#ffffff;
+      }
+
+      /* full-bleed ground rides on its own clip layer, never on the composition root */
+      .r3-bg{position:absolute;inset:0;
+        background:radial-gradient(120% 90% at 50% 40%, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0) 62%), #1c1e54}
+
+      .r3-stage{position:absolute;inset:0}
+      .r3-world{position:absolute;inset:0;will-change:transform}
+
+      /* --- handoff anchor: the plan panel at the morph card's exact final geometry --- */
+      .r3-panel{position:absolute;left:50%;top:50%;width:1240px;height:760px;
+        margin-left:-620px;margin-top:-380px;
+        background:#061b31;border-radius:8px;
+        box-shadow:0 24px 60px rgba(0,0,0,0.42), 0 6px 18px rgba(50,50,93,0.30)}
+
+      .r3-rows{position:absolute;left:96px;right:96px;top:88px;height:585px}
+
+      /* the one moving accent: a playhead marking the question being answered */
+      .r3-cursor{position:absolute;left:-44px;top:9px;width:3px;height:34px;
+        border-radius:2px;background:#533afd;will-change:transform}
+
+      .r3-row{position:absolute;left:0;right:0;height:52px;display:flex;align-items:center;
+        will-change:transform,opacity}
+      .r3-badge{position:relative;flex:none;width:30px;height:30px;border-radius:50%;
+        border:1.5px solid rgba(255,255,255,0.16)}
+      .r3-check{position:absolute;left:2px;top:2px;width:24px;height:24px}
+      .r3-check path{fill:none;stroke:#ffffff;stroke-width:2.1;stroke-linecap:round;
+        stroke-linejoin:round;stroke-dasharray:18;stroke-dashoffset:18}
+      .r3-key{margin-left:26px;font-size:28px;letter-spacing:0.01em;color:#ffffff;
+        font-family:"SourceCodePro","SFMono-Regular","SF Mono","JetBrains Mono",ui-monospace,monospace}
+      .r3-val{margin-left:auto;font-size:34px;font-weight:300;letter-spacing:-0.3px;color:#ffffff}
+
+      /* --- the morph card (shot one geometry; the morph is scale, never width/height) --- */
+      .r3-card{position:absolute;left:50%;top:50%;width:380px;height:232.9px;
+        margin-left:-190px;margin-top:-116.45px;
+        background:#273951;border-radius:8px;overflow:hidden;
+        display:flex;align-items:center;justify-content:center;will-change:transform,opacity;
+        /* pre-divided by END_SCALE so the shadow lands pixel-identical to .r3-panel's */
+        box-shadow:0 7.354px 18.387px rgba(0,0,0,0.42), 0 1.839px 5.516px rgba(50,50,93,0.30)}
+      .r3-old{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:22px}
+      .r3-spin{flex:none;width:34px;height:34px;border-radius:50%;
+        border:3px solid rgba(255,255,255,0.12);border-top-color:#533afd;will-change:transform}
+      .r3-keys{position:relative;width:180px;height:44px}
+      .r3-k{position:absolute;left:0;top:0;line-height:44px;font-size:32px;color:#ffffff;
+        font-family:"SourceCodePro","SFMono-Regular","SF Mono","JetBrains Mono",ui-monospace,monospace}
+    </style>
+
+    <script>
+      window.__timelines = window.__timelines || {};
+      (function () {
+        var ID = "scene-03-reasoning";
+        var R = '[data-composition-id="' + ID + '"]';
+        var tl = gsap.timeline({ paused: true });
+
+        var END_SCALE = 1240 / 380;          // 3.263157… — uniform, aspect-matched to .r3-panel
+        var MORPH_START = 2.45, MORPH_DUR = 0.95;
+        var OLD_FADE = MORPH_DUR * 0.4;      // 0.38s
+        var FINAL_FADE = MORPH_DUR * 0.18;   // 0.171s
+        var ROW_START = 3.55, ROW_STEP = 0.53, ROW_PITCH = 65;
+
+        /* ---- camera, phase 1: dignified settle onto the asking card ---- */
+        tl.fromTo(R + " .r3-world", { scale: 1.04 },
+          { scale: 1.0, duration: 2.3, ease: "power1.inOut" }, 0);
+
+        /* ---- scene 1: the trigger — the card arrives ---- */
+        tl.fromTo(R + " .r3-card", { y: 26, opacity: 0 },
+          { y: 0, opacity: 1, duration: 0.9, ease: "expo.out" }, 0.18);
+
+        /* ---- scene 2: the working state — finite spinner + swapping question keys ---- */
+        tl.fromTo(R + " .r3-spin", { rotation: 0 },
+          { rotation: 900, duration: 2.6, ease: "none" }, 0.18);
+
+        tl.fromTo(R + " .r3-k1", { y: 8, opacity: 0 },
+          { y: 0, opacity: 1, duration: 0.38, ease: "power2.out" }, 0.45);
+        tl.fromTo(R + " .r3-k1", { opacity: 1 },
+          { opacity: 0, duration: 0.26, ease: "power1.in", immediateRender: false }, 1.05);
+        tl.fromTo(R + " .r3-k2", { y: 8, opacity: 0 },
+          { y: 0, opacity: 1, duration: 0.38, ease: "power2.out" }, 1.10);
+        tl.fromTo(R + " .r3-k2", { opacity: 1 },
+          { opacity: 0, duration: 0.26, ease: "power1.in", immediateRender: false }, 1.70);
+        tl.fromTo(R + " .r3-k3", { y: 8, opacity: 0 },
+          { y: 0, opacity: 1, duration: 0.38, ease: "power2.out" }, 1.75);
+
+        /* ---- the morph: one tween, uniform scale + paint-only channels ---- */
+        tl.fromTo(R + " .r3-card",
+          { scale: 1, borderRadius: 8, backgroundColor: "#273951" },
+          { scale: END_SCALE, borderRadius: 8 / END_SCALE, backgroundColor: "#061b31",
+            duration: MORPH_DUR, ease: "power2.inOut" }, MORPH_START);
+        tl.fromTo(R + " .r3-old", { opacity: 1 },
+          { opacity: 0, duration: OLD_FADE, ease: "power1.in", immediateRender: false }, MORPH_START);
+
+        /* ---- handoff: the card fades over the pixel-identical panel behind it ---- */
+        tl.fromTo(R + " .r3-card", { opacity: 1 },
+          { opacity: 0, duration: FINAL_FADE, ease: "power1.in", immediateRender: false },
+          MORPH_START + MORPH_DUR - FINAL_FADE);
+        tl.fromTo(R + " .r3-panel", { opacity: 0 },
+          { opacity: 1, duration: FINAL_FADE, ease: "power1.out" },
+          MORPH_START + MORPH_DUR - FINAL_FADE);
+
+        /* ---- camera, phase 3: slow push across the whole cascade (phase 2 is a hold) ---- */
+        tl.fromTo(R + " .r3-world", { scale: 1.0, y: 0 },
+          { scale: 1.03, y: -16, duration: 5.0, ease: "power1.inOut", immediateRender: false },
+          ROW_START);
+
+        /* ---- scene 3: the receipt — each question is asked, then settles ---- */
+        var rows = document.querySelectorAll(R + " .r3-row");
+        for (var i = 0; i < rows.length; i++) {
+          var row = rows[i];
+          var T = ROW_START + i * ROW_STEP;
+
+          tl.fromTo(row, { y: 12, opacity: 0 },
+            { y: 0, opacity: 1, duration: 0.5, ease: "expo.out" }, T);
+
+          if (i === 0) {
+            tl.fromTo(R + " .r3-cursor", { y: 0, opacity: 0 },
+              { y: 0, opacity: 1, duration: 0.4, ease: "power2.out" }, T);
+          } else {
+            tl.fromTo(R + " .r3-cursor", { y: (i - 1) * ROW_PITCH },
+              { y: i * ROW_PITCH, duration: 0.42, ease: "expo.out", immediateRender: false }, T);
+          }
+
+          tl.fromTo(row.querySelector(".r3-key"), { opacity: 0.5 },
+            { opacity: 1, duration: 0.45, ease: "power2.out", immediateRender: false }, T + 0.24);
+
+          var val = row.querySelector(".r3-val");
+          if (val) {
+            tl.fromTo(val, { x: 12, opacity: 0 },
+              { x: 0, opacity: 1, duration: 0.45, ease: "expo.out" }, T + 0.24);
+          }
+
+          tl.fromTo(row.querySelector(".r3-check path"), { strokeDashoffset: 18 },
+            { strokeDashoffset: 0, duration: 0.38, ease: "power2.out" }, T + 0.30);
+        }
+
+        window.__timelines[ID] = tl;
+      })();
+    </script>
+  </div>
+</template>

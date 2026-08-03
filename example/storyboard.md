@@ -1,119 +1,231 @@
-# Storyboard — blog.nebrass.fr promo
+---
+format: 1920x1080
+duration: 60s
+message: It does not render what you describe — it decides how the idea should be shown, then picks the tool that serves it.
+arc: Hook → Pain → Turn → Mechanism → Delegation → Proof → Capabilities → CTA
+audience: General developer audience — devs who have never written an agent skill
+content_mode: promo
+theme: dark
+renderer: HyperFrames
+product_surface: none
+emotional_journey: frustration → relief → confidence
+capture_plan: none — skip Phase 2
+---
 
-**Duration:** ~53s | **Canvas:** 1920×1080 (16:9) | **Renderer:** HyperFrames
-**Mode:** promo | **Theme:** light (Vercel-style)
-**Product surface:** ui   *(real captures are the spine; built by hve-video-director, signs off with the tool)*
-**Capture plan:** 4 bound screenshots
+## Frame 1 — Every AI video looks like AI made it
 
-5 scenes. The **real blog is the spine**: scenes 0–3 each composite a live Phase-2 capture in
-browser chrome with a distinct, motivated camera move; scene 4 is the closing text CTA
-(connective tissue). All times in seconds. Each scene maps 1:1 to a HyperFrames sub-composition
-under `scenes/`.
+- status: outline
+- src: scenes/00-hook.html
+- duration: 5s
+- scene: The accusation, in type. No product yet.
+- voiceover: "You can always tell when a video was made by an AI."
+- goal: viewer recognises the problem as one they have seen, before any product appears
+- abstraction: symbolic
+- complexity: atomic
+- tone: frustration
+- energy: build
+- density: focal
+- camera: static
+- metaphor: none — connective tissue
+- blueprint: kinetic-type-beats
+- motion: kinetic-beat-slam
+- capabilities: text-choreography
+- screenshot: none — connective tissue
 
-VO timing discipline (per `workflows/phase-5-audio.md`):
-- VO starts ≥1.0s after scene start; ends ≥0.5s before scene end.
-- Adjacent scenes OVERLAP during the 0.4s crossfade (data-duration extends 0.4s past nominal end; next data-start moves 0.4s earlier).
-- VO end-times below are nominal; verify with `npx hyperframes transcribe voiceover.mp3`.
-- **Durations are deliberately varied** (8.4 / 12.4 / 10.4 / 12.4 / 11s) so the product scenes don't read as an even slideshow.
+The line lands one clause at a time. Nothing moves but the words: a frame that answers no viewer
+question earns its motion from content, not from the camera.
+
+## Frame 2 — The reason why
+
+- status: outline
+- src: scenes/01-pain.html
+- duration: 8s
+- transition_in: crossfade
+- transition_speed: medium
+- scene: Scattered fragments — a timeline, a renderer, an easing curve, a codec flag — closing in.
+- voiceover: "Because making one by hand means learning a renderer, a timeline model, and an animation library before you get a single frame."
+- goal: viewer feels the cost of doing this manually, rather than being told it
+- abstraction: metaphor
+- complexity: compound
+- tone: tension
+- energy: build
+- density: dense
+- camera: push-in
+- metaphor: Pain / overwhelm
+- blueprint: overwhelm-surround
+- motion: center-outward-expansion
+- capabilities: —
+- screenshot: none — connective tissue
+
+Fragments crowd inward as the push-in tightens. Felt, never narrated: the VO names the work, the
+frame supplies the pressure.
+
+## Frame 3 — It does not render. It directs.
+
+- status: outline
+- src: scenes/02-turn.html
+- duration: 6s
+- transition_in: zoom-through
+- transition_speed: medium
+- scene: The pivot line, alone on the canvas.
+- voiceover: "This one is different. It decides how the idea should be shown."
+- goal: viewer understands the category claim — a director, not a renderer
+- abstraction: symbolic
+- complexity: atomic
+- tone: curiosity
+- energy: peak
+- density: focal
+- camera: static
+- metaphor: none — connective tissue
+- motion: gradient-text-sweep
+- capabilities: text-choreography
+- screenshot: none — connective tissue
+
+The pressure of Frame 2 releases into stillness. Held 0.4s before the sweep — the pause is the
+turn.
+
+## Frame 4 — Twelve questions per scene
+
+- status: outline
+- src: scenes/03-reasoning.html
+- duration: 9s
+- transition_in: crossfade
+- transition_speed: medium
+- scene: Questions resolve one by one into a plan — goal, tone, camera, metaphor, runtime.
+- voiceover: "For every scene it asks what you must understand, how it should feel, and what it would take to show it."
+- goal: viewer sees that the decision is explicit and auditable, not a black box
+- abstraction: analog
+- complexity: systemic
+- tone: curiosity
+- energy: build
+- density: composed
+- camera: multi-phase
+- metaphor: Agent working
+- blueprint: agent-progress-theater
+- motion: card-morph-anchor
+- capabilities: ui-micro-motion
+- screenshot: none — connective tissue
+
+Progressive disclosure: each answer settles before the next asks. Systemic idea, so the reveal is
+paced across the full duration rather than front-loaded.
+
+## Frame 5 — Then it delegates
+
+- status: outline
+- src: scenes/04-stack.html
+- duration: 8s
+- transition_in: zoom-through
+- transition_speed: medium
+- scene: The director on top; the rendering ecosystem separating out beneath it.
+- voiceover: "It owns the thinking. Everything that draws a pixel belongs to HyperFrames."
+- goal: viewer understands the division of labour — reasoning here, rendering there
+- abstraction: metaphor
+- complexity: compound
+- tone: relief
+- energy: build
+- density: composed
+- camera: exploded
+- metaphor: Layered architecture
+- blueprint: grid-card-assemble
+- motion: depth-scatter-assemble
+- capabilities: spatial-depth
+- runtime_rejected: three — `spatial-depth` alone is served by GSAP's 2.5D layering. Real occlusion would cost a hero beat and add nothing the viewer must understand here.
+- screenshot: none — connective tissue
+
+Layers separate along Z far enough to read as distinct planes, then hold at full separation. The
+depth is the argument; it does not need real 3D to make it.
+
+## Frame 6 — The proof
+
+- status: outline
+- src: scenes/05-hero.html
+- duration: 8s
+- transition_in: zoom-through
+- transition_speed: medium
+- scene: The finished film as a real object in space, turning slowly under a key light.
+- voiceover: "This video was planned, built and rendered by the skill it is describing."
+- goal: viewer believes the claim because the artifact is in front of them with weight and dimension
+- abstraction: metaphor
+- complexity: atomic
+- tone: relief
+- energy: peak
+- density: focal
+- camera: orbit-3d
+- metaphor: Product hero
+- motion: —
+- capabilities: spatial-depth, cinematic-hero, perspective-camera, material-realism
+- runtime: three
+- runtime_rejected: html-in-canvas — it elevates a real captured surface, and `product_surface: none` means there is none to elevate.
+- screenshot: none — connective tissue
+
+The film's one hero beat. Slow orbit, never a full revolution; the surface catches the key light so
+the object reads as manufactured rather than drawn. Stillness of 0.5s before the light lands.
+
+## Frame 7 — What it delegates to
+
+- status: outline
+- src: scenes/06-capabilities.html
+- duration: 9s
+- transition_in: crossfade
+- transition_speed: medium
+- scene: Three stations passing the frame — motion, seams, audio — each already owned upstream.
+- voiceover: "Motion, transitions, narration and music are all the ecosystem's. It inherits every improvement without changing a line."
+- goal: viewer understands the skill gets better without being updated
+- abstraction: analog
+- complexity: compound
+- tone: confidence
+- energy: calm
+- density: composed
+- camera: pan
+- metaphor: Pipeline / ETL
+- blueprint: spatial-pan-stations
+- motion: card-morph-anchor
+- capabilities: —
+- screenshot: none — connective tissue
+
+A steady truck past three stations keeps one mental map. Calm after the peak — the film breathes
+before the ask.
+
+## Frame 8 — Run it on yours
+
+- status: outline
+- src: scenes/07-cta.html
+- duration: 7s
+- transition_in: zoom-through
+- transition_speed: medium
+- scene: The install command resolving into a single anchor. Nothing else on screen.
+- voiceover: "Install it, and point it at something you built."
+- goal: viewer knows the exact command and has no competing action
+- abstraction: symbolic
+- complexity: atomic
+- tone: confidence
+- energy: resolve
+- density: focal
+- camera: static
+- metaphor: CTA
+- blueprint: cta-morph-press
+- motion: card-morph-anchor
+- capabilities: identity-morph
+- screenshot: none — connective tissue
+
+The closing frame — the only frame permitted an exit. The full command stays legible on screen for
+its whole duration; one action, no competing links.
 
 ---
 
-### Scene 0: Establishing — the blog itself
+## Video-level budget check (Phase 1 Step 1.4c)
 
-**Window:** 0s → 8.4s (incl. crossfade overlap)
-**Scene file:** `scenes/00-establishing.html`  *(from `templates/scene-screenshot.html`)*
-**Screenshot:** `public/screenshots/01-home-hero-light.png`
-**Capture:** screenshot
-**Camera:** slow motivated push-in (1.0→1.05) on the `.shot-browser` wrapper, transformOrigin toward the hero text; released before the crossfade.
+| Budget | Verdict |
+|---|---|
+| Hero beats (three / html-in-canvas / typegpu) | **1 of the allowed maximum** — Frame 6 only. Frame 5 considered and degraded to Tier A. |
+| Transition types | 2 — `crossfade` primary (4 of 7 seams), `zoom-through` accent (2). Within one-primary-plus-accents. |
+| Emphasis devices | 1 per scene; no marker-highlight used anywhere in the film. |
+| Duration variance | 5 / 8 / 6 / 9 / 8 / 8 / 9 / 7 — varied; no flat profile. |
+| Emotional arc closure | frustration → tension → curiosity → curiosity → relief → relief → confidence → confidence. Traces the Phase-0 journey. |
+| Metaphor consistency | Each concept appears once; no concept re-drawn a second way. |
 
-**Visual:**
-- The homepage hero in a light browser frame (traffic lights + `blog.nebrass.fr` in the URL bar), soft elevation shadow on the Vercel near-white surface.
-- Optional one-line caption beneath: "blog.nebrass.fr".
+## Creative Brief levers still unconfirmed
 
-**Voiceover (1.0s → ~6.8s):**
-> "This is Nebrass's blog — software engineering, the cloud, and Java, written by someone who actually ships."
-
-**Animation:** `.shot-browser` `fromTo({y:48, autoAlpha:0} → {y:0, autoAlpha:1}, 0.7s, expo.out)` at 0.2s; caption at 0.9s; push-in 1.1→ (released ~7.4s).
-
-**Transition to next:** crossfade 0.4s at 8s.
-
----
-
-### Scene 1: Depth — every post goes deep
-
-**Window:** 8s → 20.4s
-**Scene file:** `scenes/01-depth.html`  *(from `templates/scene-screenshot.html`)*
-**Screenshot:** `public/screenshots/04-post-code-light.png`
-**Capture:** screenshot
-**Camera:** motivated push-in toward the code/diff block (transformOrigin on the highlighted code), then hold; released before the crossfade.
-
-**Visual:**
-- A real post reading view with syntax-highlighted code + red/green diff blocks ("Bug #1: a misplaced ffmpeg flag"), framed in browser chrome (`blog.nebrass.fr/playing-with-puppeteer…`).
-
-**Voiceover (9.0s → ~18.5s):**
-> "Every post goes deep. Real bugs, real fixes — like the two compounding bugs that were slowing Puppeteer's screencasts, traced and merged upstream."
-
-**Animation:** wrapper entrance at 0.2s; push-in toward the code at ~1.2s (transformOrigin ~"30% 62%"), released ~11.4s.
-
-**Transition to next:** crossfade 0.4s at 20s.
-
----
-
-### Scene 2: Breadth — dozens of topics
-
-**Window:** 20s → 30.4s
-**Scene file:** `scenes/02-breadth.html`  *(from `templates/scene-screenshot.html`)*
-**Screenshot:** `public/screenshots/05-categories-light.png`
-**Capture:** screenshot
-**Camera:** none — a clean settle (rhythm variety: not every scene moves). Static frame after entrance.
-
-**Visual:**
-- The categories index (tag cloud with real counts: Kubernetes, Security, Azure, Java, AI/ML…), framed in browser chrome (`blog.nebrass.fr/categories`).
-
-**Voiceover (21.0s → ~28.8s):**
-> "Kubernetes, security, Azure, machine learning — dozens of topics, all in one place."
-
-**Animation:** `.shot-browser` `fromTo({y:48, autoAlpha:0} → {y:0, autoAlpha:1}, 0.7s, expo.out)` at 0.2s. No camera move (deliberate beat of stillness).
-
-**Transition to next:** crossfade 0.4s at 30s.
-
----
-
-### Scene 3: Volume — years of writing (scroll-within-frame)
-
-**Window:** 30s → 42.4s
-**Scene file:** `scenes/03-scroll.html`  *(from `templates/scene-screenshot.html`, scroll-within-frame variant)*
-**Screenshot:** `public/screenshots/01-home-full-light.png`  *(full-page, 3840×15366)*
-**Capture:** screenshot
-**Camera:** scroll-within-frame — timeline-driven `translateY` on the inner `.shot-pan` wrapper, panning the tall homepage down the post list; ends on a lower post, released before the crossfade. (NOT scrollTop/listeners.)
-
-**Visual:**
-- The full homepage in a fixed browser frame; the long post list scrolls past inside the viewport — showing there's a lot to read.
-
-**Voiceover (31.0s → ~40.5s):**
-> "Years of write-ups — free to read, and always something new."
-
-**Animation:** wrapper entrance at 0.2s; `.shot-pan` `to({y: −(imgRenderedHeight − viewHeight)*fraction})` over ~7s `power1.inOut` from ~1.2s; released ~41.4s.
-
-**Transition to next:** crossfade 0.4s at 42s.
-
----
-
-### Scene 4: CTA — where to find it (+ made-with sign-off)
-
-**Window:** 42s → 53s (held final frame)
-**Scene file:** `scenes/04-cta.html`  *(inline text skeleton — connective tissue / closing)*
-**Screenshot:** `none — connective tissue`
-**Capture:** none
-
-**Visual:**
-- URL on a clean canvas: `blog.nebrass.fr` (Geist, large), with a hairline rule.
-- Sign-off line: "made with `/hve-video-director`" (the dogfood hook survives).
-- Held final 2s (no exit; closing scene).
-
-**Voiceover (43.0s → ~51.0s):**
-> "Find it at blog dot nebrass dot eff arr. And this whole video? Made with one command — slash Aitch Vee Ee Video Director."
-
-**Animation:** URL `fromTo({y:40, autoAlpha:0} → {y:0, autoAlpha:1}, 0.6s, expo.out)` at 0.3s; hairline width 0→540 at 0.9s; sign-off line at 1.6s; held from ~2.2s.
-
-**Transition to next:** *none — closing scene, held final frame.*
+`theme`, `aspect_ratio`, `identity_strategy` / `identity_choice`, `voice`, `transition_style`,
+`transition_speed`, `music_strategy` — Phase 1 Steps 1.1–1.3 and 1.5 ask these. They are user-owned
+and were not inferred (ADR-001). None of them changes the capability derivation above.

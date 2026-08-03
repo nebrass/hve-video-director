@@ -1,25 +1,30 @@
 # Credits
 
-## Background music
+## Music
 
-**"Spark of Inspiration"** by ViraMiller
-- License: Creative Commons Attribution 4.0 (CC-BY 4.0)
-- Source: https://freesound.org/people/ViraMiller/sounds/746454/
-- Duration: 104.3 seconds (trimmed to 53s in the mix)
-- Use in this project: background score — normalized to ≈-30 LUFS, high-passed, a −3 dB dip at 2.5 kHz to clear the voice, sidechain-ducked under the voiceover, 2s fade-in / 4s fade-out
+| | |
+|---|---|
+| **Title** | Warm Pad Essentials Drone by Mantice |
+| **Source** | https://freesound.org/people/bassimat/sounds/854842/ |
+| **Licence** | CC0-1.0 (public domain dedication) |
+| **File** | `background-music.mp3` (not committed — see `.gitignore`) |
 
-## Voiceover
+Chosen by the user from Freesound candidates and confirmed as the exact track before
+mixing, per the Phase-5 contract. The brief pins the URL with its numeric sound ID,
+which is what `scripts/validate_brief.py` verifies — a title alone is not provenance.
 
-Generated via [ElevenLabs](https://elevenlabs.io) using the **Matilda** voice (`XrExE9yKIg1WjnnlVkGX`) and the `eleven_multilingual_v2` model. Script in `voiceover.py`. Not Creative Commons — generated voiceover content is owned under MIT.
+## Voice
 
-## Product captured
+Narration synthesised with ElevenLabs (voice **Daniel**), confirmed in the Creative
+Brief as `voice: elevenlabs:Daniel:onwK4e9ZLuTAKqWW03F9`. Section audio is assembled
+by `scripts/generate_voiceover.py --assemble-only`.
 
-Screenshots in `public/screenshots/` are of **[blog.nebrass.fr](https://blog.nebrass.fr)** — Nebrass Lamouchi's own blog — captured live via Chrome DevTools in Phase 2. The blog is the subject of this promo.
+## Fonts and design system
 
-## Transcription
+Stripe-derived dark palette from `design-systems/`, rendered with system-stack
+typography. No third-party font files are bundled.
 
-Word-level timing verified using [HyperFrames'](https://www.npmjs.com/package/hyperframes) bundled Whisper (`npx hyperframes transcribe`), tiny model.
+## Rendering
 
-## Render
-
-Composition rendered by [HyperFrames CLI](https://www.npmjs.com/package/hyperframes) via headless Chromium, then muxed against `voiceover-with-music.mp3`.
+HyperFrames (HTML + GSAP, headless Chromium) via `npx hyperframes render`. GSAP is
+loaded from jsDelivr under Subresource Integrity, pinned in the scene files.

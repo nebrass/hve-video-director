@@ -60,7 +60,7 @@ launches a debuggable browser, chooses a profile directory, or accepts Chrome's 
 
 Never persist page IDs, complete URLs, profile paths, DOM snapshots, cookies, storage, request
 headers, or authentication material in `context.md`, `storyboard.md`, logs, or generated helper
-files. The storyboard persists only `Web capture source: attached-session`.
+files. The storyboard persists only `web_capture_source: attached-session` (storyboard frontmatter).
 
 ## Read-only capture contract
 
@@ -112,7 +112,7 @@ or browser as cleanup.
 - **Tab closed or ID changed:** discard the in-memory mapping and re-list; never guess by index.
 - **Connection lost:** retain Phase 2 as incomplete and provide the appropriate `--autoConnect` or
   `--browser-url` setup handoff.
-- **Capture source changed:** update `Web capture source:` and treat all prior web captures as
+- **Capture source changed:** update `web_capture_source` and treat all prior web captures as
   stale until the user reviews replacements.
 
 On successful completion, restore the viewport, leave the selected tab open at the same URL, and

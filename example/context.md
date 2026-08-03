@@ -1,70 +1,45 @@
-# Product Context — blog.nebrass.fr promo
+# Product Context — hve-video-director
 
-## What this video is
-
-A ~50-second promo for **blog.nebrass.fr** — Nebrass Lamouchi's software-engineering blog —
-**built by `hve-video-director`**. The flagship is now a *real product video for a real app with a
-real UI*: the blog's actual screens are the spine of the video, captured live via Chrome
-DevTools in Phase 2. The skill still demonstrates itself — this is a genuine video the
-pipeline produced — and signs off with "made with `/hve-video-director`", but the **subject** is
-the blog, not the tool.
-
-> **Why this changed.** The previous flagship promoted *this skill* itself — a UI-less CLI
-> skill — so it (legitimately) had no app to film and was built entirely from typography and a
-> simulated terminal. That made the reference build model flat text-on-white, which read as
-> "simple shapes and text." Re-subjecting the flagship to a real app puts the actual product on
-> screen, which is what the skill is for. (This supersedes the old `context.md` line "No real
-> app screenshots — the product is a skill, not a UI".)
-
-## The product being filmed
-
-`blog.nebrass.fr` — a Hugo / PaperMod blog: a personal hero/bio, long-form engineering posts
-(Java, cloud, Kubernetes, security, AI/ML), syntax-highlighted code, a categories index, and
-search. Public, no auth. Captured screens (`public/screenshots/`):
-
-- `01-home-hero-light.png` — homepage hero ("Hi there, I'm Nebrass") + featured post card
-- `01-home-full-light.png` — full-page homepage (tall) — for a scroll-within-frame beat
-- `03-post-top-light.png` — a post reading view (the Puppeteer screencast-fix write-up)
-- `04-post-code-light.png` — in-post syntax-highlighted code + diff blocks (the depth beat)
-- `05-categories-light.png` — the categories index (breadth)
+## Product
+- **Name:** hve-video-director
+- **URL:** https://github.com/nebrass/hve-video-director
+- **One-liner:** An agent skill that directs a video — it reasons about how to communicate an idea, then orchestrates the HyperFrames ecosystem to render it.
+- **Tech stack:** Agent Skill (markdown prompt content) + pure-stdlib Python helpers; renders through HyperFrames (HTML + GSAP + headless Chromium), with Three.js / Lottie / WAAPI / TypeGPU reachable as runtimes.
 
 ## Audience
+- **Who:** General developer audience — devs who have never written an agent skill.
+- **Pain points:**
+  - AI-generated video looks AI-generated: flat cards, uniform durations, stock easing.
+  - Building one by hand means learning a renderer, a timeline model and an animation library before the first frame.
+  - Existing tools render what you describe; none of them *decide* how the idea should be shown.
+- **Desired action:** Install it and run `/hve-video-director` on their own project.
+- **Emotional journey:** frustration → relief → confidence
 
-- Developers who read engineering blogs and might subscribe / share
-- Peers and recruiters discovering Nebrass's work
-- (Meta) Claude Code users seeing what a real `hve-video-director` output looks like with the
-  product on screen
+## Brand
+- **Colors:** Stripe design system, dark theme — deep navy canvas, blue-tinted elevation shadows, restrained accent.
+- **Typography:** Stripe's light-weight display type; generous tracking at display sizes.
+- **Tone:** Plain, technical, unhyped. Show the machinery; never claim a number.
+- **Visual style:** Premium fintech restraint — depth via shadow and surface, not ornament.
 
-## Goal
+## Video Concept
+- **Type:** promo
+- **Angle:** *"It thinks before it renders."* The differentiator is not that it makes videos — it is that it decides how an idea should be communicated, then picks the tool that serves it.
+- **Duration:** 60s
+- **Theme:** dark
+- **Voice:** Daniel (ElevenLabs) — authoritative male, broadcast register
 
-In ~50 seconds: show that this is a serious, deep, wide engineering blog worth reading — by
-putting the real pages on screen — and close with where to find it. If a viewer thinks
-*"I'd read that,"* the video did its job.
-
-## Brand intent
-
-- **Visual identity:** Vercel design system — sharp black-on-white, Geist typography,
-  shadow-as-border, flash-through-white transitions. Frames the light blog screenshots cleanly.
-  (See `DESIGN.md`, sourced from `design-systems/vercel/DESIGN.md`.)
-- **Voice:** Matilda (ElevenLabs) — warm, authoritative.
-- **Tone of script:** declarative, concrete, no marketing fluff. Real claims only.
-
-## Real product, real claims (no invented metrics)
-
-Every claim maps to something verifiable on the live blog:
-
-- "Real bugs, real fixes — the Puppeteer screencast timing fix" → the post + merged PR #15112
-- "Kubernetes, security, Azure, machine learning — dozens of topics" → the categories index
-- "Years of write-ups" → posts dated 2023–2026 on the homepage
-- No invented numbers, no `lorem ipsum`, no filler.
+## Features to Highlight
+1. **The reasoning layer** — a question set per scene produces an auditable plan: goal, tone, camera, metaphor, capabilities, runtime. It is the part no other tool has.
+2. **Capability-driven runtime selection** — a scene declares what it must *communicate*; the runtime follows. The viewer never asks for 3D, and the film never spends 3D it did not need.
+3. **HyperFrames-first delegation** — rendering, motion, seams and audio belong to the ecosystem, so the skill inherits every upstream improvement for free.
+4. **Governance** — per-phase approval; the user owns every creative lever; nothing is inferred. It is why the output is *yours*.
 
 ## Constraints
+- **Product surface:** `none` — the subject is a skill, not a UI. Abstract film; waives the Phase-3 capture-coverage gate.
+- No invented metrics, no claimed adoption numbers (`patterns/anti-slop.md` P0).
+- Dark canvas is authoritative: `stripe` supports light or dark, so nothing is adapted away.
 
-- ~50 seconds total, 16:9 1920×1080, light theme
-- **Real product is the spine** (`product_surface: ui`): 4 of 5 scenes composite a real capture
-  framed in browser chrome with motivated, seekable depth; 1 closing text CTA is connective tissue
-- Must satisfy `patterns/anti-slop.md`: the real screenshot is the subject (not background
-  texture), no decorative-gradient hero, no emoji feature icons, no invented metrics; vary scene
-  durations and give each product scene a distinct camera move (avoid a product-card slideshow)
-- All motion deterministic/seekable: wrapper-transform only, `fromTo`+`autoAlpha`, no
-  `<img>`-dimension tweens, no clipPath transitions
+---
+
+*Phase 0 output. Every Creative Brief lever in `project-plan.md` was chosen by the user and
+confirmed at story revision 1; none was inferred from this document (ADR-001).*

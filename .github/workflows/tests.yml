@@ -1,0 +1,118 @@
+name: tests
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  stdlib-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      # Every helper in scripts/ is pure standard library, so no pip install and
+      # no requirements file. Adding one here would silently permit a dependency
+      # the skill's own doctrine forbids.
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # ffmpeg/ffprobe are what the media tests probe for. They degrade
+      # gracefully when absent, so installing them is the difference between
+      # running the normalization integration test and skipping it unnoticed.
+      - name: Install ffmpeg
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
+
+      - name: Report the toolchain the suite will see
+        run: |
+          python3 --version
+          ffmpeg -version | head -1
+          ffprobe -version | head -1
+
+      - name: Run the suite
+        run: bash test/run.sh
+
+      # A bare runner is the only place this is testable. Locally every
+      # dependency is already installed, so the unmet-requirement path — the one
+      # a new user's first run takes — never executes.
+      #
+      # Note what is NOT asserted: a zero exit. The checker exits 1 when a
+      # required dependency is missing, which is correct here (no
+      # chrome-headless-shell, no hyperframes CLI). An earlier version of this
+      # step ran it under `bash -e` and failed on that exit code, testing
+      # readiness when it meant to test side effects.
+      - name: Requirements checker reports cleanly on an unprovisioned machine
+        if: always()
+        run: |
+          set +e
+          bash scripts/check_requirements.sh --json > /tmp/report.json; json_rc=$?
+          bash scripts/check_requirements.sh --plan > /tmp/plan.txt;    plan_rc=$?
+          set -e
+          echo "exit codes: --json=$json_rc --plan=$plan_rc"
+
+          # 0 = ready, 1 = something unmet. 2 is a usage/format error: a crash,
+          # not a report, and the one outcome that must never happen here.
+          test "$json_rc" -ne 2 || { echo "--json exited 2 (malformed/usage)"; cat /tmp/report.json; exit 1; }
+          test "$plan_rc" -ne 2 || { echo "--plan exited 2 (malformed/usage)"; cat /tmp/plan.txt; exit 1; }
+
+          # Phase -1 parses this. Invalid JSON on the unmet path would strand a
+          # first run at setup with nothing actionable.
+          python3 - <<'EOF'
+          import json, sys
+          report = json.load(open("/tmp/report.json"))
+          assert report["schema_version"] == 1, report.get("schema_version")
+          checks = report["checks"]
+          assert checks, "no checks emitted"
+          for c in checks:
+              assert {"id","label","tier","state","phases","detail","fixability"} <= set(c), c
+              assert c["state"] in {"ready","degraded","blocked"}, c
+              assert c["tier"] in {"required","recommended","optional"}, c
+          blocked = [c["id"] for c in checks if c["state"] == "blocked"]
+          print(f"{len(checks)} checks; blocked on a bare runner: {blocked or 'none'}")
+          EOF
+
+          # The actual invariant: a report mode changes nothing on disk.
+          git diff --exit-code
+          git status --porcelain --untracked-files=all > /tmp/after.txt
+          test ! -s /tmp/after.txt || { echo "report mode created files:"; cat /tmp/after.txt; exit 1; }
+
+      # A --fix flag alongside a report mode must be refused, not silently
+      # honoured. This is the guard that keeps CI itself from installing things.
+      - name: Report modes refuse to be combined with --fix
+        if: always()
+        run: |
+          set +e
+          bash scripts/check_requirements.sh --json --fix > /dev/null 2>&1
+          test $? -ne 0 || { echo "--json --fix was accepted; report modes must refuse it"; exit 1; }
+          set -e
+          git status --porcelain --untracked-files=all > /tmp/nofix.txt
+          test ! -s /tmp/nofix.txt || { echo "refused --fix still touched the tree"; cat /tmp/nofix.txt; exit 1; }
+
+      # These are documented invariants in CLAUDE.md with copy-pasteable greps.
+      # A rule with a stated verification command and no automation is a rule
+      # that holds until the first person forgets to run it.
+      - name: SKILL_HOMES is byte-identical everywhere
+        if: always()
+        run: |
+          n=$(grep -rho 'SKILL_HOMES="[^"]*"' SKILL.md workflows/*.md scripts/check_requirements.sh | sort -u | wc -l)
+          test "$n" -eq 1 || { echo "SKILL_HOMES diverged across $n variants"; exit 1; }
+
+      # Scoped to the skill's own surface on purpose. `example/` is a record of a
+      # render that happened, so it stays on the version it was rendered against —
+      # forcing it to track a bump would edit a record to satisfy a lint.
+      - name: GSAP version and SRI hash are pinned in lock-step
+        if: always()
+        run: |
+          v=$(grep -rho 'gsap@[0-9][0-9.]*' templates/*.html workflows/*.md | sort -u | wc -l)
+          h=$(grep -rho 'integrity="sha384-[^"]*"' templates/*.html workflows/*.md | sort -u | wc -l)
+          test "$v" -eq 1 || { echo "$v GSAP versions in tree — a stale hash ships animation-free scenes"; exit 1; }
+          test "$h" -eq 1 || { echo "$h SRI hashes in tree — same failure"; exit 1; }

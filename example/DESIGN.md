@@ -1,94 +1,88 @@
-# Vercel — Video Production Notes
+# Stripe — Video Production Notes
 
 Brand specification for HyperFrames compositions. See the Source line at the bottom for research provenance.
 
 ## 1. Atmosphere
 
-Developer infrastructure made invisible. Minimalism as engineering principle. Overwhelmingly white canvas with near-black text — every element earns its pixel. The Geist design system treats the interface like a compiler treats code: every unnecessary token stripped away until only structure remains.
+A financial institution redesigned by a world-class type foundry. Clean white canvas, deep-navy headings, signature saturated purple as the single brand anchor. The voice is *whispered authority* — confident enough not to shout. The signature texture is blue-tinted multi-layer shadows that read as atmospheric depth, like elements floating in a twilight sky.
 
 ## 2. Palette (video-essential)
 
 | Role | Hex |
 |---|---|
-| Canvas | `#ffffff` |
-| Primary text | `#171717` (not pure black) |
-| Secondary text | `#4d4d4d` |
-| Tertiary text | `#666666` |
-| Workflow accent — ship | `#ff5b4f` (coral red) |
-| Workflow accent — preview | `#de1d8d` (magenta) |
-| Workflow accent — develop | `#0a72ef` (blue) |
-| Link | `#0072f5` |
-| Console blue (in terminal mockups) | `#0070f3` |
-| Console green (in terminal mockups) | `#00ff87` |
+| Background canvas | `#ffffff` |
+| Primary text / headings | `#061b31` (deep navy — not black) |
+| Brand anchor (accent) | `#533afd` (Stripe purple) |
+| Dark scene background | `#1c1e54` |
+| Body secondary | `#273951` |
+| Decorative gradient stops | `#ea2261` (ruby) → `#f96bee` (magenta) |
+| Shadow tint | `rgba(50,50,93,0.25)` + `rgba(0,0,0,0.10)` |
 
-Each "workflow accent" maps to a deployment stage. Pick one per video — using all three in a 30s spot is incoherent.
+Use the purple sparingly: max 1–2 visible uses per scene. Ruby/magenta only for decorative gradient moments, never as text.
 
 ## 3. Typography
 
-- **Display + Body:** `Geist`. OpenType `"liga"` globally.
-- **Mono:** `Geist Mono`, fallback `SF Mono`, `Menlo`.
+- **Display:** `sohne-var` with OpenType `"ss01"`. **Weight 300** at display sizes (the anti-shout move). Aggressive negative tracking (-1.4px at 56px).
+- **Body:** `sohne-var` weight 300–400, `"ss01"` everywhere.
+- **Mono / data:** `SourceCodePro` with `"tnum"` for tabular numbers (financial data, stats).
 
-Aggressive negative tracking: -2.4px to -2.88px at display sizes.
+Fallbacks: `SF Pro Display`, `SFMono-Regular`.
 
-Video sizes:
+Video sizes (scale up from web — the floor is 24px):
 
 | Role | Size | Weight |
 |---|---|---|
-| Hero | 140–180px | 600 |
-| Section title | 80–110px | 600 |
-| Body / value prop | 36–48px | 400 |
-| Caption | 24–28px | 500 |
-| Stat number | 180–220px | 700 |
-| Terminal / mono content | 28–32px (mono) | 400 |
+| Hero | 110–140px | 300 |
+| Section title | 72–96px | 300 |
+| Body / value prop | 36–48px | 300–400 |
+| Caption / kicker | 24–28px | 400 |
+| Stat number | 140–200px | 300 (tnum) |
 
 ## 4. Depth
 
-The signature **shadow-as-border** technique:
+Multi-layer blue-tinted shadows for cards / browser mockups:
 
 ```css
 box-shadow:
-  0 0 0 1px rgba(0,0,0,0.08),   /* the "border" layer */
-  0 2px 4px rgba(0,0,0,0.06),
-  0 12px 32px rgba(0,0,0,0.08);
+  0 7px 14px rgba(50,50,93,0.10),
+  0 3px 6px  rgba(0,0,0,0.08),
+  0 12px 36px rgba(50,50,93,0.15);
 ```
 
-Border-radius: 8–12px. Pill badges at 9999px for status.
+Border-radius: **4–8px**. Nothing pill-shaped, nothing aggressively rounded.
 
-## 5. Motion
+## 5. Motion (video-critical)
 
-Vercel's brand is *razor-sharp minimalism*. Very fast entrances, hard contrast, **flash-through-white transitions are signature**.
+Stripe's brand is *premium-restraint*. Motion is dignified and slow.
 
 | Property | Choice |
 |---|---|
-| Default entrance ease | `expo.out` or `power3.out` |
-| Entrance duration | 0.4–0.6s (fast — the brand is "instant") |
-| Stagger | 0.06–0.10s |
-| Scene-to-scene transition | **`flash-through-white` catalog block** (0.3–0.4s) — the iconic Vercel motion |
-| Section-boundary | Hard cut OR flash-through-white |
-| Stat-counter ease | `power2.out`, ~1.6s (faster than other brands) |
-| Avoid | Soft crossfades over 0.5s, swoosh transitions, anything ornamental |
+| Default entrance ease | `expo.out` |
+| Stat-counter ease | `power1.inOut` |
+| Scale-in ease | `power3.out` (NOT `back.out` — no bounce, no overshoot) |
+| Entrance duration | 0.7–1.0s |
+| Stagger | 0.12–0.18s (deliberate, not machine-gun) |
+| Scene-to-scene transition | Plain crossfade 0.5–0.7s, `power2.inOut`. No flash. |
+| Section-boundary transition | Slow gradient wipe (ruby→magenta band), 0.7s |
+| Product-shot camera | Imperceptible 1.04→1.0 drift over ~2s, `power1.inOut` |
+| Avoid | `back.out`, `elastic`, flash transitions, glitch, hard cuts |
 
-Vercel's voice is "deploys finish in milliseconds, ship is instant." Motion duration carries that message. Slower than 0.6s reads as off-brand — except deliberate camera moves (a slow push-in or scroll-within-frame over a framed screenshot), which run several seconds by design and release before the crossfade.
+The "anti-shout" voice extends to motion: a Stripe video that snaps and pops is off-brand.
 
 ## 6. Video applications
 
-This promo's spine is the **real blog, framed** — `templates/scene-screenshot.html` composites each
-`public/screenshots/*.png` in light browser chrome (traffic lights + `blog.nebrass.fr` URL bar) on a
-near-white radial surface with a layered elevation shadow. Per-scene:
-
-- **Establishing (`00-establishing`):** homepage hero in a browser frame; slow motivated push-in (1.0→1.05) toward the hero text, released before the crossfade.
-- **Depth (`01-depth`):** a post's syntax-highlighted code + diff; gentle push-in (1.0→1.06) toward the code block.
-- **Breadth (`02-breadth`):** the categories index; **no** camera move — a deliberate beat of stillness for rhythm.
-- **Volume (`03-scroll`):** the full-page homepage panned inside a fixed frame (scroll-within-frame — timeline-driven `translateY` on the inner wrapper, never `scrollTop`).
-- **CTA (`04-cta`):** closing text scene — `blog.nebrass.fr` in Geist 600 + a `/hve-video-director` sign-off pill on `#ffffff`, held to the end.
+- **Hero scene:** A single declarative line at 110px, weight 300, deep navy on white. Subtitle at 36px arrives 0.5s later. No mockup yet. Let the type breathe.
+- **Feature scene:** A product screenshot inside a card with the signature blue-tinted shadow stack, tilted ≤4° on Y. Caption beside it in weight-300 type.
+- **Stat scene:** Centered number at 180px, `tnum`-enabled, weight 300, deep navy. Counter tweens from 0 over ~2.5s `power1.inOut`. Label below in 36px secondary.
+- **CTA scene:** Brand mark + a single line of microcopy. No big button — let the brand carry the close.
 
 ## 7. Avoid
 
-- **Purple gradients.** The "Vercel triangle" mark uses gradients, but body chrome doesn't. A purple→pink hero is generic-AI-promo cosplay.
-- **Soft / decorative motion.** Off-brand. Vercel motion is fast, clean, and stops the moment it lands.
-- **Multiple workflow accents in one scene.** Pick one — ship-red OR preview-magenta OR develop-blue.
-- **Bouncy eases.** `back.out` / `elastic` are wrong tone.
+- **Default purple gradient hero.** Stripe's purple is anchored, not gradient-led. A purple→cyan two-stop reads as generic-AI-promo, not Stripe.
+- **Bold headlines.** The weight-300 anti-shout is the brand. Switching to bold defeats the system.
+- **Hard flash transitions.** Off-tone for premium fintech.
+- **Emoji.** Use monoline icons or no icons at all.
 
 ## Source
 
-Informed by studying VoltAgent/awesome-design-md `design-md/vercel/DESIGN.md` and the brand's actual product. Original prose authored by hve-video-director, MIT licensed.
+Informed by studying VoltAgent/awesome-design-md `design-md/stripe/DESIGN.md` and the brand's actual product. Original prose authored by hve-video-director, MIT licensed.

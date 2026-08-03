@@ -24,25 +24,30 @@ user change `theme`; never capture the opposite theme and silently recolor it.
 
 ## Phase 2 routing
 
-Read `Product surface:` and every scene's `Capture:` field before asking for a web source:
+Everything this phase reads from `storyboard.md` is either a frontmatter key (`product_surface`,
+`capture_plan`, `web_capture_source`) or a `- key: value` bullet in a frame's metadata block
+(`capture`, `screenshot`, `clip`, `capture_duration`, `capture_region`, `command`,
+`record_timeout`). Read `product_surface` and every frame's `capture` bullet before asking for a
+web source:
 
-- If `Product surface: none`, the storyboard records `Capture plan: none`, **and every scene has
-  `Capture: none`**, mark Phase 2 **skipped** in `project-plan.md` and proceed to Phase 3. If any
-  scene requests capture, that scene wins over a stale `Capture plan: none`. Do not ask for a URL
-  and do not create empty directories as fake completion markers. Use the checkpoint's Phase-2
-  stamp to record the intentional skip before proceeding.
-- Run the web path (Steps 2.1–2.2) only for `screenshot` or `screencast` scenes.
-- Run the native screen path only for `screen-recording` scenes.
-- Run the terminal path only for `terminal` or `terminal-clip` scenes.
+- If `product_surface: none`, `capture_plan` plans no artifacts (Phase 1 writes
+  `none — skip Phase 2`), **and every frame has `capture: none`**, mark Phase 2 **skipped** in
+  `project-plan.md` and proceed to Phase 3. If any frame requests capture, that frame wins over a
+  stale `capture_plan`. Do not ask for a URL and do not create empty directories as fake
+  completion markers. Use the checkpoint's Phase-2 stamp to record the intentional skip before
+  proceeding.
+- Run the web path (Steps 2.1–2.2) only for `screenshot` or `screencast` frames.
+- Run the native screen path only for `screen-recording` frames.
+- Run the terminal path only for `terminal` or `terminal-clip` frames.
 - For `supplied`, verify the storyboard's exact file exists and is non-empty.
-- If `Product surface: ui` but no real product artifact is bound to a scene (web capture,
+- If `product_surface: ui` but no real product artifact is bound to a frame (web capture,
   native screen recording, or supplied screenshot/clip), return to Phase 1 and repair the
   capture plan; the real product cannot be the spine without a bound artifact.
 
 ## Capture artifacts: stills and clips
 
 Phase 2 produces **capture artifacts**: still screenshots in `public/screenshots/`
-and/or recorded clips in `public/clips/`. A scene's `Capture:` field (from the
+and/or recorded clips in `public/clips/`. A frame's `capture` bullet (from the
 storyboard) decides which. Recording sources (Chrome screencast for web, the
 native screen helper for desktop/non-browser apps, and the terminal path for CLI)
 are wired in **Layer B**; in Layer A, clip scenes consume a
@@ -51,25 +56,26 @@ file). Stills remain the default and the fallback.
 
 ### Capture-source detection (graceful, never hard-fail)
 
-A scene's `Capture:` value selects a source; each is feature-detected and degrades cleanly:
+A frame's `capture` value selects a source; each is feature-detected and degrades cleanly:
 
-- `none`: no Phase-2 work for that connective scene.
-- `Web capture source: attached-session`: requires a Chrome DevTools MCP connection to the user's
-  running browser. If `list_pages` fails or the selected tab disappears, pause with the documented
-  setup/re-authentication handoff; never open or navigate a replacement page automatically.
+- `none`: no Phase-2 work for that connective frame.
+- `screenshot` / `screencast` under the frontmatter `web_capture_source: attached-session`:
+  requires a Chrome DevTools MCP connection to the user's running browser. If `list_pages` fails
+  or the selected tab disappears, pause with the documented setup/re-authentication handoff;
+  never open or navigate a replacement page automatically.
 - `screencast` (web): usable only if the chrome-devtools MCP exposes `screencast_start`
   AND the server was started with `--experimentalScreencast=true`. Detect by attempting
   it; if the tool is absent or it errors about the flag, **fall back to `take_screenshot`**,
-  set the scene's `Capture: screenshot`, and tell the user how to enable it:
+  set that frame's `capture: screenshot`, and tell the user how to enable it:
   restart the chrome-devtools MCP server with `--experimentalScreencast=true`.
 - `screen-recording` (native desktop/non-browser app): requires a positive
-  `Capture duration:` and exact `Clip:` output path; `Capture region: x,y,w,h` is optional.
+  `capture_duration` and an exact `clip` output path; `capture_region: x,y,w,h` is optional.
   Invoke `scripts/capture_screen.py` as described below. A missing or failed expected output
   leaves Phase 2 incomplete; do not silently substitute a web screenshot.
 - `terminal` (CLI): the default path is dependency-free (author a terminal scene from real
   output, see "Recording a CLI scene"). The optional `asciinema`→video path is used only if
   `asciinema` and `agg` are on PATH; otherwise use the default authored-scene path.
-- `supplied`: the user provides the exact storyboard-bound `Screenshot:` or `Clip:` file directly.
+- `supplied`: the user provides the exact storyboard-bound `screenshot` or `clip` file directly.
 
 Stills remain the universal fallback for unavailable screencast/terminal tooling. A missing
 `supplied` file **does block** until the user provides it or the storyboard capture type changes.
@@ -80,7 +86,7 @@ The skill ships two reviewed, pure-stdlib helpers. Invoke them instead of writin
 capture or stitching scripts:
 
 - `scripts/capture_screen.py` orchestrates fixed-duration native desktop/region capture, invokes
-  its sibling `stitch_clip.py` with an explicit `::0::<Capture duration>` trim, validates
+  its sibling `stitch_clip.py` with an explicit `::0::<capture_duration>` trim, validates
   duration and frame count within one 30fps frame, and atomically publishes the destination
   plus its capture metadata only after success. It records no audio. Existing destinations and
   successful metadata survive every failure; the output-local raw `.mov`/`.mkv` is retained for
@@ -125,35 +131,36 @@ python3 scripts/stitch_clip.py a.mp4 b.mp4::0::4 --width 1920 --height 1080 -o p
 - **WSL:** no direct adapter. Record on the Windows host, make the file visible to WSL, then invoke
   `stitch_clip.py`.
 
-Use native capture only when the scene needs the desktop or a non-browser app. Keep Chrome DevTools
+Use native capture only when the frame needs the desktop or a non-browser app. Keep Chrome DevTools
 screencast for DOM-page interactions and asciinema+agg for terminal motion. For multi-take edits or
 supplied footage, invoke `stitch_clip.py` directly.
 
 ### Recording a native screen scene
 
-When `Capture: screen-recording`:
+When `capture: screen-recording`:
 
-1. Read the required positive `Capture duration:` and exact `Clip:` path from that scene.
+1. Read the required positive `capture_duration` and exact `clip` path from that frame.
    If either is absent or invalid, return to Phase 1 and repair the storyboard before recording.
-2. If `Capture region:` is present, require exactly four comma-separated integers
+2. If `capture_region` is present, require exactly four comma-separated integers
    `x,y,w,h` with positive `w` and `h`; otherwise record the full desktop.
 3. Put the app and visible operating-system chrome in the confirmed theme, then visually verify
    the target region. If the app cannot provide that theme, return to Phase 1 instead of recording.
 4. Invoke the canonical helper with the storyboard values:
    `python3 scripts/capture_screen.py --duration "<seconds>" [--region "<x,y,w,h>"] -o
-   "<exact Clip path>"`.
-5. The helper first atomically acquires `<Clip>.capture.lock` with an attempt/owner token, then
-   writes `<Clip>.capture.pending` **before** attempting capture. A concurrent attempt for the
+   "<exact clip path>"`.
+5. The helper first atomically acquires `<clip>.capture.lock` with an attempt/owner token, then
+   writes `<clip>.capture.pending` **before** attempting capture. A concurrent attempt for the
    same output fails without touching capture state. The marker records schema version plus
    requested duration, region, backend, and output. A
    successful capture is normalized to the requested duration, validated as CFR30 within a
-   one-frame duration/frame-count tolerance, then published with `<Clip>.capture.json`. The
+   one-frame duration/frame-count tolerance, then published with `<clip>.capture.json`. The
    sidecar records the successful request, resolved backend, validated media properties, file
    size, and SHA-256 fingerprint. Pending is removed only after both clip and sidecar publish.
-6. Accept completion only when the exact `Clip:` is non-empty, `<Clip>.capture.pending` is absent,
-   `<Clip>.capture.json` exists, and this command passes with the exact storyboard values:
+6. Accept completion only when the frame's exact `clip` path is non-empty,
+   `<clip>.capture.pending` is absent, `<clip>.capture.json` exists, and this command passes with
+   the exact storyboard values:
    `python3 scripts/capture_screen.py --check --duration "<seconds>"`
-   `[--region "<x,y,w,h>"] -o "<exact Clip path>"`.
+   `[--region "<x,y,w,h>"] -o "<exact clip path>"`.
 7. Publication, rollback, and pending cleanup happen while the attempt lock is owned; success
    and ordinary failure release that lock. If a lock remains after a crash, inspect its owner,
    PID, host, creation time, and age diagnostic. Never remove an active lock; remove the exact
@@ -167,28 +174,29 @@ When `Capture: screen-recording`:
 
 ### Recording a web scene (screencast)
 
-When `Capture: screencast` and screencast is available (see detection above):
+When `capture: screencast` and screencast is available (see detection above):
 
 1. For `navigate`, size the viewport to the Phase-1 canvas with `resize_page`. For
    `attached-session`, resize only after the explicit viewport choice below, and retain the
    original dimensions for mandatory restoration.
-2. Reach the scene's view according to `Web capture source`: for `navigate`, use
+2. Reach the frame's view according to `web_capture_source`: for `navigate`, use
    `navigate_page` + `wait_for`; for `attached-session`, keep the selected live tab at its current
    URL and use only the already-visible state. Never route an attached session through navigation.
-3. Invoke `screencast_start` with
+3. Invoke `screencast_start` with a raw path beside the frame's `clip` destination,
    `filePath: "public/clips/.scene-{NN}-{slug}.screencast-raw.mp4"`.
 4. Drive the scripted interaction with the existing input tools (`click`, `wait_for`,
    `evaluate_script` for scroll). In an attached session, each input action requires the exact
    per-action consent defined below. Keep the meaningful action **one continuous take** — never
    cut mid-action.
-5. Invoke `screencast_stop`, then normalize the raw recording with the copied canonical helper:
+5. Invoke `screencast_stop`, then normalize the raw recording with the copied canonical helper
+   into the frame's exact `clip` path:
    `python3 scripts/stitch_clip.py public/clips/.scene-{NN}-{slug}.screencast-raw.mp4 -o
    public/clips/scene-{NN}-{slug}.mp4`. Remove the raw file only after that succeeds. Keep the
    clip short (≤ ~8s) unless it's a deliberate real-time beat (e.g. a live process); over-long
    clips bloat render + repo.
 6. Verify the final file exists and is non-empty (`ffprobe` duration > 0). If screencast was
    unavailable, the raw file is empty, or normalization fails, retain any raw capture for
-   diagnosis, fall back to `take_screenshot`, and record `Capture: screenshot` in the storyboard.
+   diagnosis, fall back to `take_screenshot`, and record `capture: screenshot` on that frame.
 
 The recorded `public/clips/scene-{NN}-{slug}.mp4` is consumed by the Layer-A clip-scene
 archetype (`templates/scene-clip.html`) in Phase 3 — no extra wiring here.
@@ -229,13 +237,13 @@ and exits when the command exits. Wrap in `timeout` so a runaway or
 non-terminating command (`htop`, dev server) can't stall the phase.
 
 Preconditions (silently fall back to the authored-terminal path if any fail —
-and when falling back, rewrite the scene's storyboard `Capture:` to `terminal`
+and when falling back, rewrite that frame's `capture` bullet to `terminal`
 so downstream phases don't expect a clip that was never recorded):
 - `command -v asciinema && command -v agg` both succeed
 - `command -v timeout` succeeds (GNU coreutils — absent on stock macOS;
   `brew install coreutils` provides it)
-- The scene's storyboard entry has `Capture: terminal-clip` AND a `Command:` field
-  with the exact shell command to record
+- The frame's metadata block has `capture: terminal-clip` AND a `command` bullet
+  carrying the exact shell command to record
 
 Autonomous sequence the skill executes (no user input between steps):
 
@@ -250,9 +258,9 @@ Autonomous sequence the skill executes (no user input between steps):
 #    COLUMNS/LINES set the terminal size — portable across asciinema 2.x (Python)
 #    and 3.x (Rust); `rec --cols/--rows` exist only on 3.x and error out on 2.x.
 #    COLUMNS=175 keeps wide output (kubectl get, docker ps) from wrapping.
-#    RECORD_TIMEOUT comes from the storyboard's `Record timeout` field (default
-#    scene_duration + 2s) — bounds non-terminating commands to the scene's slot.
-RECORD_TIMEOUT="${RECORD_TIMEOUT:-60}"   # seconds, from storyboard `Record timeout`
+#    RECORD_TIMEOUT comes from the frame's `record_timeout` bullet (default the
+#    frame's duration + 2s) — bounds non-terminating commands to the frame's slot.
+RECORD_TIMEOUT="${RECORD_TIMEOUT:-60}"   # seconds, from the frame's `record_timeout`
 WORK_DIR=$(mktemp -d "${TMPDIR:-/tmp}/hve-terminal-clip.XXXXXX")
 CAST_TMP="$WORK_DIR/scene.cast"
 GIF_TMP="$WORK_DIR/scene.gif"
@@ -300,24 +308,24 @@ if [ -n "$record_ok" ] && [ -s "$CAST_TMP" ] &&
   clip_ready=1
 else
   clip_ready=
-  echo "terminal clip failed — switching this scene to the authored-terminal path" >&2
-  # STOP the clip branch here. Rewrite Capture: terminal in storyboard.md and
-  # author scenes/{NN}-terminal.html; never run later clip steps or accept an
-  # older public/clips/scene-{NN}-{slug}.mp4 as this attempt's output.
+  echo "terminal clip failed — switching this frame to the authored-terminal path" >&2
+  # STOP the clip branch here. Rewrite the frame's `capture` bullet to terminal in
+  # storyboard.md and author scenes/{NN}-terminal.html; never run later clip steps
+  # or accept an older public/clips/scene-{NN}-{slug}.mp4 as this attempt's output.
 fi
 ```
 
 Branch on the result: when `clip_ready=1`, author from
-`templates/scene-terminal-clip.html` into `scenes/{NN}-terminal-clip.html`. Otherwise rewrite
-the storyboard to `Capture: terminal` and author `scenes/{NN}-terminal.html` from the real command
+`templates/scene-terminal-clip.html` into `scenes/{NN}-terminal-clip.html`. Otherwise rewrite that
+frame's `capture` bullet to `terminal` and author `scenes/{NN}-terminal.html` from the real command
 output. Never author a terminal-clip scene after the fallback branch.
 
 **Edge cases the autonomous path handles:**
 
 - *Long-running / non-terminating commands.* `timeout` bounds them; the
-  partial cast is still valid. Set `RECORD_TIMEOUT` from the storyboard's
-  `Record timeout` (a 6s scene shouldn't record 60s of footage — default is
-  `scene_duration + 2s`).
+  partial cast is still valid. Set `RECORD_TIMEOUT` from the frame's
+  `record_timeout` bullet (a 6s frame shouldn't record 60s of footage — default
+  is the frame's `duration` + 2s).
 - *Commands needing piped input.* Use `--command "bash -c '...'"` with a
   here-doc or `printf ... | <cmd>` inside. asciinema records the resulting PTY.
 - *Commands needing secrets.* Inject only the needed variable into the
@@ -345,9 +353,9 @@ not detected — using the authored terminal scene. Install with
 
 ## Step 2.1: Choose web capture source (web captures only)
 
-If `Web capture source:` in `storyboard.md` already contains `navigate` or `attached-session`,
-reuse that explicit choice on resume. If it contains `pending`/a placeholder, or if the user
-explicitly requests a change, present:
+If the `web_capture_source` frontmatter key in `storyboard.md` already contains `navigate` or
+`attached-session`, reuse that explicit choice on resume. If it contains `pending`/a placeholder,
+or if the user explicitly requests a change, present:
 
 ```json
 {
@@ -365,8 +373,8 @@ explicitly requests a change, present:
 }
 ```
 
-Record `attached-session` or `navigate` in the storyboard's top-level
-`Web capture source:` field before any browser action. Changing this value makes every existing
+Record `attached-session` or `navigate` in the storyboard's frontmatter
+`web_capture_source` before any browser action. Changing this value makes every existing
 web capture stale: keep the old files for diagnosis, but do not accept them for the new source.
 
 ### Attached authenticated-session path
@@ -449,8 +457,8 @@ connecting.
 
 ### URL navigation path
 
-For any non-attach choice, record `Web capture source: navigate`, resolve the selected/custom URL,
-and use the existing dev-server flow below.
+For any non-attach choice, record `web_capture_source: navigate` in the frontmatter, resolve the
+selected/custom URL, and use the existing dev-server flow below.
 
 If the app isn't running, offer to start it:
 ```bash
@@ -464,15 +472,15 @@ fi
 ## Step 2.2: Capture the selected web source
 
 **Capture richly — more than one frame per view where it strengthens a beat.** A single flat
-screenshot per scene is what makes the spine monotonous. For each meaningful view, grab the
-states that give Phase 3 something to build motion and depth from: the default state, the view
-**populated with real (or seeded) data**, a **hover / active / focus** state, an opened
+screenshot per storyboard frame is what makes the spine monotonous. For each meaningful view,
+grab the states that give Phase 3 something to build motion and depth from: the default state,
+the view **populated with real (or seeded) data**, a **hover / active / focus** state, an opened
 menu/modal, and a **tight hero crop** of the key UI region (for a punch-in or anchored
 callout). Stay on the locked Phase-1 canvas/aspect — extra viewports are for variety and
 cropping only, never a second output aspect. Variety here is what lets Phase 3 frame a product
 spine instead of repeating one image.
 
-For each view defined in the storyboard (Phase 1, Step 1.6):
+For each view bound to a frame in the storyboard (Phase 1, Step 1.6):
 
 1. **Reach the view**:
    - For `attached-session`, retain the selected page and current URL from Step 2.1; skip this
@@ -494,11 +502,12 @@ For each view defined in the storyboard (Phase 1, Step 1.6):
    - Wait for state with `wait_for` and the target text
 
 4. **Capture** the screenshot:
-   - Invoke `take_screenshot` with `filePath: "public/screenshots/scene-{NN}-{description}.png"`
+   - Invoke `take_screenshot` with `filePath` set to that frame's exact `screenshot` path
+     (`public/screenshots/scene-{NN}-{description}.png`)
    - For `navigate` full-page captures: set `fullPage: true`.
    - For `attached-session`: never set `fullPage: true` without its separate consent.
 
-5. **Repeat** for each storyboard scene
+5. **Repeat** for each storyboard frame
 
 ## Step 2.3: Capture Gallery
 
@@ -509,9 +518,9 @@ find public/screenshots public/clips -type f 2>/dev/null | sort
 find scenes -maxdepth 1 -type f -name '*terminal*.html' 2>/dev/null | sort
 ```
 
-Show each screenshot with its scene number. **Also report coverage:** *N of M storyboard
-scenes that should show the product (per `Product surface` + the Step-1.7 binding) now have a
-capture.* Call out any spine scene still missing its capture. This gallery is a **checkpoint,
+Show each screenshot with the frame it is bound to. **Also report coverage:** *N of M storyboard
+frames that should show the product (per `product_surface` + the Step-1.7 binding) now have a
+capture.* Call out any spine frame still missing its capture. This gallery is a **checkpoint,
 not a hard gate** — the blocking capture-coverage gate runs at Phase-3 entry (see `SKILL.md`);
 here you are giving the user a chance to fill gaps before design starts. Ask:
 
@@ -540,7 +549,7 @@ Before accepting any recorded clip, check (retake if it fails):
   overlays, extension badges, or personal data (emails, tokens, real names).
 - **The meaningful action is one clean, uninterrupted take** (no mid-action cut, no stray
   cursor jitter, no accidental clicks).
-- **Duration** within the scene's planned slot (Phase 4 will footage-lock it).
+- **Duration** within the frame's planned slot (Phase 4 will footage-lock it).
 
 In the Phase-2 gallery review, present each clip and prompt the user to **accept or retake**.
 A rejected clip falls back to a screenshot or a re-record.
@@ -580,8 +589,9 @@ A rejected clip falls back to a screenshot or a re-record.
 
 ## Output
 
-Accepted outputs are saved to the exact paths bound in `storyboard.md`: screenshots under
-`public/screenshots/`, clips under `public/clips/`, or authored terminal scenes under `scenes/`.
+Accepted outputs are saved to the exact paths bound by each frame's `screenshot` / `clip` bullet
+in `storyboard.md`: screenshots under `public/screenshots/`, clips under `public/clips/`, or
+authored terminal scenes under `scenes/`.
 
 ## Checkpoint
 

@@ -61,7 +61,7 @@ Notion's brand is *editorial-software calm*. Soft eases, generous timing, hand-d
 | Property | Choice |
 |---|---|
 | Default entrance ease | `power2.out` |
-| Hand-drawn flourish | `patterns/marker-highlight.md` § scribble / circle modes |
+| Hand-drawn flourish | Scribble or circle mode — `patterns/marker-highlight.md` § When to use which mode (implementations: `MARKER_PATTERNS`) |
 | Entrance duration | 0.6–0.9s |
 | Stagger | 0.10–0.15s |
 | Scene-to-scene transition | Soft crossfade 0.6–0.8s, `power1.inOut`. Page-turn variants acceptable. |

@@ -1,0 +1,542 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>scene-06-capabilities</title>
+  </head>
+  <body>
+    <template id="scene-06-capabilities-template">
+      <div
+        data-composition-id="scene-06-capabilities"
+        data-width="1920"
+        data-height="1080"
+        data-duration="9"
+      >
+        <!-- ── track 0 · full-bleed ground ─────────────────────────────── -->
+        <div class="clip" id="cap-bg" data-start="0" data-duration="9" data-track-index="0">
+          <div class="bg-band"></div>
+        </div>
+
+        <!-- ── track 1 · the oversized world the virtual camera pans ───── -->
+        <div
+          class="clip"
+          id="cap-world"
+          data-start="0"
+          data-duration="9"
+          data-track-index="1"
+          data-layout-allow-overflow="true"
+        >
+          <div class="world-strip" id="cap-strip">
+            <!-- One coordinate space: viewBox units === CSS pixels.
+                 The rail polyline, the station marks, the tracking line and the
+                 marker all derive from the SAME baked ST_X array. -->
+            <svg
+              class="rail-svg"
+              viewBox="0 0 5120 1080"
+              width="5120"
+              height="1080"
+              fill="none"
+              aria-hidden="true"
+            >
+              <polyline
+                id="cap-rail"
+                class="rail-line"
+                fill="none"
+                stroke="rgba(255,255,255,0.15)"
+                stroke-width="2"
+              />
+              <g id="cap-marks"></g>
+              <line
+                id="cap-track"
+                class="ph"
+                y1="180"
+                y2="720"
+                stroke="#533afd"
+                stroke-width="2"
+                stroke-dasharray="9 9"
+              />
+              <circle id="cap-halo" class="ph" r="26" fill="rgba(83,58,253,0.16)" />
+              <circle id="cap-marker" class="ph" r="11" fill="#533afd" />
+            </svg>
+
+            <div class="station" id="cap-st0">
+              <div class="st-icon" id="cap-st0-icon">
+                <svg
+                  viewBox="0 0 96 96"
+                  width="88"
+                  height="88"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="3.5"
+                  stroke-linecap="round"
+                >
+                  <path d="M10 74 C 34 74 40 22 66 22" />
+                  <circle cx="80" cy="22" r="5.5" fill="currentColor" stroke="none" />
+                </svg>
+              </div>
+              <div class="st-word" id="cap-st0-word">motion</div>
+            </div>
+
+            <div class="station" id="cap-st1">
+              <div class="st-icon" id="cap-st1-icon">
+                <svg
+                  viewBox="0 0 96 96"
+                  width="88"
+                  height="88"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="3.5"
+                  stroke-linecap="round"
+                >
+                  <rect x="10" y="26" width="30" height="44" rx="3" />
+                  <rect x="56" y="26" width="30" height="44" rx="3" />
+                  <path d="M48 16 L48 80" stroke-dasharray="7 8" />
+                </svg>
+              </div>
+              <div class="st-word" id="cap-st1-word">seams</div>
+            </div>
+
+            <div class="station" id="cap-st2">
+              <div class="st-icon" id="cap-st2-icon">
+                <svg
+                  viewBox="0 0 96 96"
+                  width="88"
+                  height="88"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="3.5"
+                  stroke-linecap="round"
+                >
+                  <path d="M14 40 L14 56" />
+                  <path d="M31 28 L31 68" />
+                  <path d="M48 18 L48 78" />
+                  <path d="M65 32 L65 64" />
+                  <path d="M82 42 L82 54" />
+                </svg>
+              </div>
+              <div class="st-word" id="cap-st2-word">audio</div>
+            </div>
+
+            <!-- read-head readout: rides the marker, steps only on index change -->
+            <div class="tip" id="cap-tip">
+              <div class="tip-plate" id="cap-tip-plate">
+                <span class="tip-name" id="cap-tip-name">hyperframes-animation</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── track 2 · fixed HUD kicker ──────────────────────────────── -->
+        <div class="clip" id="cap-kicker" data-start="0" data-duration="9" data-track-index="2">
+          owned upstream
+        </div>
+
+        <!-- ── track 3 · landing callout (holds to the end) ────────────── -->
+        <div class="clip" id="cap-close" data-start="0" data-duration="9" data-track-index="3">
+          <div class="close-word" id="cap-close-word">inherited</div>
+          <div class="close-rule" id="cap-close-rule"></div>
+        </div>
+
+        <style>
+          [data-composition-id="scene-06-capabilities"] {
+            position: absolute;
+            inset: 0;
+            overflow: hidden;
+            font-family: system-ui, -apple-system, sans-serif;
+            color: #ffffff;
+            -webkit-font-smoothing: antialiased;
+          }
+
+          /* ground */
+          [data-composition-id="scene-06-capabilities"] #cap-bg {
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(130% 110% at 50% 34%, #23255f 0%, #1c1e54 46%, #14163e 100%);
+          }
+          [data-composition-id="scene-06-capabilities"] .bg-band {
+            position: absolute;
+            left: 0;
+            right: 0;
+            top: 380px;
+            height: 400px;
+            background: linear-gradient(
+              180deg,
+              rgba(255, 255, 255, 0) 0%,
+              rgba(255, 255, 255, 0.035) 50%,
+              rgba(255, 255, 255, 0) 100%
+            );
+          }
+
+          /* virtual-camera viewport + the oversized strip it travels */
+          [data-composition-id="scene-06-capabilities"] #cap-world {
+            position: absolute;
+            inset: 0;
+            overflow: hidden;
+          }
+          [data-composition-id="scene-06-capabilities"] .world-strip {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 5120px;
+            height: 1080px;
+            will-change: transform;
+          }
+          [data-composition-id="scene-06-capabilities"] .rail-svg {
+            position: absolute;
+            left: 0;
+            top: 0;
+            display: block;
+          }
+          [data-composition-id="scene-06-capabilities"] .ph {
+            opacity: 0;
+          }
+
+          /* stations — pre-placed in world space, 800px gutter each side of centre */
+          [data-composition-id="scene-06-capabilities"] .station {
+            position: absolute;
+            top: 0;
+            width: 800px;
+            height: 1080px;
+          }
+          [data-composition-id="scene-06-capabilities"] #cap-st0 {
+            left: 560px;
+          }
+          [data-composition-id="scene-06-capabilities"] #cap-st1 {
+            left: 1960px;
+          }
+          [data-composition-id="scene-06-capabilities"] #cap-st2 {
+            left: 3360px;
+          }
+          [data-composition-id="scene-06-capabilities"] .st-icon {
+            position: absolute;
+            left: 0;
+            right: 0;
+            top: 252px;
+            height: 88px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: rgba(255, 255, 255, 0.42);
+            opacity: 0;
+          }
+          [data-composition-id="scene-06-capabilities"] .st-word {
+            position: absolute;
+            left: 0;
+            right: 0;
+            top: 372px;
+            font-size: 108px;
+            font-weight: 300;
+            line-height: 1;
+            letter-spacing: -0.03em;
+            text-align: center;
+            opacity: 0;
+          }
+
+          /* readout plate — fixed width so the box never breathes on a step */
+          [data-composition-id="scene-06-capabilities"] .tip {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 720px;
+            margin-left: -360px;
+            text-align: center;
+          }
+          [data-composition-id="scene-06-capabilities"] .tip-plate {
+            width: 660px;
+            box-sizing: border-box;
+            margin: 0 auto;
+            padding: 20px 28px;
+            border: 1px solid rgba(255, 255, 255, 0.13);
+            border-radius: 6px;
+            background: rgba(255, 255, 255, 0.045);
+            box-shadow:
+              0 7px 14px rgba(50, 50, 93, 0.1),
+              0 3px 6px rgba(0, 0, 0, 0.12),
+              0 12px 36px rgba(50, 50, 93, 0.18);
+            opacity: 0;
+          }
+          [data-composition-id="scene-06-capabilities"] .tip-name {
+            display: block;
+            font-family: ui-monospace, monospace;
+            font-size: 40px;
+            font-weight: 400;
+            line-height: 1.1;
+            letter-spacing: 0.005em;
+            white-space: nowrap;
+            font-variant-numeric: tabular-nums;
+            color: rgba(255, 255, 255, 0.92);
+          }
+
+          /* fixed HUD */
+          [data-composition-id="scene-06-capabilities"] #cap-kicker {
+            position: absolute;
+            left: 140px;
+            top: 104px;
+            font-size: 26px;
+            font-weight: 400;
+            letter-spacing: 0.24em;
+            text-transform: uppercase;
+            color: rgba(255, 255, 255, 0.5);
+            opacity: 0;
+          }
+
+          /* landing callout */
+          [data-composition-id="scene-06-capabilities"] #cap-close {
+            position: absolute;
+            left: 0;
+            right: 0;
+            top: 848px;
+            text-align: center;
+          }
+          [data-composition-id="scene-06-capabilities"] .close-word {
+            font-size: 76px;
+            font-weight: 300;
+            line-height: 1;
+            letter-spacing: 0.02em;
+            color: #ffffff;
+            opacity: 0;
+          }
+          [data-composition-id="scene-06-capabilities"] .close-rule {
+            width: 220px;
+            height: 3px;
+            margin: 28px auto 0;
+            background: #533afd;
+            transform-origin: 50% 50%;
+          }
+        </style>
+
+        <script>
+          window.__timelines = window.__timelines || {};
+          (function () {
+            var R = '[data-composition-id="scene-06-capabilities"]';
+            var q = function (sel) {
+              return document.querySelector(R + " " + sel);
+            };
+
+            /* ── baked data: the three upstream owners, verbatim from the packet ──
+               No numeric series exists for this frame, so the "data" the read head
+               interrogates is the station array itself. Chart geometry, camera
+               targets and the readout all derive from ST_X — one source of truth. */
+            var STATIONS = [
+              { word: "motion", owner: "hyperframes-animation" },
+              { word: "seams", owner: "motion-doctrine" },
+              { word: "audio", owner: "media-use" },
+            ];
+            var STRIP_W = 5120;
+            var RAIL_Y = 580;
+            var FIRST_X = 960;
+            var SPAN = 1400;
+            var CENTER_X = 960;
+
+            var ST_X = STATIONS.map(function (_, i) {
+              return FIRST_X + i * SPAN;
+            });
+            var RAIL = [[0, RAIL_Y]]
+              .concat(
+                ST_X.map(function (x) {
+                  return [x, RAIL_Y];
+                }),
+              )
+              .concat([[STRIP_W, RAIL_Y]]);
+
+            var NS = "http://www.w3.org/2000/svg";
+            var strip = q("#cap-strip");
+            var railEl = q("#cap-rail");
+            var marks = q("#cap-marks");
+            var trackLine = q("#cap-track");
+            var marker = q("#cap-marker");
+            var halo = q("#cap-halo");
+            var tip = q("#cap-tip");
+            var tipName = q("#cap-tip-name");
+
+            /* polyline points computed ONCE from the baked array */
+            railEl.setAttribute(
+              "points",
+              RAIL.map(function (p) {
+                return p[0] + "," + p[1];
+              }).join(" "),
+            );
+
+            /* station marks placed from the same array */
+            ST_X.forEach(function (x) {
+              var tick = document.createElementNS(NS, "line");
+              tick.setAttribute("x1", x);
+              tick.setAttribute("x2", x);
+              tick.setAttribute("y1", RAIL_Y - 68);
+              tick.setAttribute("y2", RAIL_Y + 68);
+              tick.setAttribute("stroke", "rgba(255,255,255,0.16)");
+              tick.setAttribute("stroke-width", "2");
+              marks.appendChild(tick);
+
+              var node = document.createElementNS(NS, "rect");
+              node.setAttribute("x", x - 10);
+              node.setAttribute("y", RAIL_Y - 10);
+              node.setAttribute("width", 20);
+              node.setAttribute("height", 20);
+              node.setAttribute("rx", 3);
+              node.setAttribute("fill", "#1c1e54");
+              node.setAttribute("stroke", "rgba(255,255,255,0.5)");
+              node.setAttribute("stroke-width", "2");
+              marks.appendChild(node);
+            });
+
+            /* ── pure projections of the driver ───────────────────────────── */
+            var easeInOut = function (t) {
+              return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+            };
+
+            /* staircase: hold · pan · hold · pan · hold, all inside ONE linear
+               driver so every output stays a pure function of p (seek-identical). */
+            var SEGS = [
+              [0.0, 0.15, 0, 0],
+              [0.15, 0.37, 0, 1],
+              [0.37, 0.53, 1, 1],
+              [0.53, 0.75, 1, 2],
+              [0.75, 1.0, 2, 2],
+            ];
+
+            var stationPos = function (p) {
+              var c = Math.min(1, Math.max(0, p));
+              for (var i = 0; i < SEGS.length; i++) {
+                var s = SEGS[i];
+                if (c <= s[1] || i === SEGS.length - 1) {
+                  if (s[2] === s[3]) return s[2];
+                  return s[2] + (s[3] - s[2]) * easeInOut((c - s[0]) / (s[1] - s[0]));
+                }
+              }
+              return STATIONS.length - 1;
+            };
+
+            var xAt = function (s) {
+              var c = Math.min(ST_X.length - 1, Math.max(0, s));
+              var i = Math.min(ST_X.length - 2, Math.floor(c));
+              var t = c - i;
+              return ST_X[i] + (ST_X[i + 1] - ST_X[i]) * t;
+            };
+
+            /* the marker rides the baked polyline, never a separate keyframe set */
+            var railYAt = function (x) {
+              var i = 0;
+              while (i < RAIL.length - 2 && x > RAIL[i + 1][0]) i++;
+              var a = RAIL[i];
+              var b = RAIL[i + 1];
+              var t = b[0] === a[0] ? 0 : (x - a[0]) / (b[0] - a[0]);
+              return a[1] + (b[1] - a[1]) * t;
+            };
+
+            var scrub = { p: 0 };
+            var lastIdx = -1;
+
+            var applyScrub = function () {
+              var s = stationPos(scrub.p);
+              var x = xAt(s);
+              var y = railYAt(x);
+
+              trackLine.setAttribute("x1", x);
+              trackLine.setAttribute("x2", x);
+              marker.setAttribute("cx", x);
+              marker.setAttribute("cy", y);
+              halo.setAttribute("cx", x);
+              halo.setAttribute("cy", y);
+
+              /* the pan IS the camera: one .world-strip transform */
+              strip.style.transform = "translate3d(" + (CENTER_X - x) + "px,0,0)";
+              tip.style.transform = "translate(" + x + "px," + (y + 84) + "px)";
+
+              var idx = Math.min(STATIONS.length - 1, Math.max(0, Math.round(s)));
+              if (idx !== lastIdx) {
+                tipName.textContent = STATIONS[idx].owner;
+                lastIdx = idx;
+              }
+            };
+
+            /* seed at setup — a seek to t=0 must not show HTML-default positions */
+            applyScrub();
+
+            /* ── timeline ─────────────────────────────────────────────────── */
+            var tl = gsap.timeline({ paused: true });
+            var EASE = "expo.out";
+
+            tl.fromTo(
+              R + " #cap-kicker",
+              { y: 16, opacity: 0 },
+              { y: 0, opacity: 1, duration: 0.9, ease: EASE },
+              0.1,
+            );
+
+            /* station 1 — the camera opens already centred on it (hero by 0.5s) */
+            tl.fromTo(
+              R + " #cap-st0-word",
+              { y: 30, opacity: 0 },
+              { y: 0, opacity: 1, duration: 0.9, ease: EASE },
+              0.18,
+            );
+            tl.fromTo(
+              R + " #cap-st0-icon",
+              { y: 20, opacity: 0 },
+              { y: 0, opacity: 1, duration: 0.8, ease: EASE },
+              0.36,
+            );
+
+            tl.fromTo(R + " .ph", { opacity: 0 }, { opacity: 1, duration: 0.5, ease: "power2.out" }, 0.55);
+
+            tl.fromTo(
+              R + " #cap-tip-plate",
+              { y: 18, opacity: 0 },
+              { y: 0, opacity: 1, duration: 0.8, ease: EASE },
+              0.85,
+            );
+
+            /* ONE driver — camera, tracking line, marker and readout are all
+               projections of p. Linear time; the staircase lives in stationPos. */
+            tl.to(scrub, { p: 1, duration: 6.8, ease: "none", onUpdate: applyScrub }, 0.6);
+
+            /* station 2 reveals on arrival (p = 0.37 → t ≈ 3.12) */
+            tl.fromTo(
+              R + " #cap-st1-word",
+              { y: 30, opacity: 0 },
+              { y: 0, opacity: 1, duration: 0.9, ease: EASE },
+              3.16,
+            );
+            tl.fromTo(
+              R + " #cap-st1-icon",
+              { y: 20, opacity: 0 },
+              { y: 0, opacity: 1, duration: 0.8, ease: EASE },
+              3.32,
+            );
+
+            /* station 3 reveals on arrival (p = 0.75 → t ≈ 5.70), camera holds */
+            tl.fromTo(
+              R + " #cap-st2-word",
+              { y: 30, opacity: 0 },
+              { y: 0, opacity: 1, duration: 0.9, ease: EASE },
+              5.74,
+            );
+            tl.fromTo(
+              R + " #cap-st2-icon",
+              { y: 20, opacity: 0 },
+              { y: 0, opacity: 1, duration: 0.8, ease: EASE },
+              5.9,
+            );
+
+            /* landing callout — reveals on the terminal station and HOLDS to 9s */
+            tl.fromTo(
+              R + " #cap-close-word",
+              { y: 26, opacity: 0 },
+              { y: 0, opacity: 1, duration: 0.95, ease: EASE },
+              6.5,
+            );
+            tl.fromTo(
+              R + " #cap-close-rule",
+              { scaleX: 0, opacity: 0 },
+              { scaleX: 1, opacity: 1, duration: 0.8, ease: "power2.out" },
+              6.85,
+            );
+
+            window.__timelines["scene-06-capabilities"] = tl;
+          })();
+        </script>
+      </div>
+    </template>
+  </body>
+</html>

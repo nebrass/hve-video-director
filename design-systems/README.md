@@ -36,7 +36,7 @@ Pick one in **Phase 1 Step 1.2** (visual identity question). Phase 3 copies `des
 Hierarchy of brand-extraction strategies:
 
 1. **Vendored design system** (this directory) — fastest, most opinionated, motion-aware
-2. **HyperFrames named style** (`hyperframes/visual-styles.md` — 8 options) — moderate
+2. **HyperFrames named style** (`VISUAL_STYLES` in the `hyperframes-creative` skill — 8 options; path in `compat/ecosystem.md`) — moderate
 3. **Screenshot extraction** (Phase 3 default) — slowest, most adaptive
 
 ## Adding more brands

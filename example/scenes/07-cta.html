@@ -1,0 +1,308 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>scene-07-cta</title>
+  </head>
+  <body>
+    <template id="scene-07-cta-template">
+      <div
+        data-composition-id="scene-07-cta"
+        data-width="1920"
+        data-height="1080"
+        data-duration="7"
+      >
+        <!-- ── track 0 · full-bleed ground ─────────────────────────────── -->
+        <div class="clip" id="cta-bg" data-start="0" data-duration="7" data-track-index="0"></div>
+
+        <!-- ── track 1 · the single anchor: one persistent card that morphs ─ -->
+        <div class="clip" id="cta-stage" data-start="0" data-duration="7" data-track-index="1">
+          <div class="press-wrap" id="cta-press">
+            <div class="morph-card" id="cta-card">
+              <div class="content-old" id="cta-content-old"></div>
+              <div class="content-new" id="cta-content-new"></div>
+              <!-- position:relative so it paints above the two absolute
+                   surface layers without a z-index snap mid-fade -->
+              <div class="cmd" id="cta-cmd">npx skills add nebrass/hve-video-director</div>
+            </div>
+          </div>
+          <div class="ripple" id="cta-ripple" data-layout-ignore="true"></div>
+        </div>
+
+        <!-- ── track 2 · the cursor ────────────────────────────────────── -->
+        <div class="clip" id="cta-cursor" data-start="0" data-duration="7" data-track-index="2">
+          <svg viewBox="0 0 24 24" width="72" height="72" aria-hidden="true">
+            <path
+              d="M5 2 L5 20 L9.6 15.6 L12.4 21.6 L15.4 20.2 L12.6 14.4 L18.8 14.4 Z"
+              fill="#ffffff"
+              stroke="#061b31"
+              stroke-width="1.1"
+              stroke-linejoin="round"
+            />
+          </svg>
+        </div>
+
+        <style>
+          [data-composition-id="scene-07-cta"] {
+            position: absolute;
+            inset: 0;
+            overflow: hidden;
+            font-family: system-ui, -apple-system, sans-serif;
+            color: #ffffff;
+            -webkit-font-smoothing: antialiased;
+          }
+
+          [data-composition-id="scene-07-cta"] #cta-bg {
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(125% 105% at 50% 46%, #23255f 0%, #1c1e54 44%, #14163e 100%);
+          }
+
+          [data-composition-id="scene-07-cta"] #cta-stage {
+            position: absolute;
+            inset: 0;
+          }
+          [data-composition-id="scene-07-cta"] .press-wrap {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+          }
+
+          /* the anchor. apparent size morphs by uniform scale — never width/height */
+          [data-composition-id="scene-07-cta"] .morph-card {
+            position: relative;
+            width: 1480px;
+            height: 248px;
+            box-sizing: border-box;
+            padding: 0 72px;
+            display: grid;
+            place-items: center;
+            border-radius: 8px;
+            background: #10123f;
+            box-shadow:
+              0 7px 14px rgba(50, 50, 93, 0.1),
+              0 3px 6px rgba(0, 0, 0, 0.16),
+              0 12px 36px rgba(50, 50, 93, 0.22);
+            overflow: hidden;
+            opacity: 0;
+            will-change: transform;
+          }
+
+          /* shot-one surface treatment */
+          [data-composition-id="scene-07-cta"] .content-old {
+            position: absolute;
+            inset: 0;
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.09);
+            background: linear-gradient(
+              180deg,
+              rgba(255, 255, 255, 0.05) 0%,
+              rgba(255, 255, 255, 0) 46%
+            );
+          }
+
+          /* shot-two surface treatment — the resolved anchor */
+          [data-composition-id="scene-07-cta"] .content-new {
+            position: absolute;
+            inset: 0;
+            box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+            background: linear-gradient(
+              180deg,
+              rgba(255, 255, 255, 0.075) 0%,
+              rgba(255, 255, 255, 0) 52%
+            );
+            opacity: 0;
+          }
+          [data-composition-id="scene-07-cta"] .content-new::after {
+            content: "";
+            position: absolute;
+            left: 50%;
+            margin-left: -620px;
+            bottom: 44px;
+            width: 1240px;
+            height: 2px;
+            background: #533afd;
+          }
+
+          /* the one thing the viewer must be able to read and retype */
+          [data-composition-id="scene-07-cta"] .cmd {
+            position: relative;
+            font-family: ui-monospace, monospace;
+            font-size: 48px;
+            font-weight: 400;
+            line-height: 1.2;
+            letter-spacing: 0.005em;
+            white-space: nowrap;
+            color: #ffffff;
+          }
+
+          [data-composition-id="scene-07-cta"] .ripple {
+            position: absolute;
+            left: 1024px;
+            top: 612px;
+            width: 168px;
+            height: 168px;
+            margin-left: -84px;
+            margin-top: -84px;
+            border: 2px solid #533afd;
+            border-radius: 50%;
+            opacity: 0;
+          }
+
+          [data-composition-id="scene-07-cta"] #cta-cursor {
+            position: absolute;
+            left: 1024px;
+            top: 612px;
+            margin-left: -15px;
+            margin-top: -6px;
+            width: 72px;
+            height: 72px;
+            transform-origin: 15px 6px;
+            opacity: 0;
+            filter: drop-shadow(0 6px 16px rgba(0, 0, 0, 0.35));
+          }
+          [data-composition-id="scene-07-cta"] #cta-cursor svg {
+            display: block;
+          }
+        </style>
+
+        <script>
+          window.__timelines = window.__timelines || {};
+          (function () {
+            var R = '[data-composition-id="scene-07-cta"]';
+
+            /* card-morph-anchor: apparent size is uniform scale; the remaining
+               channels are paint-only and ride ONE tween. */
+            var END_SCALE = 0.88;
+            /* explicit units: borderRadius is a multi-value property, so a bare
+               number can be dropped instead of interpolated */
+            var RADIUS_REST = "8px";
+            var RADIUS_CTA = 6 / END_SCALE + "px"; /* pre-scale → lands 6px apparent */
+
+            /* all four shadows carry the same layer count so they interpolate */
+            var SHADOW_REST =
+              "0 7px 14px rgba(50,50,93,0.10), 0 3px 6px rgba(0,0,0,0.16), 0 12px 36px rgba(50,50,93,0.22)";
+            var SHADOW_CTA =
+              "0 8px 18px rgba(50,50,93,0.16), 0 4px 10px rgba(0,0,0,0.22), 0 18px 52px rgba(50,50,93,0.32)";
+            var SHADOW_GLOW =
+              "0 8px 18px rgba(83,58,253,0.34), 0 4px 10px rgba(0,0,0,0.22), 0 18px 62px rgba(83,58,253,0.40)";
+            var SHADOW_SETTLED =
+              "0 8px 18px rgba(83,58,253,0.16), 0 4px 10px rgba(0,0,0,0.22), 0 18px 56px rgba(83,58,253,0.20)";
+
+            var MORPH_AT = 1.7;
+            var MORPH_DUR = 0.9;
+            var FADE_FRAC = 0.4;
+            var PRESS_AT = 3.72;
+            var RELEASE_AT = 3.84;
+
+            var tl = gsap.timeline({ paused: true });
+
+            /* ── Scene 1 · presence ──────────────────────────────────────
+               The command is the hero AND the CTA — it is legible from the
+               first half-second and never leaves the frame. The 1.03→1.00
+               settle is DESIGN.md's imperceptible product drift, not a bounce. */
+            tl.fromTo(
+              R + " .morph-card",
+              { y: 26, scale: 1.03, opacity: 0 },
+              { y: 0, scale: 1, opacity: 1, duration: 1.15, ease: "expo.out" },
+              0.05,
+            );
+
+            /* ── Scene 2 · the morph (signature move) ────────────────────
+               One tween, one ease: uniform scale + borderRadius + background +
+               boxShadow. The card never swaps — it condenses in place. */
+            tl.fromTo(
+              R + " .morph-card",
+              {
+                scale: 1,
+                borderRadius: RADIUS_REST,
+                backgroundColor: "#10123f",
+                boxShadow: SHADOW_REST,
+              },
+              {
+                scale: END_SCALE,
+                borderRadius: RADIUS_CTA,
+                backgroundColor: "#23255f",
+                boxShadow: SHADOW_CTA,
+                duration: MORPH_DUR,
+                ease: "power2.inOut",
+                immediateRender: false,
+              },
+              MORPH_AT,
+            );
+
+            /* surface crossfade — the command sits above it and never fades */
+            tl.fromTo(
+              R + " .content-old",
+              { opacity: 1 },
+              { opacity: 0, duration: MORPH_DUR * FADE_FRAC, ease: "power1.in" },
+              MORPH_AT,
+            );
+            tl.fromTo(
+              R + " .content-new",
+              { opacity: 0 },
+              { opacity: 1, duration: MORPH_DUR * FADE_FRAC, ease: "power1.out" },
+              MORPH_AT + MORPH_DUR * (1 - FADE_FRAC),
+            );
+
+            /* ── Scene 3 · approach ──────────────────────────────────────
+               Decelerating arrival from off-stage, landing off the card's
+               geometric centre so the aim reads human. */
+            tl.fromTo(
+              R + " #cta-cursor",
+              { opacity: 0 },
+              { opacity: 1, duration: 0.12, ease: "none" },
+              2.7,
+            );
+            tl.fromTo(
+              R + " #cta-cursor",
+              { x: 738, y: 540 },
+              { x: 0, y: 0, duration: 0.95, ease: "power2.out" },
+              2.7,
+            );
+
+            /* ── Scene 4 · press ─────────────────────────────────────────
+               Cursor and card compress in lockstep (same time, same ease),
+               then release with an accent ripple and a glow bloom. */
+            tl.to(
+              R + " .press-wrap",
+              { scale: 0.985, duration: 0.12, ease: "power2.in" },
+              PRESS_AT,
+            );
+            tl.to(R + " #cta-cursor", { scale: 0.94, duration: 0.12, ease: "power2.in" }, PRESS_AT);
+
+            tl.to(R + " .press-wrap", { scale: 1, duration: 0.24, ease: "power2.out" }, RELEASE_AT);
+            tl.to(R + " #cta-cursor", { scale: 1, duration: 0.24, ease: "power2.out" }, RELEASE_AT);
+
+            tl.fromTo(
+              R + " .ripple",
+              { scale: 0.28, opacity: 0.45 },
+              { scale: 1.2, opacity: 0, duration: 0.72, ease: "power2.out" },
+              RELEASE_AT,
+            );
+
+            tl.to(
+              R + " .morph-card",
+              { boxShadow: SHADOW_GLOW, duration: 0.28, ease: "power2.out" },
+              RELEASE_AT,
+            );
+            /* the bloom decays into a resting accent-tinted shadow across the hold */
+            tl.to(
+              R + " .morph-card",
+              { boxShadow: SHADOW_SETTLED, duration: 1.25, ease: "power1.inOut" },
+              4.5,
+            );
+
+            /* ── Close ───────────────────────────────────────────────────
+               Closing frame: the one exit in the film. The cursor leaves so
+               the final held frame is the command alone — no competing action. */
+            tl.to(R + " #cta-cursor", { opacity: 0, duration: 0.45, ease: "power1.out" }, 6.55);
+
+            window.__timelines["scene-07-cta"] = tl;
+          })();
+        </script>
+      </div>
+    </template>
+  </body>
+</html>

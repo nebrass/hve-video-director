@@ -1,53 +1,100 @@
-# Project Plan — blog.nebrass.fr promo
+# Project Plan — {project-name}
 
 ## Creative Brief
 
 | Field | Value |
 |---|---|
 | mode | promo |
-| product_surface | ui |
-| duration | 53s |
-| theme | light |
+| product_surface | none |
+| duration | 60s |
+| theme | dark |
 | aspect_ratio | 16:9 1920x1080 |
 | identity_strategy | design-system |
-| identity_choice | vercel |
-| voice | elevenlabs:Matilda:XrExE9yKIg1WjnnlVkGX |
-| transition_style | crossfade |
-| transition_speed | quick |
+| identity_choice | stripe |
+| visual_ceiling | derived |
+| voice | elevenlabs:Daniel:onwK4e9ZLuTAKqWW03F9 |
+| transition_style | zoom-through |
+| transition_speed | medium |
 | music_strategy | freesound |
-| final_music_track | {"license":"CC-BY-4.0","path":"background-music.mp3","source":"https://freesound.org/people/ViraMiller/sounds/746454/","title":"Spark of Inspiration"} |
+| final_music_track | {"license":"CC0-1.0","path":"background-music.mp3","source":"https://freesound.org/people/bassimat/sounds/854842/","title":"Warm Pad Essentials Drone by Mantice"} |
 
-**Created:** 2026-06-24
+Every field is a user-owned choice. The agent may mark a recommendation in an option's
+label/description and explain why, but it never selects or infers an answer from Phase-0 research.
 
-This is a real promo for **blog.nebrass.fr** (Nebrass Lamouchi's software-engineering blog),
-**built by hve-video-director**. It is the skill's reference build: a genuine video the pipeline
-produced for a real app with a real UI, so the **real product is on screen** as the spine. It
-still dogfoods the skill (closing "made with /hve-video-director" sign-off).
+`final_music_track` remains a placeholder until Phase 5. Record either the exact value `none` or a
+single-line JSON object with exactly `title`, `path`, `source` and `license` — no other keys, for
+every strategy:
 
-> **Re-subjected (v0.0.4).** The previous flagship promoted *this skill* itself — a UI-less
-> CLI/prompt skill — so it had no app to film and was built from typography + a simulated
-> terminal, which modeled flat text-on-white. Re-subjecting to a real app puts the actual
-> product on screen, which is what the skill is for. (Reverses the old `context.md` "No real
-> app screenshots" decision.)
+```json
+{"license":"CC-BY-4.0","path":"background-music.mp3","source":"https://freesound.org/s/123/","title":"Uplifting Corporate Loop"}
+```
+
+`source` is the provenance record, and each strategy pins it differently:
+
+| `music_strategy` | Required `source` |
+|---|---|
+| `freesound` | the exact `freesound.org` track URL carrying its numeric sound ID |
+| `user-provided` | the literal value `user-provided` |
+| `delegated` | a provenance URI (below) |
+| `none` | not applicable — `final_music_track` is the exact value `none` |
+
+**`delegated`** covers a bed another skill retrieved from a provider catalog or generated locally
+— there is no public page to link, and a presigned download URL expires. What identifies such a
+track later is *who produced it, by which route, from which request, and which bytes came out*, so
+the source is a single-line URI carrying all four:
+
+```
+<skill-name>:<capability>?mode=<retrieve|generate>&query=<url-encoded request>#sha256=<64 hex>
+```
+
+```json
+{"license":"HeyGen catalog terms","path":"background-music.mp3","source":"media-use:bgm?mode=retrieve&query=calm%20cinematic%20underscore#sha256=1ca03b74a4715b23ab399d6cac9c1a055b250ec91d4a266faede2c915ba9df5b","title":"Calm Cinematic Underscore"}
+```
+
+- `<skill-name>` and `<capability>` are lowercase kebab tokens naming the skill that produced the
+  bytes and the capability it ran. A URL scheme — `http`, `https`, `file`, `data` — is rejected
+  outright: a delegated track is not a fetchable page, and recording one as if it were is the
+  failure this URI exists to prevent.
+- `mode` records the route actually taken, not the route requested — `retrieve` from a catalog or
+  `generate` locally. The two carry different licensing, which is exactly what an audit asks about.
+  `auto` is a request, not provenance, and is rejected.
+- `query` (or `prompt`, for a full generation prompt) is the request text that produced this
+  track — exactly one of the two. Additional `key=value` parameters are allowed and ignored; a
+  bare flag with no `=` is rejected, because a query string that does not parse is a record that
+  was mangled by hand.
+- `#sha256=` is the SHA-256 of the file at `path`, all 64 lowercase hex characters — a shortened or
+  elided digest is rejected — taken from the bytes that will be mixed. It is what makes the record
+  checkable years later, offline: `shasum -a 256 <path>`.
+- `license` is still required and still user-stated. A generated bed is not automatically
+  unencumbered; write the terms that actually apply.
+
+Never record a delegated track as `user-provided`: that repurposes a Phase-1 answer the user gave
+before any candidate existed and erases the only machine-checked provenance the brief carries.
+
+Confirm the story fields before creating `storyboard.md`; confirm the exact final track (or `none`)
+before mixing or rendering — the exact-track confirmation is required for every strategy, delegated
+included. The installed skill's `scripts/validate_brief.py` stores confirmations and phase
+fingerprints atomically in `.hve/brief-state.json`. It never deletes generated artifacts; changed
+fingerprints make the affected phase stamps stale.
+
+**Created:** {date}
 
 ## Phase Tracker
 
-| Phase | Status | Notes |
-|-------|--------|-------|
-| 0. Discovery | ✅ done | Subject: blog.nebrass.fr (Hugo/PaperMod). `product_surface: ui`. |
-| 1. Storytelling | ✅ done | 5-scene 53s promo; real product is the spine, text is connective tissue |
-| 2. Capture | ✅ done | 5 real screenshots via Chrome DevTools (hero, post code, categories, full-page, post top) |
-| 3. Design | ✅ done | DESIGN.md from `design-systems/vercel/DESIGN.md`; scenes from `templates/scene-screenshot.html` |
-| 4. Production | ✅ done | 5 scene templates + root index.html, incoming-only crossfades |
-| 5. Audio & Render | ✅ done | ElevenLabs (Matilda) + `npx hyperframes transcribe` verify + Freesound music + ffmpeg mix + render |
+Use `skipped` when a phase is intentionally unnecessary (for example, Phase 2 when
+`product_surface: none` and the storyboard's capture plan is `none`).
+
+| Phase | Status | Started | Completed |
+|-------|--------|---------|-----------|
+| 0. Discovery | ⬜ pending | — | — |
+| 1. Storytelling | ⬜ pending | — | — |
+| 2. Capture | ⬜ pending | — | — |
+| 3. Design | ⬜ pending | — | — |
+| 4. Production | ⬜ pending | — | — |
+| 5. Audio & Render | ⬜ pending | — | — |
 
 ## Decision Log
 
 | Date | Decision | Rationale |
 |------|----------|-----------|
-| 2026-06-24 | Re-subject flagship to blog.nebrass.fr | The skill has no UI to film; a real app puts the product on screen (fixes the flat "shapes and text" reference build) |
-| 2026-06-24 | `product_surface: ui` | The blog has a real UI; captures are the spine and the Phase-3 coverage gate applies |
-| 2026-06-24 | Promo mode, 53s | Long enough for 4 product beats + CTA; short enough as a launch asset |
-| 2026-06-24 | Vercel design system, light | Sharp black-on-white + Geist frames the light blog screenshots cleanly |
-| 2026-06-24 | Real product as spine (4 of 5 scenes) | Each product scene gets a distinct motivated camera move (push-in, push-in-to-code, static, scroll-within-frame) to avoid a product-card slideshow |
-| 2026-06-24 | Keep "made with /hve-video-director" sign-off | The flagship still dogfoods the skill while filming a real app |
+| | | |

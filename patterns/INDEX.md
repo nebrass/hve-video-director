@@ -1,93 +1,49 @@
-# Patterns Index — Wayfinding
+# Patterns Index — the local map
 
-Quick map: *"I need to do X"* → *"read this file."* hve-video-director leans on the `hyperframes` skill for deep authoring guidance; this index keeps you from re-discovering which HF reference covers which situation.
+Six files, all of them things the HyperFrames ecosystem does not own. Everything else a phase needs
+— rendering, motion recipes, seams, palettes, audio — is delegated, and the map for *that* is
+`compat/ecosystem.md`, not this file.
 
 ## Local patterns (in this directory)
 
-| File | What it covers |
+| File | What it owns |
 |---|---|
-| `visual-patterns.md` | Easing vocabulary, scene-entry tweens (fade-up, scale-in, stagger, typewriter, counter), screenshot mockups (browser, floating card, device frame), **camera & depth** (camera moves on stills, scroll-within-frame, motivated parallax, anchored callout/spotlight, in-scene shine sweep, masked reveal), colour psychology, text sizing, project-wide DON'Ts |
-| `metallic-swoosh.md` | Diagonal-shine transition between two scenes (inline in root timeline, not a sub-comp) |
-| `marker-highlight.md` | 5 word-emphasis patterns: highlight, circle, burst, scribble, sketchout — for kicker lines, stat reveals, before/after |
-| `transition-catalog.md` | One-page map of every CSS transition family + catalog blocks, mapped to product-video moments |
-| `anti-slop.md` | Cardinal sins, soft tells, polish tells — distinguishes "shipped by a marketer" from "AI default output". Includes **§ AI Tool Promo Specifics** (dogfooding loop, show-don't-tell, 1-based phase numbering) and **§ CTA discipline** (full URL on screen, match canonical command). |
-| `cli-terminal-capture.md` | Professional CLI scene recording via `asciinema` + `agg`: install, shell pre-flight (prompt, secrets, size), recording flags, cast editing, theme→palette pairing, MP4 render, quality gate, troubleshooting. Read when the storyboard calls for a real terminal clip; for the no-dep fallback see `templates/scene-terminal.html`. |
-| `authenticated-browser-capture.md` | Connect Chrome DevTools MCP to an already-open Chrome 144+ session, select the exact SSO/MFA tab, capture without navigation, protect auth data, and restore viewport state. |
+| `visual-patterns.md` | Screenshot-as-subject craft, camera & depth on stills (push/drift, scroll-within-frame, motivated parallax, anchored callout, shine sweep, masked reveal), the legibility floor and its footage maths, the emphasis-spending judgment, the repo DON'Ts and the `tl.from()` stagger trap |
+| `marker-highlight.md` | The mode → promo-arc mapping and the editorial caps on the drawn-marker device. Implementations are `MARKER_PATTERNS` |
+| `transition-catalog.md` | Which transition serves which product-video moment, and the judgment for spending the energy budget. Seam *mechanics* are `SEAM_LAW`, `SEAM_RENDER_MECHANICS`, `CUT_CATALOG` |
+| `anti-slop.md` | Cardinal sins, soft tells, polish tells — what separates "shipped by a marketer" from "AI default output", plus AI-tool-promo specifics and CTA discipline |
+| `cli-terminal-capture.md` | Real terminal recording via `asciinema` + `agg`: install, shell pre-flight, cast editing, theme pairing, MP4 render, quality gate. The no-dependency fallback is `templates/scene-terminal.html` |
+| `authenticated-browser-capture.md` | Attaching Chrome DevTools MCP to an already-authenticated Chrome session, capturing without navigating, and protecting auth data |
 
-## HyperFrames skill references (in `~/.claude/skills/hyperframes/` or `~/.copilot/skills/hyperframes/`)
+## Everything else is delegated
 
-The `hyperframes` skill is invoked in Phases 3 and 4. Once invoked, these files are accessible. Read by-task, not by-default — loading the whole skill at once eats context.
+**`compat/ecosystem.md` is the wayfinding map for the ecosystem** — one row per capability, giving
+the owning skill, what the capability is, and who uses it. It is also the only file in this repo
+that holds an upstream *path* (ADR-007). Do not rebuild a second delegation tree here: this index
+was that tree once, it rotted silently when upstream re-laid-out its skills, and the compat map
+exists so that never happens again.
 
-### Strategic / structural
+Each phase workflow cites the capabilities it needs at the point of use. Skill *names* are stable
+and may be written anywhere; intra-skill paths may not.
 
-| Need | File | Use when |
-|---|---|---|
-| Pick a brand (10 vendored design systems) | `../design-systems/<slug>/DESIGN.md` | **Path A** — most specific. Pick when user says "make it look like Stripe / Linear / Notion". Skips Phases 3 extraction entirely. |
-| Pick a visual style (one of 8 named identities) | `visual-styles.md` (HF skill) | **Path B** — medium. Pick a mood-based identity from HF's library. Skips Phase 3 extraction, allows minor tuning. |
-| Pick a palette | `palettes/` (9 files: bold-energetic, clean-corporate, dark-premium, jewel-rich, monochrome, nature-earth, neon-electric, pastel-soft, warm-editorial) | Phase 3, when authoring DESIGN.md. Pair with a visual style. |
-| Motion philosophy | `references/motion-principles.md` | Phase 3 + 4 — "easing is emotion, speed is weight, build/breathe/resolve, transitions are meaning." Read once per project. |
-| House style defaults | `house-style.md` | When you don't have a strong opinion. Gives sensible defaults for motion, colour, type. |
-| Composition patterns (picture-in-picture, slide show, title card) | `patterns.md` | Phase 4, when wiring the root index.html. |
+## Reaching past the local patterns
 
-### Authoring craft
+The handful of capabilities no workflow currently names, listed so they resolve to a name instead
+of being re-derived:
 
-| Need | File | Use when |
-|---|---|---|
-| Choose a transition | `references/transitions/catalog.md` + family files | Phase 4 Step 4.5. Start from our `transition-catalog.md` for the wayfinding; descend into HF's catalog when you need the implementation. |
-| Word-emphasis patterns | `references/css-patterns.md` | Caption emphasis, multi-line variants. Our `marker-highlight.md` is product-video focused; this file has the full depth (mode cycling, per-word styling). |
-| Typography (font pairing, OpenType data) | `references/typography.md` | Phase 3 DESIGN.md — picking fonts. Especially useful for stat-heavy scenes (tabular-nums). |
-| Animated charts, counters, data viz | `data-in-motion.md` | Phase 3, when authoring stat scenes — bar races, ticking counters, line charts. |
+- Ready colour systems paired to a named identity → `hyperframes-creative` → `PALETTES`.
+- Scene *arrangement* — picture-in-picture, text-behind-subject, title card, slide show →
+  `hyperframes-creative` → `COMPOSITION_RECIPES`. Not the same document as
+  `COMPOSITION_ARCHITECTURE` (the project shape and the root `index.html`); the two carry
+  near-identical names and this index pointed at the wrong one once — see `compat/ecosystem.md`
+  § Disambiguation.
+- Animated charts, counters and bar races → `hyperframes-creative` → `DATA_IN_MOTION`.
+- No strong opinion on motion, colour or type → `hyperframes-creative` → `HOUSE_STYLE`.
+- Karaoke / beat-synced caption styling → `media-use` → `CAPTIONS_MOTION`. On-screen captions are
+  **optional in promo and showcase** and mandatory in tutorial mode, which
+  `workflows/phase-5-audio.md` states as a deliberate override of this default.
+- No `ELEVENLABS_API_KEY` → `media-use` → `TTS_LOCAL` (native TTS; its local prerequisites are
+  `AUDIO_REQUIREMENTS`).
 
-### Audio + captions
-
-| Need | File | Use when |
-|---|---|---|
-| Caption authoring | `references/captions.md` | On-screen captions synced to the voiceover. **Optional in `promo`/`showcase`** and **REQUIRED in `tutorial` mode** on footage segments — see `workflows/phase-5-audio.md` § "Captions (REQUIRED in tutorial mode)" and spec §7.2. Separate reviewed `out/final.srt`/`.vtt` closed-caption sidecars are required in **all** modes by Phase 5 Step 5.3b. |
-| Caption-energy techniques (audio-reactive caption styling) | `references/dynamic-techniques.md` | High-energy spots — TikTok karaoke effects, beat-sync caption emphasis. |
-| Audio-reactive animation | `references/audio-reactive.md` | When music is doing narrative work — beat-matched logo pulses, frequency-driven backgrounds. Pre-extract frequency bands to JSON; never use Web Audio API at render time. |
-| Native TTS | `references/tts.md` | Phase 5 fallback when no `ELEVENLABS_API_KEY` — Kokoro-82M, 54 voices, 8 languages. |
-| Transcript / SRT | `references/transcript-guide.md` | If you need word-level timestamps for caption sync (HF `transcribe` is an alternative to Whisper). |
-
-### Implementation details
-
-| Need | File | Use when |
-|---|---|---|
-| CSS pattern primitives (any drawing pattern) | `references/css-patterns.md` | See above. |
-| Embedding HTML pages as scenes | `references/html-in-canvas.md` | If you want to drop a live web page into a video frame (rare; usually a screenshot is better). |
-| Other dynamic techniques | `references/dynamic-techniques.md` | Advanced caption + emphasis combinations. |
-
-## Decision flow
-
-```
-Phase 1 (storytelling)
-  └─ Want a templated visual identity?
-      ├─ Yes → visual-styles.md  (pick one of 8) + palettes/<name>.md
-      └─ No  → Phase 3 will extract brand from screenshots → DESIGN.md
-
-Phase 3 (design)
-  ├─ Scene authoring → hyperframes skill SKILL.md + patterns.md
-  ├─ Animation → ../visual-patterns.md (this repo)
-  ├─ Camera & depth on a still → ../visual-patterns.md § Camera & Depth (this repo):
-  │     ├─ Push / pull / drift on a screenshot → § Camera Moves on Stills
-  │     ├─ Pan a tall full-page capture        → § Scroll-Within-Frame
-  │     ├─ Depth from real product layers      → § Motivated Parallax
-  │     ├─ Direct the eye to a UI region       → § Anchored Callout / Spotlight
-  │     ├─ Specular pass over a UI card        → § In-Scene Shine Sweep
-  │     └─ Wipe an element in via a mask        → § Masked Reveal (mask-position)
-  ├─ Charts/counters → data-in-motion.md
-  └─ Emphasis on text → ../marker-highlight.md (this repo)
-
-Phase 4 (production)
-  ├─ Root composition wiring → hyperframes patterns.md (Top-Level Composition Example)
-  ├─ Inter-scene transitions → ../transition-catalog.md (this repo) → HF references/transitions/
-  └─ Quality gates → SKILL.md (Quality Checks section)
-
-Phase 5 (audio)
-  ├─ Voiceover → workflows/phase-5-audio.md
-  ├─ Captions (optional) → references/captions.md
-  └─ Audio-reactive flourishes → references/audio-reactive.md
-```
-
-## Convention
-
-When a phase workflow says *"see the hyperframes skill for X"*, that's a hint to invoke `Skill(hyperframes)` and then read the specific reference file from this index. Don't load the whole skill — read the one file you need.
+Read by task, never by default — loading a whole skill at once eats the context a scene builder
+needs.

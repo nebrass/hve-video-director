@@ -54,3 +54,9 @@ public/clips/
 
 # Graphify knowledge-graph tool output (local, machine-specific absolute paths)
 graphify-out/
+
+# Installed HyperFrames ecosystem skills (see skills-lock.json for the pinned set).
+# Managed by `npx hyperframes skills update` / `npx skills add`; never vendored here.
+.agents/
+.claude/skills/
+agent/

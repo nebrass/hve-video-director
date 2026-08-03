@@ -5,7 +5,8 @@ description: >
   Discovery (design thinking + context) → Storytelling (narrative + storyboard) →
   Capture (Chrome DevTools screenshots/screencasts, native desktop or region screen
   recording where supported, asciinema terminal recording) → Design (HyperFrames scene templates) →
-  Production (HyperFrames composition) → Audio &amp; Render (ElevenLabs + Whisper + Freesound music).
+  Production (HyperFrames composition) → Audio &amp; Render (media-use audio engine for voiceover,
+  music and SFX; reviewed captions; hyperframes render).
   Three content modes: promo (marketing), showcase (portfolio/demo), or tutorial (walkthrough/how-to). Triggers: "create video",
   "promo video", "showcase video", "tutorial video", "walkthrough video", "how-to video", "product video", "demo video",
   "launch video", "desktop app demo", "screen recording video", "record a screen region".
@@ -28,8 +29,8 @@ flexible; explicit **MUST**, **NEVER**, prerequisite, safety, and validation rul
 **Creative instinct governs craft, not the user's choices.** The agent owns motion choreography,
 easing, composition polish, narrative craft, and implementation details. The user owns the
 creative brief: mode, product surface, duration, theme, aspect ratio, identity/design system,
-voice provider and exact voice, transition style, transition speed, music strategy, and the final
-exact music track (or an explicit no-music choice). Surface every lever as a native prompt.
+visual ceiling, voice provider and exact voice, transition style, transition speed, music
+strategy, and the final exact music track (or an explicit no-music choice). Surface every lever as a native prompt.
 Phase-0 research may support a
 recommendation, but never infer, silently default, preselect, or answer for the user. If making a
 recommendation, put `Recommended - <reason>` in the option label/description; visible guidance is
@@ -69,8 +70,20 @@ as follows:
 - **Loading a companion skill.** Wherever you see `Skill(<name>)` (e.g. `Skill(hyperframes)`),
   use the runtime's native skill loader/selector. If no callable loader exists, locate the
   companion's `SKILL.md` in the canonical homes below and read only the referenced file.
-- **Skill install home.** Companion skills (`hyperframes`, `gsap`) live next to this skill in
-  whichever global or project home the runtime scans. Project-level `.copilot/skills/` is not a
+- **Dispatching a build to a sub-agent.** Phase 3 hands frame packets to scene builders when a film
+  is long enough to earn the fan-out. Treat "dispatch a builder" as a capability, not a tool name:
+  Claude Code exposes a sub-agent `Task` tool, other runtimes name theirs differently, and some
+  expose none. Resolve the exposed identifier before first use, exactly as for a tool capability.
+  **Where a runtime exposes none, build every scene inline regardless of frame count** — fan-out is
+  an optimization, never a correctness requirement, which is why `allowed-tools` enumerates no
+  dispatch tool and no phase output depends on one.
+- **Locating a file inside a companion skill.** Skill *names* are stable; the paths inside them
+  are not. When a phase names a skill plus a capability symbol (`VISUAL_STYLES`,
+  `TRANSITION_CATALOG`, …) but no path, resolve it from this skill's `compat/ecosystem.md`.
+- **Skill install home.** Companion skills (`hyperframes` and the HyperFrames domain skills it
+  gateways) live next to this skill in whichever global or project home the runtime scans. There is
+  no separate `gsap` companion skill — GSAP choreography guidance is `GSAP_ADAPTER` and
+  `EASING_AND_STAGGER` in `hyperframes-animation`. Project-level `.copilot/skills/` is not a
   Copilot CLI skill home.
 
   These homes, in this order, are the **single canonical list** — the prereq probe below and every
@@ -131,6 +144,20 @@ All validator commands take `--project-dir "$PROJECT_DIR"`. They read the stable
 table in `project-plan.md` and atomically maintain `.hve/brief-state.json`; they never delete
 generated artifacts. Resolve `$SKILL_DIR`, `$VALIDATOR`, and `$PROJECT_DIR` again in a fresh shell
 because shell state does not persist between agent tool calls.
+
+**HyperFrames CLI gates (canonical — stated once here; every phase just runs them).** Use
+`npx hyperframes lint` as the fast check while iterating, and `npx hyperframes check` as the
+required final gate before a render is approved. `validate`, `inspect`, and `layout` still run but
+are deprecated aliases of `check`; they announce it with `_meta.deprecated: true` under `--json`.
+Detect the capability, never a version number: if `check` is unavailable on an older CLI, fall back
+to the `inspect` + `validate` pair for that run and tell the user to upgrade. Full command
+semantics belong to the `hyperframes-cli` skill (`CHECK_GATE` in `compat/ecosystem.md`).
+
+**The seam gate is separate, and skill-resident.** `SEAM_VERIFIER` (`motion-doctrine`) ships inside
+that skill rather than as an `npx hyperframes` subcommand, and `lint`/`check` never inspect seams — a
+film whose every seam is mirrored passes both green. Phase 4 writes the seam ledger, stamps the
+master seams from it (`SEAM_STAMP`), and runs `SEAM_VERIFIER` on the assembled composition; a
+non-zero exit is a failed gate exactly like `check`.
 
 ---
 
@@ -209,8 +236,8 @@ Run Phase -1 for direct/default `new` mode only when there is no `project-plan.m
    | Phase 1 — Storytelling | Collect and confirm the user-owned story brief, then build the narrative | Confirm the complete brief before `storyboard.md`; approve the storyboard |
    | Phase 2 — Capture | Gather bound web (including an already-open authenticated Chrome tab), terminal, supplied, or native recordings | Approve the capture set and any fallbacks |
    | Phase 3 — Design | Define brand/motion and author scene HTML | Approve `DESIGN.md` and scene previews |
-   | Phase 4 — Production | Wire the root composition and transitions | Approve the preview after lint/inspect/validate |
-   | Phase 5 — Audio & Render | Generate narration/captions, confirm exact music, render MP4 | Confirm title/path/source/license (or explicit none) before mixing; approve render |
+   | Phase 4 — Production | Wire the root composition and transitions | Approve the preview after the seam gate + lint + check |
+   | Phase 5 — Audio & Render | Generate narration, music and SFX through the `media-use` audio engine, review captions, mix, render MP4 | Confirm title/path/source/license (or explicit none) before mixing; approve render |
 
    Mention that `screen-recording` capture is native where supported: macOS uses the
    `screencapture` adapter, Windows uses FFmpeg `gdigrab`, and X11 uses FFmpeg `x11grab`.
@@ -259,7 +286,8 @@ pure-backend tool) or an explicitly abstract brand film. Present a selectable pr
 Then create `{project-dir}/`, generate `project-plan.md` from `templates/project-plan.md`, and
 record the explicit answers in the Creative Brief table as `mode: promo | showcase | tutorial`
 and `product_surface: ui | none`. Do not mark either option selected before the user's response.
-Carry the product surface into `storyboard.md` (`Product surface:`) in Phase 1. Begin Phase 0.
+Carry the product surface into the `storyboard.md` frontmatter (`product_surface`) in Phase 1.
+Begin Phase 0.
 
 **Make the output location crystal-clear (issue #21).** Before creating the directory, resolve and
 show its **absolute** path so the user knows exactly where their work will live, and let them
@@ -328,23 +356,24 @@ If context.md missing → Phase 0
 If validator story.complete is false, story.confirmed is false, or earliest_stale_phase is phase-1
   → Phase 1 (collect/reconfirm the complete story brief before storyboard creation)
 If storyboard.md missing → Phase 1
-Determine whether Phase 2 is needed from storyboard.md:
-  - REQUIRED when Product surface is `ui`, or any scene requests screenshot, screencast,
-    screen-recording, terminal, terminal-clip, or supplied capture.
-  - SKIPPED when Product surface is `none` and no scene requests capture.
+Determine whether Phase 2 is needed from storyboard.md (frame metadata is the `- key: value`
+  bullet block under each `## Frame N` heading; `product_surface` is a frontmatter key):
+  - REQUIRED when frontmatter `product_surface` is `ui`, or any frame's `capture` bullet is
+    screenshot, screencast, screen-recording, terminal, terminal-clip, or supplied.
+  - SKIPPED when frontmatter `product_surface` is `none` and no frame requests capture.
 If Phase 2 is required and any planned capture lacks its accepted output → Phase 2:
-  - screenshot: bound screenshot exists and is non-empty
-  - screencast: exact bound Clip exists and is non-empty, or the storyboard was explicitly
-    rewritten to screenshot and its bound screenshot exists and is non-empty
-  - screen-recording: positive Capture duration is present, optional Capture region is valid
-    x,y,w,h, the exact bound Clip exists and is non-empty, `<Clip>.capture.pending` is absent,
-    `<Clip>.capture.json` is present, and
-    `python3 scripts/capture_screen.py --check --duration "<Capture duration>"`
-    `[--region "<Capture region>"] -o "<Clip>"` passes (including sidecar request match,
+  - screenshot: the frame's bound `screenshot` exists and is non-empty
+  - screencast: the exact bound `clip` exists and is non-empty, or the storyboard was explicitly
+    rewritten to `capture: screenshot` and its bound `screenshot` exists and is non-empty
+  - screen-recording: a positive `capture_duration` is present, an optional `capture_region` is a
+    valid `x,y,w,h`, the exact bound `clip` exists and is non-empty, `<clip>.capture.pending` is
+    absent, `<clip>.capture.json` is present (both named after the bound `clip` path), and
+    `python3 scripts/capture_screen.py --check --duration "<capture_duration>"`
+    `[--region "<capture_region>"] -o "<clip>"` passes (including sidecar request match,
     media contract, and fingerprint)
-  - terminal: authored terminal scene exists and is non-empty
-  - terminal-clip: non-empty MP4 exists, or storyboard was rewritten to terminal and its
-    non-empty scene exists
+  - terminal: the authored terminal scene file exists and is non-empty
+  - terminal-clip: non-empty MP4 exists, or the storyboard was rewritten to `capture: terminal`
+    and its non-empty scene file exists
   - supplied: named supplied file exists and is non-empty
 If no DESIGN.md or scenes/ → Phase 3
 If no index.html → Phase 4
@@ -384,18 +413,22 @@ mix/encode/render. Verify prerequisites:
 Phase 1 requires: context.md
 Phase 2 requires: context.md + storyboard.md + fresh Phase-1 stamp
 Phase 3 requires: context.md + storyboard.md, plus completion of every capture requested by the
-  storyboard, and a fresh Phase-2 stamp. In particular, `screen-recording` requires a positive `Capture duration:`, an
-  optional valid `Capture region: x,y,w,h`, a non-empty file at the exact `Clip:` path, no
-  `<Clip>.capture.pending`, and a matching `<Clip>.capture.json` sidecar. Run
-  `capture_screen.py --check` with the storyboard duration/region/Clip; if any check fails,
-  BLOCK Phase 3 and resume Phase 2 (or return to Phase 1 to repair invalid fields).
-  `product_surface: none` with no requested captures has no Phase-2 artifact prerequisite, but
-  the intentional Phase-2 skip must still have a fresh Phase-2 stamp.
+  storyboard, and a fresh Phase-2 stamp. Read the requests from each frame's `- key: value`
+  bullet block; `product_surface` is a frontmatter key, not a frame bullet. In particular, a
+  frame whose `capture` bullet is `screen-recording` requires a positive `capture_duration`, an
+  optional valid `capture_region: x,y,w,h`, a non-empty file at the exact `clip` path, no
+  `<clip>.capture.pending`, and a matching `<clip>.capture.json` sidecar — both markers are named
+  after the bound `clip` path, not after a file called `clip`. Run
+  `capture_screen.py --check` with that frame's `capture_duration` / `capture_region` / `clip`;
+  if any check fails, BLOCK Phase 3 and resume Phase 2 (or return to Phase 1 to repair invalid
+  fields). Frontmatter `product_surface: none` with no requested captures has no Phase-2 artifact
+  prerequisite, but the intentional Phase-2 skip must still have a fresh Phase-2 stamp.
   Capture-coverage gate (orchestrator-enforced; promo/showcase only): before authoring
-  scenes, if product_surface is `ui` and NO storyboard scene binds an existing real
-  capture (`Screenshot:` or `Clip:`), BLOCK and resolve — return to Phase 2 to capture the
+  scenes, if frontmatter `product_surface` is `ui` and NO storyboard frame binds an existing real
+  capture (a `screenshot` or `clip` bullet naming a real file — `screenshot: none — connective
+  tissue` binds nothing), BLOCK and resolve — return to Phase 2 to capture the
   product, or, if the film is genuinely abstract, set `product_surface: none` in the
-  project-plan.md Creative Brief and `Product surface: none` in storyboard.md. After scene
+  project-plan.md Creative Brief and in the storyboard.md frontmatter. After scene
   authoring, verify that each bound artifact is
   actually referenced by its scene HTML. Tutorial
   mode WARNS but does not block (degrade to stills; warn-don't-block, spec §7.3). This turns
@@ -403,15 +436,51 @@ Phase 3 requires: context.md + storyboard.md, plus completion of every capture r
   recorded decision. (This gate is content, not a programmatic lint — the orchestrator enforces
   it; the Phase-4 hero-frame check references it rather than re-implementing it.)
 Phase 4 requires: context.md + storyboard.md + DESIGN.md + scenes/*.html + fresh Phase-3 stamp
-Phase 5 requires: index.html (root composition) + fresh Phase-4 stamp; Phase 5 then confirms the
-  exact audio fingerprint, runs `npx hyperframes lint|inspect|validate`, and requires reviewed
-  `out/final.srt` + `out/final.vtt` whose caption state validates against the final mixed-audio
-  fingerprint before stamping completion
+Phase 5 requires: index.html (root composition) + fresh Phase-4 stamp; Phase 4's exit gate includes
+  `SEAM_VERIFIER`, and re-timing scenes to the voiceover re-opens the seams it touches — re-run the
+  seam gate before render approval. Phase 5 then confirms the
+  exact audio fingerprint, runs `npx hyperframes lint` + `npx hyperframes check`, and requires
+  reviewed `out/final.srt` + `out/final.vtt` whose caption state validates against the final
+  mixed-audio fingerprint before stamping completion. Narration, music and SFX are generated by
+  the `media-use` audio engine (AUDIO_ENGINE); with no engine installed, narration is local TTS on
+  an explicitly confirmed voice and the music bed is user-provided. Neither path skips the
+  exact-track confirmation, the caption review, or render approval.
 Tutorial content mode: PREFERS public/clips/ but does not require them. Jumping into a
 tutorial with no clips WARNS ("tutorial requested but no clips found — degrading to stills")
 and continues with stills; it does NOT block. Missing captions in tutorial mode is the
 stricter check (see Phase 5). (warn-don't-block; spec §7.3)
 ```
+
+---
+
+## Reasoning Pipeline
+
+Sixteen stages carry a request from raw intent to builder prompts. They are not an extra phase —
+each phase owns a contiguous span, and the modules under `reasoning/` and `grammar/` are where that
+thinking is written down. The procedure for running them stays in the phase workflow (stages 4–14
+in `workflows/phase-1-storytelling.md`); this table is the map, not the method.
+
+| Stages | Phase | What happens |
+|---|---|---|
+| 1–3 · user intent · audience · communication goals | 0 | who this is for and what must land; every later cut is judged against these |
+| 4–7 · story structure · beat extraction · emotional pacing · information hierarchy | 1 | the arc becomes frames carrying a `tone:`/`energy:` curve and a per-frame `density:` |
+| 8–12 · visual semantics · metaphor · scene · camera · motion planning | 1, per frame | visual intelligence — judgment, guided by the grammars; no technology named |
+| 13 · capability derivation | 1, per frame | the **mechanical** union of the capability tags declared by every grammar entry the frame cites, plus asset/subject realities — never a judgment call |
+| 14 · runtime selection | 1, per frame; re-checked in 3 | capabilities become a runtime — GSAP-first, hero budget, and the rejected candidate recorded |
+| 15 · rendering plan | 3 | design spec, registry blocks chosen before anything is hand-authored, one frame packet per scene |
+| 16 · prompt generation | 3; again in 4 on a finding | each builder receives only its packet — that frame's own block, the design spec, and the inlined bodies of the recipes it cites |
+
+Stages 8–14 run through `reasoning/scene-analysis.md`: it owns the per-frame question set, the
+director keys those answers become, and — single-sourced — the cognitive-load budgets that every
+other file cites without repeating a number. The vocabulary those stages choose from is
+`grammar/camera.md`, `grammar/motion.md`, `grammar/metaphors.md`, and `grammar/three-taxonomy.md`;
+the capability-tag vocabulary is owned and versioned by `reasoning/capability-catalog.md`.
+
+**The grammars decide when and why; the HyperFrames ecosystem owns how.** Motion is cited by bare
+rule or blueprint name, resolved through `RULES_INDEX` / `BLUEPRINT_INDEX`, and its mechanism is
+never restated here. And the consent doctrine outranks the pipeline: a user's explicit creative
+instruction overrides any derived verdict, including runtime selection and every budget — state the
+tradeoff once, comply, and record `user_directed: true` on the frame.
 
 ---
 
@@ -427,10 +496,10 @@ Phase 0: DISCOVERY ──── Phase 1: STORYTELLING ──── Phase 2: CAPT
 
 Phase 3: DESIGN ──── Phase 4: PRODUCTION ──── Phase 5: AUDIO &amp; RENDER
   │                    │                        │
-  ├ hyperframes skill  ├ HyperFrames root html  ├ ElevenLabs TTS
-  ├ DESIGN.md          ├ Sub-comp wiring        ├ Whisper verification
-  ├ Scene templates    ├ Transitions (GSAP)     ├ Freesound Music API
-  └ Brand & motion     └ lint/inspect/validate  └ npx hyperframes render
+  ├ DESIGN.md          ├ HyperFrames root html  ├ media-use audio engine
+  ├ Registry blocks    ├ Sub-comp wiring        ├ Reviewed captions
+  ├ Frame packets      ├ Seam ledger + stamp    ├ Confirmed track + mix
+  └ Scene builds       └ seam gate + lint/check └ npx hyperframes render
 ```
 
 ### Phase 0: Discovery
@@ -446,12 +515,52 @@ See [workflows/phase-2-capture.md](workflows/phase-2-capture.md)
 **Capture-coverage gate runs at entry** (see § Entry Modes → `jump`): a promo/showcase video with
 `product_surface: ui` must put real captures on screen before scenes are authored — the real
 product, framed, is the spine; text scenes are connective tissue.
+
+**Scenes are built from frame packets.** The director keys Phase 1 wrote onto each frame stop being
+a planning record here. Step 3.3 assembles one **ephemeral** packet per frame — that frame's
+storyboard block verbatim with its keys, `DESIGN.md`, the inlined bodies of the recipes the frame
+cites, the scene-builder role, and the canvas / captions flag / bound capture paths — and a builder
+returns exactly one scene HTML file from it, running no CLI and touching no other frame. Packets are
+regenerated every run and never committed. Check the shipped catalog first (`REGISTRY_CATALOG`,
+installed with `npx hyperframes add`): a tested block beats a hand-built scene, and hand-authoring is
+for the gap. Up to ~6 short frames build faster inline than fanned out; past that, workers take 2–3
+frames each and start in a single wave.
+
 See [workflows/phase-3-design.md](workflows/phase-3-design.md)
 
 ### Phase 4: Production
+**The gates live here, and so does re-dispatch.** A scene builder saw one frame and ran no CLI, so
+`lint`, `check`, the seam gate and the hero-frame check — all of which need the assembled project —
+run in this phase, and everything cross-frame (loader windows, track indices, the ledger, the audio
+mount) is repaired here. A failure that lives *inside* one scene file goes back to its builder as a
+regenerated packet plus one concrete finding: **one retry per frame**, never "make it better".
+
 See [workflows/phase-4-production.md](workflows/phase-4-production.md)
 
 ### Phase 5: Audio &amp; Render
+**Audio generation is delegated to the `media-use` skill.** Its AUDIO_ENGINE produces narration,
+the music bed (BGM) and SFX from one request and returns the assets plus per-line metadata. The
+word timings in that metadata are **relative to each line's own audio**, so they are never the
+caption clock: composition-absolute timing comes from TRANSCRIBE over the *assembled*
+`voiceover.mp3`, with no provider branch — Phase 5 runs it whichever voice spoke.
+**M6 removed the local acquisition fallbacks.** There is no local ElevenLabs generator and no
+Freesound search script any more: with no engine installed, narration comes from `npx hyperframes
+tts` on an explicitly confirmed local voice and the music bed is user-provided. What survives is
+`scripts/generate_voiceover.py --assemble-only` — the section assembler **both** paths use to place
+narration at its exact start times. A confirmed voice provider is never substituted
+automatically. A HeyGen credential does not change which voice speaks: the brief's `voice`
+vocabulary is `elevenlabs:<name>:<id>` or `kokoro:<id>`, enforced by `scripts/validate_brief.py`,
+so the engine's HeyGen voice route is not selectable through this skill's vocabulary. What the
+credential buys Phase 5 is the engine's catalog retrieval for sound effects and for the music bed —
+the retrieve-or-generate route being a user choice, because the two carry different licensing (see
+`workflows/phase-5-audio.md` § Delegated strategy).
+
+What this skill still owns and never delegates: the exact-track music confirmation — whatever
+produced the candidate (catalog retrieval, generation, a manual Freesound download, or a
+user-supplied file), the user confirms that exact track or an explicit none before any mix — the
+`scripts/caption_gen.py` `draft` → `approve` → `finalize` → `validate` review contract over the
+caption data, the verified
+mix recipes, and render approval.
 See [workflows/phase-5-audio.md](workflows/phase-5-audio.md)
 
 ---
@@ -471,22 +580,25 @@ See [workflows/phase-5-audio.md](workflows/phase-5-audio.md)
 
 - **No jitter effects** — No shaking, vibrating, or jittery motion
 - **No full scene spinning** — No 360° rotations; subtle 3D tilt on mockups is fine
-- **No 3D transforms in transitions** — Stick to 2D (opacity, position, scale, gradient masks)
-- **No clipPath transitions** — Anti-aliased black slivers between scenes; use crossfade + shine overlay (see `patterns/metallic-swoosh.md`)
-- **No exit animations except on the closing scene** — Inter-scene transitions own the exit; double-motion looks busy
+- **Seams are `SEAM_LAW`, not a rule of this file** — how a scene exits determines how the next one enters (axis, direction, speed, phase), so no scene hand-authors its own exit: the seam owns it, and only the closing scene (which has no seam after it) may animate out. `motion-doctrine` states that its rules supersede generic guidance, and `SEAM_STAMP` → `SEAM_VERIFIER` turn them into a numeric build gate. **Where prose here and the gate disagree, the gate is authoritative** — repair the seam ledger, never the assertion. A crossfade carries nothing across the cut: it is a dissolve, not a seam; the named seam techniques and their parameters are `CUT_CATALOG`. The gate governs how a boundary is executed, never which style the user confirmed (ADR-001)
+- **This repo's additive seam bans — narrowing only, never overriding** — no `clipPath`-driven inter-scene wipe (polygon interpolation leaves an anti-aliased black sliver at the boundary; the render-side compositing rules are `SEAM_RENDER_MECHANICS`), and no 3D/perspective transforms as a seam effect — a Z seam is a signed *scale* change. Both further restrict what `SEAM_LAW` permits; neither is an argument against a gate verdict
 - **Never animate `display`, `visibility`, or call `.play()` in timelines** — Breaks HyperFrames' deterministic seek; use `opacity` + `pointer-events`
 - **Never animate `<img>` dimensions directly** — Causes layout recompute that confuses deterministic seek. Wrap each `<img>` in a non-timed `<div>` and animate the wrapper's `transform` (`scale`, `translate`) instead
 - **Never use `tl.from()` for opacity tweens with stagger** — GSAP records the END state at registration; if CSS rest is `opacity:0` the recorded end is `opacity:0` and the animation goes nowhere. With stagger, later instances re-hide elements that earlier instances revealed. **Always use `tl.fromTo(target, {opacity:0,...}, {opacity:1,...}, pos)`.** See `patterns/visual-patterns.md` § "tl.from() stagger trap"
-- **Never ship a bare `<video>` in a clip scene** — the runtime only frame-syncs videos carrying `data-start`; bare videos cross-route with 2+ clip scenes (wrong footage / black) while all gates pass green. Every clip `<video>` carries the explicit contract: `id` + `data-start="0"` + `data-duration` (the loader's full crossfade-extended window) + `data-media-start` (storyboard `Clip in`) + `data-track-index="0"`. See `workflows/phase-3-design.md` § Clip scene
+- **Never ship a bare `<video>` in a clip scene** — the runtime only frame-syncs videos carrying `data-start`; bare videos cross-route with 2+ clip scenes (wrong footage / black) while all gates pass green. Every clip `<video>` carries the explicit contract: `id` + `data-start="0"` + `data-duration` (the loader's full crossfade-extended window) + `data-media-start` (the frame's `clip_in` bullet) + `data-track-index="0"`. See `workflows/phase-3-design.md` § Clip scene
 
 ---
 
 ## Resources
 
 - [workflows/](workflows/) — Phase workflow files
-- [templates/](templates/) — Project scaffolding templates
-- [patterns/visual-patterns.md](patterns/visual-patterns.md) — Animation techniques
-- [patterns/metallic-swoosh.md](patterns/metallic-swoosh.md) — Metallic transition (crossfade + shine, NOT clipPath)
+- [reasoning/](reasoning/) — The director's instrument: `scene-analysis.md` (per-frame questions, director keys, the single-source cognitive-load budgets) and `capability-catalog.md` (the capability-tag vocabulary and the capability→runtime procedure)
+- [grammar/](grammar/) — When and why the camera moves, a motion principle applies, a metaphor explains, and when a frame earns Three.js: `camera.md`, `motion.md`, `metaphors.md`, `three-taxonomy.md`
+- [compat/ecosystem.md](compat/ecosystem.md) — The only file holding upstream HyperFrames file paths; everywhere else names the skill plus a capability SYMBOL and lets this map resolve it
+- [templates/](templates/) — Project scaffolding templates, including the copy-ready scene skeletons a frame packet ships as its starting point
+- [sub-agents/](sub-agents/) — Role deltas for dispatched builders. `sub-agents/scene-builder-delta.md` is the scene-builder half of a frame packet: it re-points four conventions of `FRAME_WORKER_CORE` at this pipeline and adds the local law — the director keys are binding direction, a bound capture is the subject and is never redrawn, no number appears that the packet did not supply, one scene file out, no CLI
+- [patterns/visual-patterns.md](patterns/visual-patterns.md) — Camera and depth on a captured still, the legibility floor, the emphasis-spending judgment and the repo DON'Ts; the motion mechanics themselves are delegated (`EASING_AND_STAGGER`, `RULES_INDEX`, `DETERMINISM_RULES`)
+- [patterns/transition-catalog.md](patterns/transition-catalog.md) — Which transition fits which moment; seam law itself is `SEAM_LAW`, enforced by `SEAM_VERIFIER`
 - [scripts/validate_brief.py](scripts/validate_brief.py) — Creative Brief validation, confirmations, fingerprints, and phase freshness
-- [scripts/generate_voiceover.py](scripts/generate_voiceover.py) — ElevenLabs generation or external-section assembly + Whisper verification
+- [scripts/generate_voiceover.py](scripts/generate_voiceover.py) — voiceover-section assembly for **both** audio paths (`--assemble-only`): exact start times, silence spacers, pad to duration, overrun warning. Pure stdlib; no API key, no network. The ElevenLabs acquisition half was removed in M6
 - [scripts/caption_gen.py](scripts/caption_gen.py) — Reviewed speech/speaker/sound captions bound to the final mixed-audio fingerprint

@@ -1,0 +1,212 @@
+<!-- Frame 2 — "The reason why"
+     blueprint: overwhelm-surround — recognizable fragments assemble, density amplifies,
+                then the crowd closes in from ALL sides on the subject at centre.
+     motion:    center-outward-expansion — every fragment starts clustered dead-centre and
+                radiates to a baked data-target-x/y; xPercent/yPercent -50 bakes the centring
+                so the tweened x/y are pure offsets. Out-eases only on the expansion.
+     camera:    push-in (directed) — a slow scale on the world wrapper ONLY, never on a fragment.
+     The subject is the empty frame you are trying to get: unlabelled, brand purple, alone.
+     Every label on screen is a fragment this frame's packet names — timeline, renderer,
+     easing curve, codec flag. Nothing invented. -->
+<template id="scene-01-pain-template">
+  <div data-composition-id="scene-01-pain"
+       data-width="1920" data-height="1080" data-duration="8"
+       style="position:absolute;inset:0;overflow:hidden;background:#1c1e54;">
+
+    <div class="clip pain-ground" id="pain-ground"
+         data-start="0" data-duration="8" data-track-index="0"></div>
+
+    <div class="clip pain-stage" id="pain-stage"
+         data-start="0" data-duration="8" data-track-index="1">
+      <!-- world wrapper: the ONLY thing the push-in touches -->
+      <div class="pain-camera" id="pain-camera">
+
+        <!-- the single frame you never get to — outside the burst wrap on purpose -->
+        <div class="pain-core" id="pain-core"></div>
+
+        <div class="pain-burst" id="pain-burst">
+
+          <div class="frag" id="pain-frag-0" data-target-x="-620" data-target-y="-300">
+            <div class="frag-art">
+              <svg class="frag-svg" viewBox="0 0 252 44" fill="none" aria-hidden="true">
+                <path d="M2 22H250" stroke="rgba(255,255,255,0.30)" stroke-width="2"/>
+                <path d="M46 12l10 10-10 10-10-10z" fill="rgba(255,255,255,0.52)"/>
+                <path d="M126 12l10 10-10 10-10-10z" fill="rgba(255,255,255,0.52)"/>
+                <path d="M206 12l10 10-10 10-10-10z" fill="rgba(255,255,255,0.52)"/>
+              </svg>
+            </div>
+            <div class="frag-label">timeline</div>
+          </div>
+
+          <div class="frag" id="pain-frag-1" data-target-x="620" data-target-y="-300">
+            <div class="frag-art">
+              <svg class="frag-svg" viewBox="0 0 252 44" fill="none" aria-hidden="true">
+                <rect x="2" y="4" width="64" height="36" rx="3" stroke="rgba(255,255,255,0.42)" stroke-width="2"/>
+                <path d="M27 15l14 7-14 7z" fill="rgba(255,255,255,0.52)"/>
+                <path d="M84 12h62M84 22h96M84 32h48" stroke="rgba(255,255,255,0.22)" stroke-width="2"/>
+              </svg>
+            </div>
+            <div class="frag-label">renderer</div>
+          </div>
+
+          <div class="frag" id="pain-frag-2" data-target-x="-620" data-target-y="300">
+            <div class="frag-art">
+              <svg class="frag-svg" viewBox="0 0 252 44" fill="none" aria-hidden="true">
+                <path d="M2 41H250" stroke="rgba(255,255,255,0.16)" stroke-width="2"/>
+                <path d="M2 41C88 41 94 5 250 5" stroke="rgba(255,255,255,0.52)" stroke-width="2"/>
+                <circle cx="2" cy="41" r="3.5" fill="rgba(255,255,255,0.52)"/>
+                <circle cx="250" cy="5" r="3.5" fill="rgba(255,255,255,0.52)"/>
+              </svg>
+            </div>
+            <div class="frag-label">easing curve</div>
+          </div>
+
+          <div class="frag frag-mono" id="pain-frag-3" data-target-x="620" data-target-y="300">
+            <div class="frag-art">
+              <svg class="frag-svg" viewBox="0 0 252 44" fill="none" aria-hidden="true">
+                <path d="M10 4v36" stroke="rgba(255,255,255,0.42)" stroke-width="2"/>
+                <path d="M10 8h46l-9 9 9 9H10z" stroke="rgba(255,255,255,0.52)" stroke-width="2" stroke-linejoin="round"/>
+                <path d="M82 14h58M82 30h84" stroke="rgba(255,255,255,0.22)" stroke-width="2"/>
+              </svg>
+            </div>
+            <div class="frag-label">codec flag</div>
+          </div>
+
+          <!-- density markers: no text, no data — pure "look how much surface area" -->
+          <i class="mote mote-h" id="pain-mote-0" data-target-x="813"  data-target-y="182"  style="width:104px"></i>
+          <i class="mote mote-v" id="pain-mote-1" data-target-x="337"  data-target-y="439"  style="height:56px"></i>
+          <i class="mote mote-h" id="pain-mote-2" data-target-x="-337" data-target-y="439"  style="width:88px"></i>
+          <i class="mote mote-v" id="pain-mote-3" data-target-x="-813" data-target-y="182"  style="height:72px"></i>
+          <i class="mote mote-h" id="pain-mote-4" data-target-x="-813" data-target-y="-182" style="width:112px"></i>
+          <i class="mote mote-v" id="pain-mote-5" data-target-x="-337" data-target-y="-439" style="height:48px"></i>
+          <i class="mote mote-h" id="pain-mote-6" data-target-x="337"  data-target-y="-439" style="width:96px"></i>
+          <i class="mote mote-v" id="pain-mote-7" data-target-x="813"  data-target-y="-182" style="height:64px"></i>
+
+        </div>
+      </div>
+    </div>
+
+    <style>
+      [data-composition-id="scene-01-pain"]{
+        position:absolute; inset:0; overflow:hidden;
+        background:#1c1e54;
+        font-family:"Helvetica Neue", Arial, sans-serif;
+        color:#ffffff;
+      }
+      [data-composition-id="scene-01-pain"] .pain-ground{
+        position:absolute; inset:0;
+        background:radial-gradient(104% 98% at 50% 50%, #1c1e54 0%, #061b31 100%);
+      }
+      [data-composition-id="scene-01-pain"] .pain-stage{ position:absolute; inset:0; }
+      /* No CSS transform here — GSAP owns this element's transform (push-in). */
+      [data-composition-id="scene-01-pain"] .pain-camera{
+        position:absolute; inset:0; will-change:transform;
+      }
+
+      /* Centred by margins, never by translate(-50%) — GSAP animates its scale. */
+      [data-composition-id="scene-01-pain"] .pain-core{
+        position:absolute; top:50%; left:50%;
+        width:420px; height:236px; margin-left:-210px; margin-top:-118px;
+        border:2px solid #533afd;                       /* the one accent use in this scene */
+        border-radius:6px;
+        background:rgba(83,58,253,0.06);
+        box-shadow:0 12px 36px rgba(50,50,93,0.25), 0 0 68px rgba(83,58,253,0.20);
+        opacity:0; will-change:transform, opacity;
+      }
+
+      [data-composition-id="scene-01-pain"] .pain-burst{
+        position:absolute; inset:0;
+      }
+      /* center-outward-expansion: absolute at the stage centre; GSAP bakes xPercent/yPercent -50
+         and tweens x/y as pure offsets. No CSS transform on these elements. */
+      [data-composition-id="scene-01-pain"] .frag,
+      [data-composition-id="scene-01-pain"] .mote{
+        position:absolute; top:50%; left:50%;
+        opacity:0; will-change:transform, opacity;
+      }
+      [data-composition-id="scene-01-pain"] .frag{
+        width:300px; padding:22px 24px; box-sizing:border-box;
+        background:rgba(255,255,255,0.045);
+        border:1px solid rgba(255,255,255,0.13);
+        border-radius:6px;                              /* DESIGN.md: 4–8px, nothing pill-shaped */
+        box-shadow:0 7px 14px rgba(50,50,93,0.25), 0 12px 36px rgba(0,0,0,0.30);
+      }
+      [data-composition-id="scene-01-pain"] .frag-art{ height:44px; margin-bottom:16px; }
+      [data-composition-id="scene-01-pain"] .frag-svg{ display:block; width:100%; height:44px; }
+      [data-composition-id="scene-01-pain"] .frag-label{
+        font-size:34px; font-weight:300; letter-spacing:-0.012em; line-height:1.1;
+        color:rgba(255,255,255,0.88);
+      }
+      [data-composition-id="scene-01-pain"] .frag-mono .frag-label{
+        font-family:"Source Code Pro", monospace; font-weight:400;
+        font-size:31px; letter-spacing:-0.005em;
+      }
+      [data-composition-id="scene-01-pain"] .mote{
+        display:block; border-radius:3px; background:rgba(255,255,255,0.55);
+      }
+      [data-composition-id="scene-01-pain"] .mote-h{ height:5px; }
+      [data-composition-id="scene-01-pain"] .mote-v{ width:5px; }
+    </style>
+
+    <script>
+      window.__timelines = window.__timelines || {};
+      (function () {
+        var ID = "scene-01-pain";
+        var root = '[data-composition-id="' + ID + '"]';
+        var tl = gsap.timeline({ paused: true });
+
+        var sel = function (s) {
+          return Array.prototype.slice.call(document.querySelectorAll(root + " " + s));
+        };
+        var frags = sel(".frag");
+        var motes = sel(".mote");
+
+        var CROWD = 0.76;          // how far in the crowd closes, as a fraction of each target radius
+
+        // Scene 1 (0.0–1.05) — the subject: the one frame you are trying to get.
+        tl.fromTo(root + " #pain-core",
+          { opacity: 0, scale: 0.94 },
+          { opacity: 1, scale: 1, duration: 0.90, ease: "expo.out" },
+          0.15);
+
+        // Scene 2 (0.9–2.5) — center-outward-expansion, wave 1: the named work
+        // radiates out of the centre it came from.
+        frags.forEach(function (el, i) {
+          tl.fromTo(el,
+            { xPercent: -50, yPercent: -50, x: 0, y: 0, scale: 0.6, opacity: 0 },
+            { x: Number(el.dataset.targetX), y: Number(el.dataset.targetY),
+              scale: 1, opacity: 1, duration: 1.20, ease: "power3.out" },
+            0.90 + i * 0.14);                       // DESIGN.md stagger 0.12–0.18
+        });
+
+        // Scene 2b (2.5–4.1) — density amplifies. Same mechanism, second wave, no labels.
+        motes.forEach(function (el, i) {
+          tl.fromTo(el,
+            { xPercent: -50, yPercent: -50, x: 0, y: 0, scale: 0.5, opacity: 0 },
+            { x: Number(el.dataset.targetX), y: Number(el.dataset.targetY),
+              scale: 1, opacity: 0.55, duration: 1.00, ease: "power2.out" },
+            2.50 + i * 0.08);
+        });
+
+        // Camera (1.4–7.4) — the directed push-in, on the world wrapper only.
+        tl.fromTo(root + " #pain-camera",
+          { scale: 1 },
+          { scale: 1.10, duration: 6.00, ease: "power1.inOut" },
+          1.40);
+
+        // Scene 3 (4.5–6.75) — the close-in. Everything crowds toward the subject as the
+        // push lands, so the pressure reads as CAUSED by it. The subject never moves.
+        frags.concat(motes).forEach(function (el, i) {
+          tl.to(el,
+            { x: Number(el.dataset.targetX) * CROWD,
+              y: Number(el.dataset.targetY) * CROWD,
+              duration: 1.70, ease: "power2.inOut" },
+            4.50 + i * 0.05);
+        });
+
+        // Holds on the crowded state to 8.00s. No exit — the seam owns it.
+        window.__timelines[ID] = tl;
+      })();
+    </script>
+  </div>
+</template>
