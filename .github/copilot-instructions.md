@@ -90,9 +90,10 @@ Both `ELEVENLABS_API_KEY` and `ELEVEN_LABS_API_KEY` are accepted (back-compat).
 
 There is no build or lint command for this repo. Run `bash test/run.sh` for the stdlib helper tests;
 validation of workflow changes still happens by running `/hve-video-director <project-dir>` end-to-end
-in Claude Code. There is no committed reference build: the pre-rebase `example/` was removed with the rebase and
-its replacement is a human-in-the-loop run (real TTS, music licensing, and per-phase approvals no
-agent may self-grant). Do not fabricate one.
+in Claude Code. The canonical reference build is `example/` — the source artifacts of one real end-to-end run
+(media gitignored; see `example/README.md` for how to reproduce the render). It is a record of a
+human-in-the-loop run, so never hand-edit it and never regenerate it from a partial run; a
+replacement needs real TTS, music licensing and per-phase approvals no agent may self-grant.
 
 ## Editing rules — DON'Ts that are easy to violate
 

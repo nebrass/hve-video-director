@@ -1,0 +1,89 @@
+<!-- Frame 1 — "Every AI video looks like AI made it"
+     blueprint: kinetic-type-beats (sub-shape B, Problem variant — beats land alone on a bare canvas)
+     motion:    kinetic-beat-slam (ONE shared onset grid, a DIFFERENT entrance axis per clause)
+     camera:    static — nothing moves but the words.
+     Look is DESIGN.md (Stripe, dark): weight-300 anti-shout type, expo/power out-eases,
+     no bounce, no overshoot, no accent hue in this frame. -->
+<template id="scene-00-hook-template">
+  <div data-composition-id="scene-00-hook"
+       data-width="1920" data-height="1080" data-duration="5"
+       style="position:absolute;inset:0;overflow:hidden;background:#1c1e54;">
+
+    <!-- Full-bleed ground on its own clip layer (never painted only on the root). -->
+    <div class="clip hook-ground" id="hook-ground"
+         data-start="0" data-duration="5" data-track-index="0"></div>
+
+    <div class="clip hook-stage" id="hook-stage"
+         data-start="0" data-duration="5" data-track-index="1">
+      <!-- layout lives on the inner wrapper, never on the clip element itself: the runtime
+           owns a clip's visibility/display, so a `display:flex` there is not ours to keep. -->
+      <div class="hook-inner">
+        <div class="hook-line" id="hook-l1">Every AI video</div>
+        <div class="hook-line" id="hook-l2">looks like</div>
+        <div class="hook-line hook-key" id="hook-l3">AI made it.</div>
+      </div>
+    </div>
+
+    <style>
+      [data-composition-id="scene-00-hook"]{
+        position:absolute; inset:0; overflow:hidden;
+        background:#1c1e54;                                   /* DESIGN.md dark scene background */
+        font-family:"Helvetica Neue", Arial, sans-serif;      /* neo-grotesque per DESIGN.md; embeds deterministically */
+        color:#ffffff;
+      }
+      [data-composition-id="scene-00-hook"] .hook-ground{
+        position:absolute; inset:0;
+        background:radial-gradient(122% 112% at 50% 42%, #1c1e54 0%, #061b31 100%); /* two DESIGN.md dark tones only */
+      }
+      [data-composition-id="scene-00-hook"] .hook-stage{ position:absolute; inset:0; }
+      [data-composition-id="scene-00-hook"] .hook-inner{
+        position:absolute; inset:0;
+        display:flex; flex-direction:column; align-items:center; justify-content:center;
+        gap:10px; padding:0 160px; box-sizing:border-box;
+      }
+      [data-composition-id="scene-00-hook"] .hook-line{
+        font-size:118px; font-weight:300; line-height:1.12; letter-spacing:-0.035em;
+        text-align:center; color:rgba(255,255,255,0.74);
+        opacity:0;                                            /* paired with fromTo — both endpoints declared */
+        will-change:transform, opacity, filter;
+      }
+      [data-composition-id="scene-00-hook"] .hook-key{ color:#ffffff; }  /* the one emphasis device in this scene */
+    </style>
+
+    <script>
+      window.__timelines = window.__timelines || {};
+      (function () {
+        var ID = "scene-00-hook";
+        var root = '[data-composition-id="' + ID + '"]';
+        var tl = gsap.timeline({ paused: true });
+
+        // kinetic-beat-slam: ONE tempo grid. Every clause reads its onset from it —
+        // this is the single biggest lever for "rhythmic" rather than hand-tuned.
+        var PULSE = 0.30;
+        var BEATS = [PULSE * 1, PULSE * 5, PULSE * 9];   // 0.30 / 1.50 / 2.70 — even 1.2s spacing
+
+        // A DIFFERENT entrance axis per clause (scale+defocus, side, rise).
+        // Ease family stays out-only and overshoot-free per DESIGN.md, sharpening
+        // clause by clause so the beat reads as "build".
+        tl.fromTo(root + " #hook-l1",
+          { opacity: 0, scale: 1.10, filter: "blur(14px)" },
+          { opacity: 1, scale: 1, filter: "blur(0px)", duration: 0.95, ease: "power2.out" },
+          BEATS[0]);
+
+        tl.fromTo(root + " #hook-l2",
+          { opacity: 0, x: -130 },
+          { opacity: 1, x: 0, duration: 0.85, ease: "power3.out" },
+          BEATS[1]);
+
+        tl.fromTo(root + " #hook-l3",
+          { opacity: 0, y: 64 },
+          { opacity: 1, y: 0, duration: 0.80, ease: "expo.out" },
+          BEATS[2]);
+
+        // Final beat lands at 3.50s and HOLDS to 5.00s. Camera static: no drift,
+        // no breath, no exit — the seam owns the exit.
+        window.__timelines[ID] = tl;
+      })();
+    </script>
+  </div>
+</template>

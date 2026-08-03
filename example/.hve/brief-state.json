@@ -1,0 +1,47 @@
+{
+  "audio": {
+    "confirmed_at": "2026-08-03T15:01:32+00:00",
+    "fingerprint": "sha256:0001ce46660dae48563c5958d2bbe98e7885940747cff1b7cad7e30c832939a4",
+    "revision": 2,
+    "story_fingerprint": "sha256:fa0a8d5818556a5e1873274c6de938ce15b5ca6890313e9ef0caf1a14369635a",
+    "story_revision": 3
+  },
+  "phases": {
+    "phase-1": {
+      "fingerprint": "sha256:fa0a8d5818556a5e1873274c6de938ce15b5ca6890313e9ef0caf1a14369635a",
+      "revision": 3,
+      "stage": "story",
+      "stamped_at": "2026-08-03T15:01:32+00:00"
+    },
+    "phase-2": {
+      "fingerprint": "sha256:fa0a8d5818556a5e1873274c6de938ce15b5ca6890313e9ef0caf1a14369635a",
+      "revision": 3,
+      "stage": "story",
+      "stamped_at": "2026-08-03T15:01:32+00:00"
+    },
+    "phase-3": {
+      "fingerprint": "sha256:fa0a8d5818556a5e1873274c6de938ce15b5ca6890313e9ef0caf1a14369635a",
+      "revision": 3,
+      "stage": "story",
+      "stamped_at": "2026-08-03T15:01:32+00:00"
+    },
+    "phase-4": {
+      "fingerprint": "sha256:fa0a8d5818556a5e1873274c6de938ce15b5ca6890313e9ef0caf1a14369635a",
+      "revision": 3,
+      "stage": "story",
+      "stamped_at": "2026-08-03T15:01:32+00:00"
+    },
+    "phase-5": {
+      "fingerprint": "sha256:0001ce46660dae48563c5958d2bbe98e7885940747cff1b7cad7e30c832939a4",
+      "revision": 2,
+      "stage": "audio",
+      "stamped_at": "2026-08-03T15:01:32+00:00"
+    }
+  },
+  "schema_version": 1,
+  "story": {
+    "confirmed_at": "2026-08-03T15:01:32+00:00",
+    "fingerprint": "sha256:fa0a8d5818556a5e1873274c6de938ce15b5ca6890313e9ef0caf1a14369635a",
+    "revision": 3
+  }
+}

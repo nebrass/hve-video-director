@@ -1,0 +1,367 @@
+<!-- Hero scene — the film's single Three.js beat. The finished video as a real
+     object in space: a 16:9 slab with thickness, dark face, restrained purple
+     edge-light, turning slowly under a key light that lands after a half-second
+     of stillness.
+
+     RUNTIME: three (per the frame packet). The three adapter has NO duration
+     inference, so the root carries data-duration="8" — without it the render
+     fails with "Composition has zero duration".
+
+     MODULE BOUNDARY (why this script is CLASSIC, not type="module"):
+       A sub-composition's <script> is cloned out of its <template> and
+       re-executed in the HOST document, where module semantics do not survive —
+       a bare `import` throws "Cannot use import statement outside a module" and
+       `hyperframes check` fails on the page error. The failure is invisible when
+       this scene is viewed alone. So the root composition (index.html) owns the
+       single `import * as THREE` and publishes it through a ready-queue; this
+       scene subscribes with a classic script. Late subscribers run immediately,
+       so the subscription is order-independent.
+
+     DETERMINISM CONTRACT:
+       - Every visual is a pure function of HyperFrames seek time. The camera
+         pose and the key-light ramp are computed inside renderAt(t) from the
+         `hf-seek` detail.time, bootstrapped once from window.__hfThreeTime.
+       - No requestAnimationFrame / setAnimationLoop, no Date.now /
+         performance.now / clock deltas, no unseeded randomness.
+       - Renderer size and pixel ratio are pinned to the frame size.
+       - Scene, camera, renderer and materials are built ONCE, inside the
+         ready-queue callback, before the first render; nothing is built,
+         fetched or allocated at seek time.
+       - The runtime writes window.__hfThreeTime immediately before every
+         `hf-seek` dispatch, so even if the root's module resolves late the
+         bootstrap render lands on the CURRENT seek time, not on t=0.
+       - `hf-seek` is a SINGLE global event carrying the ROOT clock, not this
+         scene's local time. renderAt subtracts the mount's data-start; without
+         that every root time >= 8 clamps to 8 and the slab renders frozen at the
+         end of its orbit for the whole beat. No gate catches that.
+       - No post-processing pass, so no dependence on previous-frame history.
+       - No exit animation — the seam owns the exit. -->
+<template id="scene-05-hero-template">
+  <div data-composition-id="scene-05-hero" data-width="1920" data-height="1080" data-duration="8">
+
+    <!-- Full-bleed ground: the twilight void the object floats in. Painted on a
+         clip layer, never on the composition root. -->
+    <div id="scene-05-hero-ground" class="clip scene-05-hero-layer"
+         data-start="0" data-duration="8" data-track-index="0"></div>
+
+    <!-- WebGL plate. Drawing buffer pinned to 1920x1080 in script. -->
+    <canvas id="scene-05-hero-canvas" class="clip scene-05-hero-layer"
+            data-start="0" data-duration="8" data-track-index="1"
+            width="1920" height="1080"></canvas>
+
+    <!-- Grade / vignette that arrives with the key light and deepens through the shot. -->
+    <div id="scene-05-hero-grade" class="clip scene-05-hero-layer"
+         data-start="0" data-duration="8" data-track-index="2"></div>
+
+    <style>
+      [data-composition-id="scene-05-hero"]{
+        position:absolute; inset:0; width:1920px; height:1080px;
+        overflow:hidden; background:transparent;
+      }
+      /* Every timed layer is a full-frame plate with its own explicit box. */
+      [data-composition-id="scene-05-hero"] .scene-05-hero-layer{
+        position:absolute; left:0; top:0; width:1920px; height:1080px;
+      }
+      [data-composition-id="scene-05-hero"] #scene-05-hero-ground{
+        background:
+          radial-gradient(62% 50% at 50% 47%,
+            rgba(83,58,253,0.22) 0%,
+            rgba(83,58,253,0.07) 44%,
+            rgba(83,58,253,0) 74%),
+          radial-gradient(118% 96% at 50% 45%,
+            #1c1e54 0%,          /* DESIGN.md — dark scene background */
+            #16193f 30%,
+            #061b31 62%,         /* DESIGN.md — deep navy */
+            #040a18 100%);
+      }
+      [data-composition-id="scene-05-hero"] #scene-05-hero-canvas{ display:block; }
+      [data-composition-id="scene-05-hero"] #scene-05-hero-grade{
+        pointer-events:none; opacity:0;
+        background:radial-gradient(66% 54% at 50% 46%,
+          rgba(4,7,20,0) 0%,
+          rgba(4,7,20,0) 52%,
+          rgba(4,7,20,0.34) 78%,
+          rgba(4,7,20,0.62) 100%);
+      }
+    </style>
+
+    <script>
+      window.__timelines = window.__timelines || {};
+      (function () {
+        var ID  = "scene-05-hero";
+        var SEL = '[data-composition-id="' + ID + '"]';
+
+        // The runtime wraps a CLASSIC sub-composition script and injects scoped
+        // `document` / `gsap` / `window` proxies (that is how window.__timelines
+        // publishes under both the authored and the mount id, and how selector
+        // strings get scoped to this composition). Reading a PROPERTY through the
+        // window proxy is fine; CALLING a native method on it is not — the proxy has
+        // no Window internal slot, so `window.addEventListener(...)` throws
+        // "Illegal invocation". The old type="module" script was never wrapped, so
+        // this only bites now. Keep `window` for property access, use HOST to call
+        // native window methods.
+        var HOST = typeof globalThis !== "undefined" ? globalThis : window.self;
+
+        /* ====================== TIMELINE — SYNCHRONOUS ==========================
+           GSAP owns the timeline and needs NOTHING from Three.js, so it registers
+           here, at the top of this script, ahead of the deferred Three build. The
+           runtime's sub-composition timeline gate therefore resolves for this scene
+           regardless of when the root's module import settles.
+
+           Do NOT move this block below the __threeReady push, and do not make it
+           depend on THREE. The previous build registered the timeline at the END of
+           a type="module" script and leaned on that as a load barrier for the
+           import — which is precisely what broke: the cloned script is re-executed
+           in the host document, the bare `import` throws, and the whole script dies
+           with it, timeline included.
+
+           Selector strings (not resolved nodes) so a missing target can only warn,
+           never throw before window.__timelines is written.
+           ==================================================================== */
+        var GRADE = SEL + " #scene-05-hero-grade";
+        var tl = gsap.timeline({ paused: true });
+
+        // The grade arrives with the key light, then deepens slowly for the rest of
+        // the shot so the frame keeps changing through the back half. Nothing exits.
+        tl.fromTo(GRADE, { opacity: 0 }, { opacity: 0.72, duration: 1.2, ease: "expo.out" }, 0.5);
+        tl.to(GRADE, { opacity: 1, duration: 6.3, ease: "power1.inOut" }, 1.7);
+
+        window.__timelines[ID] = tl;
+
+        /* ======================= THREE-FREE CONSTANTS ==========================
+           Pure numbers and pure functions — no THREE symbol is touched here, so
+           this all evaluates synchronously and the ready callback just closes
+           over it.
+           ==================================================================== */
+        var FRAME_W  = 1920;
+        var FRAME_H  = 1080;
+        var DURATION = 8;                 // must match the root data-duration
+
+        // ~0.5s of stillness before the key light lands.
+        var HOLD          = 0.5;
+        var KEY_IN_START  = 0.5;
+        var KEY_IN_DUR    = 1.2;
+        // Sheen, not flare. 4.0 blew the clearcoat lobe into a white blob over ~40%
+        // of the face under ACES — it read as an overexposed screen, not as light on
+        // a machined surface. Tuned down until the travelling band is a defined
+        // highlight with the dark face still legible on both sides of it, and the
+        // purple edge-light stays the brightest accent in the frame.
+        var KEY_MAX       = 0.75;
+
+        // Slow orbit: 41.2 degrees total. Never a revolution.
+        var AZ_0 = -0.46, AZ_1 = 0.26;    // azimuth, radians
+        var EL_0 = 0.215, EL_1 = 0.128;   // elevation, radians
+        var R_0  = 9.0,   R_1  = 8.3;     // imperceptible push-in (DESIGN.md product-shot drift)
+        var LOOK_Y = 0;                   // object sits on the true vertical centre
+
+        // The object: a 16:9 slab with real thickness, presented at a slight angle.
+        var SLAB_RX = -0.30, SLAB_RY = -0.28;
+        var SLAB_W  = 5.68, SLAB_H = 3.195, SLAB_D = 0.24;   // 5.68/3.195 = 1.778
+
+        function clamp01(v){ return v < 0 ? 0 : v > 1 ? 1 : v; }
+        function smoothstep(p){ return p * p * (3 - 2 * p); }
+        function expoOut(p){ return p >= 1 ? 1 : 1 - Math.pow(2, -10 * p); }
+
+        // Dead still until HOLD, then a dignified ease-in and settle (premium restraint:
+        // no bounce, no overshoot, zero velocity at both ends).
+        function orbitProgress(t){
+          return smoothstep(clamp01((t - HOLD) / (DURATION - HOLD)));
+        }
+
+        // Camera pose is a pure function of seek time — same time in, same pixels out.
+        // Takes the output vector as an argument, so it stays THREE-agnostic.
+        function cameraPositionAt(t, out){
+          var e  = orbitProgress(t);
+          var az = AZ_0 + (AZ_1 - AZ_0) * e;
+          var el = EL_0 + (EL_1 - EL_0) * e;
+          var r  = R_0  + (R_1  - R_0 ) * e;
+          return out.set(
+            Math.sin(az) * Math.cos(el) * r,
+            Math.sin(el) * r,
+            Math.cos(az) * Math.cos(el) * r
+          );
+        }
+
+        /* ================= THREE BUILD — DEFERRED TO THE ROOT QUEUE =============
+           The root publishes `window.__threeReady = { push: (fn) => fn(THREE) }`
+           once its module resolves, so a late subscriber runs immediately and an
+           early one is queued in the array and flushed. Either way this callback
+           runs exactly once, and everything inside it is built before the first
+           render — nothing here is deferred to seek time.
+           ==================================================================== */
+        (window.__threeReady = window.__threeReady || []).push(function (THREE) {
+
+          /* ------------------------------ renderer ------------------------------ */
+          var canvas = document.querySelector(SEL + " #scene-05-hero-canvas");
+
+          // TIME BASE. The runtime dispatches ONE global `hf-seek` and its detail.time
+          // is the ROOT composition clock, not this scene's local time — likewise
+          // window.__hfThreeTime. Without this offset every root time >= DURATION
+          // clamps to 8, so the slab renders frozen at the end of its orbit for the
+          // whole beat: the camera never moves and the sheen never travels. Nothing
+          // catches that — lint, runtime, motion and contrast all pass on a static
+          // WebGL plate, and a single still frame looks fine.
+          //
+          // Find the offset in the DOM rather than hard-coding 36, so re-timing this
+          // scene in index.html needs no edit here. Beware the COMPILED shape — it is
+          // not the authored one: the compiler renames data-composition-src to
+          // data-composition-file and relabels the authored root as
+          // data-hf-inner-root, so the mount host is the nearest ancestor that still
+          // carries this scene's composition id, and it holds data-start="36".
+          // Standalone (authored DOM) the canvas's parent IS the composition root: it
+          // has the id but no data-start, so T0 stays 0 and local == root. Anything
+          // unrecognised also yields 0 — degrade to the old behaviour, never to NaN.
+          var T0 = 0;
+          for (var node = canvas.parentElement; node; node = node.parentElement) {
+            if (node.getAttribute("data-composition-id") === ID ||
+                node.hasAttribute("data-composition-file")) {
+              var startAttr = parseFloat(node.getAttribute("data-start"));
+              if (isFinite(startAttr)) T0 = startAttr;
+              break;
+            }
+          }
+
+          var renderer = new THREE.WebGLRenderer({ canvas: canvas, alpha: true, antialias: true });
+          renderer.setPixelRatio(1);                       // no device-pixel-ratio dependence
+          renderer.setSize(FRAME_W, FRAME_H, false);       // pinned to the frame size
+          renderer.outputColorSpace   = THREE.SRGBColorSpace;
+          renderer.toneMapping        = THREE.ACESFilmicToneMapping;  // filmic highlight rolloff
+          // Slightly under 1.0: pulls the sheen's shoulder down off the ACES clip
+          // point while leaving the dark face and the purple edge where they were.
+          renderer.toneMappingExposure = 0.92;
+
+          var scene  = new THREE.Scene();
+          var camera = new THREE.PerspectiveCamera(32, FRAME_W / FRAME_H, 0.1, 200);
+
+          /* ------------------------------ the object ---------------------------- */
+          // Machined edge — dielectric on purpose: with no environment map a metallic
+          // surface renders black. Carries the one restrained Stripe-purple statement.
+          var edgeMat = new THREE.MeshStandardMaterial({
+            color: 0x2a2f66, metalness: 0.28, roughness: 0.34,
+            emissive: 0x533afd, emissiveIntensity: 0.5
+          });
+          var bezelMat = new THREE.MeshStandardMaterial({ color: 0x0a1233, metalness: 0.20, roughness: 0.50 });
+          var backMat  = new THREE.MeshStandardMaterial({ color: 0x0a1030, metalness: 0.15, roughness: 0.62 });
+
+          // BoxGeometry material groups: +x, -x, +y, -y, +z, -z.
+          var body = new THREE.Mesh(
+            new THREE.BoxGeometry(SLAB_W, SLAB_H, SLAB_D),
+            [edgeMat, edgeMat, edgeMat, edgeMat, bezelMat, backMat]
+          );
+
+          // The face. A very slight convex bow fans the surface normals so the key
+          // light's specular reads as a hotspot that TRAVELS across a real surface
+          // instead of the whole plane brightening uniformly. This is the beat: the
+          // light behaving on a manufactured surface, which flat DOM layers cannot do.
+          var FACE_W = SLAB_W - 0.10, FACE_H = SLAB_H - 0.10, BOW = 0.14;
+          var faceGeo = new THREE.PlaneGeometry(FACE_W, FACE_H, 96, 54);
+          var facePos = faceGeo.attributes.position;
+          for (var i = 0; i < facePos.count; i++) {
+            var u = facePos.getX(i) / (FACE_W / 2);
+            var v = facePos.getY(i) / (FACE_H / 2);
+            facePos.setZ(i, BOW * (1 - u * u) * (1 - v * v));
+          }
+          facePos.needsUpdate = true;
+          faceGeo.computeVertexNormals();
+
+          var faceMat = new THREE.MeshPhysicalMaterial({
+            // TWO LOBES, deliberately separated. The clearcoat is the only TIGHT one,
+            // so it alone is the sheen; the base is a dim wide wash that just keeps
+            // the surface off black. Keeping them apart is what stops the highlight
+            // collapsing into one soft dome that reads as an overexposed screen.
+            //
+            // Both numbers were landed by measuring rendered frames at mid-orbit:
+            // raising base roughness 0.45 -> 0.58 cut the surrounding wash by a third
+            // (pixels above ~24% luma: 5.3% -> 3.5% of frame) while the sheen core
+            // held steady (peak luma 215 -> 212). Flattening the CLEARCOAT instead
+            // (0.42) reproduced the dome — it is the wrong layer to soften.
+            //
+            // Peak is deliberately just under clipping (~212/255, nothing at 255).
+            // The original blowout was not a wide lobe but a peak ~10x over: with
+            // everything past the clip point rendering flat white, even a tight lobe
+            // paints a huge white blob.
+            color: 0x081026, metalness: 0.04, roughness: 0.58,
+            clearcoat: 1.0, clearcoatRoughness: 0.24, reflectivity: 0.62,
+            emissive: 0x0b1533, emissiveIntensity: 0.55   // never a pure black hole
+          });
+          var face = new THREE.Mesh(faceGeo, faceMat);
+          face.position.z = SLAB_D / 2 + 0.002;
+
+          var slab = new THREE.Group();
+          slab.add(body);
+          slab.add(face);
+          slab.rotation.set(SLAB_RX, SLAB_RY, 0);
+          scene.add(slab);
+
+          /* -------------------------------- the rig ----------------------------- */
+          // Fill — keeps the silhouette readable from the first frame, before the key
+          // lands. Deliberately low.
+          scene.add(new THREE.HemisphereLight(0x24407a, 0x05070f, 0.55));
+
+          // Restrained purple accent from the lower right, reinforcing the emissive
+          // edge rather than adding a second colour statement.
+          var accent = new THREE.PointLight(0x6b4dff, 0.85, 0, 0);  // decay 0
+          accent.position.set(6.6, -3.2, 5.6);
+          scene.add(accent);
+
+          // Far rim, so the trailing edge stays separated from the void.
+          var rim = new THREE.DirectionalLight(0x8f7dff, 1.2);
+          rim.position.set(5.4, 2.6, -6.4);
+          scene.add(rim);
+
+          // Key. decay = 0 makes intensity distance-independent (predictable), but the
+          // light stays POSITIONAL — that is what produces a localised, travelling
+          // specular instead of a flat directional wash.
+          //
+          // angle 0.32 / penumbra 0.55 (was 0.55 / 0.9): the old cone flooded the whole
+          // slab evenly, so nothing on the face was darker than anything else and the
+          // highlight had no surround to read against. The tighter cone puts full key
+          // on the middle of the face and rolls the ends and corners down to ~30-60%,
+          // which is what gives the travelling sheen an edge.
+          var key = new THREE.SpotLight(0xf2f4ff, 0, 0, 0.32, 0.55, 0);
+          key.target.position.set(0, LOOK_Y, 0);
+          scene.add(key.target);
+          scene.add(key);
+
+          // Place the key so its mirror reflection about the face normal lands on the
+          // camera's MID-orbit pose. The sheen therefore enters, crosses the face and
+          // exits — peaking around t = 4.25s, in the back half of the shot.
+          var faceNormal = new THREE.Vector3(0, 0, 1)
+            .applyEuler(new THREE.Euler(SLAB_RX, SLAB_RY, 0, "XYZ"))
+            .normalize();
+          var MID_T = HOLD + (DURATION - HOLD) * 0.5;          // smoothstep(0.5) = 0.5
+          var midCamDir = cameraPositionAt(MID_T, new THREE.Vector3()).normalize();
+          var keyDir = faceNormal.clone()
+            .multiplyScalar(2 * midCamDir.dot(faceNormal))
+            .sub(midCamDir)
+            .normalize();
+          key.position.copy(keyDir).multiplyScalar(11.5);
+
+          /* --------------------------------- seek -------------------------------- */
+          var camPos = new THREE.Vector3();
+
+          function renderAt(time){
+            var t = Math.max(0, Math.min(DURATION, time - T0));
+
+            cameraPositionAt(t, camPos);
+            camera.position.copy(camPos);
+            camera.lookAt(0, LOOK_Y, 0);
+
+            // The light lands after the hold.
+            key.intensity = KEY_MAX * expoOut(clamp01((t - KEY_IN_START) / KEY_IN_DUR));
+
+            renderer.render(scene, camera);
+          }
+
+          // Listener first, then the bootstrap render, so no seek can be dropped.
+          // window.__hfThreeTime carries the runtime's CURRENT seek time (it is written
+          // immediately before every hf-seek dispatch), so if this callback runs after
+          // the runtime has already started seeking, the bootstrap still draws the
+          // right frame rather than falling back to t=0.
+          HOST.addEventListener("hf-seek", function (event) { renderAt(event.detail.time); });
+          renderAt(HOST.__hfThreeTime || 0);
+        });
+      })();
+    </script>
+  </div>
+</template>

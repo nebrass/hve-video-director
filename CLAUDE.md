@@ -13,12 +13,17 @@ Two things to keep distinct:
 - **This repo** — the skill definition (`SKILL.md`, `reasoning/`, `grammar/`, `workflows/`, `templates/`, `patterns/`, `sub-agents/`, `scripts/`, `design-systems/`, `compat/`). Edits here change behavior for *all* users.
 - **Generated video projects** — created by the skill at runtime in `{project-dir}/`. They contain `project-plan.md`, `.hve/brief-state.json`, `context.md`, `storyboard.md` (the official HyperFrames storyboard shape since M4 — see below), `DESIGN.md`, `public/screenshots/`, `scenes/*.html`, `index.html` (root HyperFrames composition), `voiceover.mp3`, `out/final.mp4`, and — only while a Studio review round is open — `.hyperframes/frame-comments.json`. None of them lives in this repo.
 
-**There is no committed reference build right now.** `example/` held the pre-rebase demo project and
-was removed with it; the reference build is being regenerated against the HyperFrames-first
-pipeline. Regenerating it is a **human-in-the-loop run**, not an automatable task: it needs real TTS
-and music licensing, a headless-Chromium render, and — decisively — this skill's own per-phase
-approvals, which no agent may self-grant (ADR-001). Do not fabricate one, and do not re-add a
-directory that only looks like the output of a real run.
+**`example/` is the committed reference build** — the source artifacts of one real end-to-end run
+against the HyperFrames-first pipeline (a 60s promo the skill made about itself), with every
+per-phase approval given by a human. Media is gitignored; the MP4 ships as a Release asset.
+
+Treat it as a **record, not a fixture**. Never hand-edit a file in it to make a point, and never
+regenerate it from a partial run: it is only worth anything while every byte is what the pipeline
+actually emitted. A replacement is a **human-in-the-loop run** — real TTS, music licensing, a
+headless-Chromium render, and this skill's own per-phase approvals, which no agent may self-grant
+(ADR-001). Do not fabricate one, and do not add a directory that only looks like the output of a
+real run. `example/.hve/brief-state.json` is the consent record that makes the claim checkable:
+`validate_brief.py --project-dir example status` must report complete, confirmed and unstale.
 
 ## Architecture
 

@@ -106,6 +106,9 @@ jobs:
           n=$(grep -rho 'SKILL_HOMES="[^"]*"' SKILL.md workflows/*.md scripts/check_requirements.sh | sort -u | wc -l)
           test "$n" -eq 1 || { echo "SKILL_HOMES diverged across $n variants"; exit 1; }
 
+      # Scoped to the skill's own surface on purpose. `example/` is a record of a
+      # render that happened, so it stays on the version it was rendered against —
+      # forcing it to track a bump would edit a record to satisfy a lint.
       - name: GSAP version and SRI hash are pinned in lock-step
         if: always()
         run: |

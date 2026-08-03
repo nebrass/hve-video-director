@@ -38,11 +38,11 @@ INSTRUCTION_FILES = [
 
 # Directories an instruction file may reference by path. A reference into one of
 # these must resolve, because the whole point of naming it is that an agent opens it.
-# `example` is listed even though the directory is gone — that is the point. It was
-# omitted while `example/` existed, so when the rebase removed it the Copilot file
-# went on telling a session to run `example/voiceover.py` and nothing failed. A
-# directory this repo may legitimately reference has to stay checkable across its
-# own deletion, which is exactly when the references to it go stale.
+# `example` earns its place here by having been absent once: it was omitted while
+# the directory existed, so when the rebase removed it the Copilot file went on
+# telling a session to run `example/voiceover.py` and nothing failed. A directory
+# this repo may reference has to stay checkable across its own deletion and return —
+# which is exactly when references to it go stale.
 REPO_DIRS = (
     "scripts", "workflows", "patterns", "templates",
     "reasoning", "grammar", "sub-agents", "compat", "design-systems", "test",

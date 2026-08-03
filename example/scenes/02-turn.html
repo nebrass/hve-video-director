@@ -1,0 +1,108 @@
+<!-- Frame 3 — "It does not render. It directs."
+     motion: gradient-text-sweep, one-pass-sheen form — the gradient is the resting fill
+             everywhere except one narrow band (~20% of a 320% span) that travels THROUGH
+             the letterforms. background-size MUST exceed 100% or the position tween is a
+             silent no-op; the percent axis is inverted, so 100% -> 0% reads left-to-right;
+             ease "none" so it reads as light, not as an accelerating object.
+             One pass, no crossfade, no stacked twin — so no occlusion waiver is needed.
+     camera: static. The pressure of Frame 2 releases into stillness; the hero line lands and
+             is HELD 0.4s in silence before the light moves. The pause is the turn.
+     Palette: the sweep band is the brand purple, never the ruby/magenta decorative gradient
+             (DESIGN.md forbids those two as text). -->
+<template id="scene-02-turn-template">
+  <div data-composition-id="scene-02-turn"
+       data-width="1920" data-height="1080" data-duration="6"
+       style="position:absolute;inset:0;overflow:hidden;background:#1c1e54;">
+
+    <div class="clip turn-ground" id="turn-ground"
+         data-start="0" data-duration="6" data-track-index="0"></div>
+
+    <div class="clip turn-stage" id="turn-stage"
+         data-start="0" data-duration="6" data-track-index="1">
+      <!-- layout lives on the inner wrapper, never on the clip element itself: the runtime
+           owns a clip's visibility/display, so a `display:flex` there is not ours to keep. -->
+      <div class="turn-inner">
+        <div class="turn-lead" id="turn-lead">It does not render.</div>
+        <h1 class="turn-hero" id="turn-hero">It directs.</h1>
+      </div>
+    </div>
+
+    <style>
+      [data-composition-id="scene-02-turn"]{
+        position:absolute; inset:0; overflow:hidden;
+        background:#1c1e54;
+        font-family:"Helvetica Neue", Arial, sans-serif;
+        color:#ffffff;
+      }
+      [data-composition-id="scene-02-turn"] .turn-ground{
+        position:absolute; inset:0;
+        /* a touch more lift at centre than Frame 2 — the release after the crowd */
+        background:radial-gradient(116% 106% at 50% 46%, #1c1e54 0%, #061b31 100%);
+      }
+      [data-composition-id="scene-02-turn"] .turn-stage{ position:absolute; inset:0; }
+      [data-composition-id="scene-02-turn"] .turn-inner{
+        position:absolute; inset:0;
+        display:flex; flex-direction:column; align-items:center; justify-content:center;
+        gap:26px; padding:0 160px; box-sizing:border-box;
+      }
+      [data-composition-id="scene-02-turn"] .turn-lead{
+        font-size:82px; font-weight:300; line-height:1.10; letter-spacing:-0.030em;
+        text-align:center; color:rgba(255,255,255,0.46);
+        opacity:0; will-change:transform, opacity;
+      }
+      [data-composition-id="scene-02-turn"] .turn-hero{
+        margin:0;
+        font-size:136px; font-weight:300; line-height:1.06; letter-spacing:-0.040em;
+        text-align:center;
+        opacity:0; will-change:transform, opacity, background-position;
+        /* resting fill is solid white; one narrow purple band rides at 40–60% of the span.
+           First and last stops are equal, so the pass has no visible seam. */
+        background-image:linear-gradient(96deg,
+          #ffffff 0%, #ffffff 40%,
+          #a394ff 47%, #533afd 50%, #a394ff 53%,
+          #ffffff 60%, #ffffff 100%);
+        background-size:320% 100%;          /* > 100% — required, or the tween is dead */
+        background-position:100% 50%;       /* start; tween toward 0% for left→right travel */
+        -webkit-background-clip:text;
+        background-clip:text;               /* both, plus transparent colour, or the capture
+                                               browser paints a solid gradient block */
+        color:transparent;
+      }
+    </style>
+
+    <script>
+      window.__timelines = window.__timelines || {};
+      (function () {
+        var ID = "scene-02-turn";
+        var root = '[data-composition-id="' + ID + '"]';
+        var tl = gsap.timeline({ paused: true });
+
+        // 0.20–1.10 — the negation lands first, quiet and secondary.
+        tl.fromTo(root + " #turn-lead",
+          { opacity: 0, y: 26 },
+          { opacity: 1, y: 0, duration: 0.90, ease: "expo.out" },
+          0.20);
+
+        // 1.10–2.10 — stillness. Nothing happens. This is the turn.
+
+        // 2.10–3.05 — the claim arrives.
+        tl.fromTo(root + " #turn-hero",
+          { opacity: 0, y: 34 },
+          { opacity: 1, y: 0, duration: 0.95, ease: "expo.out" },
+          2.10);
+
+        // 3.05–3.45 — held 0.4s, exactly as directed, before any light moves.
+
+        // 3.45–5.45 — gradient-text-sweep: the band travels through the glyphs.
+        // Glyphs never move; ease "none"; the percent axis is inverted.
+        tl.fromTo(root + " #turn-hero",
+          { backgroundPosition: "100% 50%" },
+          { backgroundPosition: "0% 50%", duration: 2.00, ease: "none" },
+          3.45);
+
+        // 5.45–6.00 — the line rests solid white. No exit; the seam owns it.
+        window.__timelines[ID] = tl;
+      })();
+    </script>
+  </div>
+</template>

@@ -1,0 +1,69 @@
+{
+  "fps": 30,
+  "seams": [
+    {
+      "id": "pain\u2192turn",
+      "cut": 13,
+      "technique": "zoom-through",
+      "exit": {
+        "selector": "#el-pain",
+        "axis": "z",
+        "dir": 1
+      },
+      "entry": {
+        "selector": "#el-turn",
+        "axis": "z",
+        "dir": 1,
+        "scanRoot": "#el-turn"
+      }
+    },
+    {
+      "id": "reasoning\u2192stack",
+      "cut": 28,
+      "technique": "zoom-through",
+      "exit": {
+        "selector": "#el-reasoning",
+        "axis": "z",
+        "dir": 1
+      },
+      "entry": {
+        "selector": "#el-stack",
+        "axis": "z",
+        "dir": 1,
+        "scanRoot": "#el-stack"
+      }
+    },
+    {
+      "id": "stack\u2192hero",
+      "cut": 36,
+      "technique": "zoom-through",
+      "exit": {
+        "selector": "#el-stack",
+        "axis": "z",
+        "dir": 1
+      },
+      "entry": {
+        "selector": "#el-hero",
+        "axis": "z",
+        "dir": 1,
+        "scanRoot": "#el-hero"
+      }
+    },
+    {
+      "id": "capabilities\u2192cta",
+      "cut": 53,
+      "technique": "zoom-through",
+      "exit": {
+        "selector": "#el-capabilities",
+        "axis": "z",
+        "dir": 1
+      },
+      "entry": {
+        "selector": "#el-cta",
+        "axis": "z",
+        "dir": 1,
+        "scanRoot": "#el-cta"
+      }
+    }
+  ]
+}

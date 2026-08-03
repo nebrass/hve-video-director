@@ -1,0 +1,165 @@
+<template id="scene-04-stack-template">
+  <div data-composition-id="scene-04-stack"
+       data-width="1920" data-height="1080" data-duration="8"
+       style="position:absolute;inset:0;overflow:hidden">
+
+    <!-- Frame 5 — the director on top, the rendering ecosystem separating out beneath it.
+         blueprint: grid-card-assemble (staggered assemble -> hold, with a camera zoom-OUT
+                    chorded to the separation; the runtime chips are its item cascade)
+         motion:    depth-scatter-assemble (index-derived golden-angle 3D cloud -> flat stack)
+         camera:    exploded (planes part along Z, then HOLD at full separation)
+         runtime:   GSAP 2.5D only — `three` was rejected upstream and is not revived here. -->
+
+    <div class="clip s4-bg" data-start="0" data-duration="8" data-track-index="0"></div>
+
+    <div class="clip s4-stage" data-start="0" data-duration="8" data-track-index="1">
+      <!-- perspective lives on a STATIC element; nothing here carries overflow/filter/opacity -->
+      <div class="s4-persp">
+        <div class="s4-world">
+
+          <div class="s4-plane" style="opacity:0">
+            <span class="s4-name">director</span>
+            <span class="s4-role" style="opacity:0">reasoning</span>
+          </div>
+
+          <div class="s4-plane" style="opacity:0">
+            <span class="s4-edge"></span>
+            <span class="s4-name">hyperframes</span>
+            <span class="s4-role" style="opacity:0">composition</span>
+          </div>
+
+          <div class="s4-plane" style="opacity:0">
+            <span class="s4-edge"></span>
+            <span class="s4-name">runtimes</span>
+            <span class="s4-chips">
+              <span class="s4-chip" style="opacity:0">GSAP</span>
+              <span class="s4-chip" style="opacity:0">Three.js</span>
+              <span class="s4-chip" style="opacity:0">Lottie</span>
+            </span>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <style>
+      [data-composition-id="scene-04-stack"]{
+        position:absolute;inset:0;overflow:hidden;
+        font-family:"sohne-var","Inter","SF Pro Display",system-ui,-apple-system,"Helvetica Neue",Arial,sans-serif;
+        font-feature-settings:"ss01";
+        color:#ffffff;
+      }
+
+      /* full-bleed ground rides on its own clip layer, never on the composition root */
+      .s4-bg{position:absolute;inset:0;
+        background:radial-gradient(120% 90% at 50% 40%, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0) 62%), #1c1e54}
+
+      .s4-stage{position:absolute;inset:0}
+      .s4-persp{position:absolute;inset:0;perspective:1800px;perspective-origin:50% 50%}
+      .s4-world{position:absolute;inset:0;transform-style:preserve-3d;will-change:transform}
+
+      .s4-plane{position:absolute;left:50%;top:50%;width:1060px;height:200px;
+        margin-left:-530px;margin-top:-100px;
+        transform-style:preserve-3d;backface-visibility:hidden;will-change:transform,opacity;
+        display:flex;align-items:center;padding:0 46px;
+        background:#061b31;border-radius:8px;
+        box-shadow:0 24px 60px rgba(0,0,0,0.42), 0 6px 18px rgba(50,50,93,0.30)}
+
+      /* the accent, spent once as one motif: the half of the stack that draws pixels */
+      .s4-edge{position:absolute;left:0;top:18px;width:3px;height:164px;
+        border-radius:2px;background:#533afd;will-change:transform}
+
+      .s4-name{font-size:48px;font-weight:300;letter-spacing:-0.6px;color:#ffffff}
+      .s4-role{margin-left:auto;font-size:34px;color:rgba(255,255,255,0.58);
+        font-family:"SourceCodePro","SFMono-Regular","SF Mono","JetBrains Mono",ui-monospace,monospace}
+      .s4-chips{margin-left:auto;display:flex;align-items:center;gap:22px}
+      .s4-chip{flex:none;font-size:34px;color:rgba(255,255,255,0.82);
+        padding:12px 22px;border-radius:6px;background:rgba(255,255,255,0.06);
+        will-change:transform,opacity;
+        font-family:"SourceCodePro","SFMono-Regular","SF Mono","JetBrains Mono",ui-monospace,monospace}
+    </style>
+
+    <script>
+      window.__timelines = window.__timelines || {};
+      (function () {
+        var ID = "scene-04-stack";
+        var R = '[data-composition-id="' + ID + '"]';
+        var tl = gsap.timeline({ paused: true });
+
+        /* ---- depth-scatter-assemble: every scattered value is index-derived ---- */
+        var GOLDEN = Math.PI * (3 - Math.sqrt(5));
+        var RADIUS = 400, Z_NEAR = 380, Z_FAR = -320, TUMBLE = 42;
+        var ASSEMBLE_DUR = 1.15, ASSEMBLE_START = 0.30, STAGGER = 0.12;
+
+        var planes = document.querySelectorAll(R + " .s4-plane");
+        var n = planes.length;
+
+        /* flat targets (the flush stack) and exploded targets (full separation) */
+        var TX = [0, 0, 0], TY = [-252, 0, 252];
+        var EZ = [300, -30, -300], EY = [-286, 0, 286];
+
+        var EXPLODE_START = 2.75, EXPLODE_STEP = 0.15, EXPLODE_DUR = 1.35;
+
+        /* ---- the world: cloud life (15 deg of spin, never past 8 deg at any instant) ---- */
+        gsap.set(R + " .s4-world", { rotationX: 16, rotationY: -8, scale: 0.97 });
+        tl.fromTo(R + " .s4-world", { rotationX: 16, rotationY: -8, scale: 0.97 },
+          { rotationX: 10, rotationY: 7, scale: 1.0, duration: 2.4, ease: "power1.out" },
+          ASSEMBLE_START);
+
+        /* ---- assemble: parked in the cloud by the fromTo start state, then flat ---- */
+        for (var i = 0; i < n; i++) {
+          var a = i * GOLDEN;
+          var depthT = n > 1 ? i / (n - 1) : 0;
+          tl.fromTo(planes[i],
+            {
+              x: Math.cos(a) * RADIUS,
+              y: Math.sin(a) * RADIUS,
+              z: Z_NEAR - depthT * (Z_NEAR - Z_FAR),
+              rotationX: Math.sin(a) * TUMBLE,
+              rotationY: Math.cos(a) * TUMBLE,
+              opacity: 0
+            },
+            {
+              x: TX[i], y: TY[i], z: 0, rotationX: 0, rotationY: 0, opacity: 1,
+              duration: ASSEMBLE_DUR, ease: "expo.out"
+            },
+            ASSEMBLE_START + i * STAGGER);
+        }
+
+        /* ---- the division of labour reads before the split ---- */
+        var roles = document.querySelectorAll(R + " .s4-role");
+        for (var r = 0; r < roles.length; r++) {
+          tl.fromTo(roles[r], { x: -10, opacity: 0 },
+            { x: 0, opacity: 1, duration: 0.6, ease: "expo.out" }, 1.85 + r * 0.20);
+        }
+
+        /* ---- exploded camera: the planes part along Z and stay parted ---- */
+        for (var e = 0; e < n; e++) {
+          tl.fromTo(planes[e], { z: 0, y: TY[e] },
+            { z: EZ[e], y: EY[e], duration: EXPLODE_DUR, ease: "power2.inOut", immediateRender: false },
+            EXPLODE_START + e * EXPLODE_STEP);
+        }
+
+        /* the zoom-OUT that makes room for the separation */
+        tl.fromTo(R + " .s4-world", { scale: 1.0, y: 0 },
+          { scale: 0.88, y: 6, duration: 2.0, ease: "power2.inOut", immediateRender: false }, 2.90);
+
+        /* ---- the runtimes populate the bottom plane after it has settled ---- */
+        var chips = document.querySelectorAll(R + " .s4-chip");
+        for (var c = 0; c < chips.length; c++) {
+          tl.fromTo(chips[c], { y: 14, scale: 0.96, opacity: 0 },
+            { y: 0, scale: 1, opacity: 1, duration: 0.8, ease: "expo.out" }, 4.80 + c * 0.16);
+        }
+
+        /* ---- the accent claims the two planes that draw pixels ---- */
+        var edges = document.querySelectorAll(R + " .s4-edge");
+        for (var g = 0; g < edges.length; g++) {
+          tl.fromTo(edges[g], { scaleY: 0, transformOrigin: "50% 0%" },
+            { scaleY: 1, duration: 0.7, ease: "expo.out" }, 6.00 + g * 0.16);
+        }
+
+        window.__timelines[ID] = tl;
+      })();
+    </script>
+  </div>
+</template>

@@ -237,10 +237,9 @@ authors:
 - **Bare rule/blueprint resolution** is scoped to the markdown directly in `grammar/` and
   `reasoning/` — the only prose that cites upstream recipes by name.
 
-Everything outside those lists is unchecked by design: `CHANGELOG.md` is history and `docs/` is
-the spec bundle. Both are off-limits to edits, and a test may not demand a fix it forbids. (A
-committed generated project would belong here too — there is none while the reference build is
-regenerated.)
+Everything outside those lists is unchecked by design: `CHANGELOG.md` is history, `docs/` is the
+spec bundle, and `example/` is a generated project — the committed record of one real run. All
+three are off-limits to edits, and a test may not demand a fix it forbids.
 
 ---
 
