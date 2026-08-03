@@ -246,6 +246,13 @@ These are enforced verbally in the `## DON'Ts` section of `SKILL.md` — except 
 - **Change the Creative Brief schema** → update `templates/project-plan.md`,
   `scripts/validate_brief.py`, workflow field names, and validator tests together. Story fields
   stale Phase 1–5; only `final_music_track` is audio-only and stales Phase 5.
+  `visual_runtime` is `derived` | `flat` and is a **ceiling, never a request**: `flat` bars
+  three/html-in-canvas/typegpu film-wide, and `derived` grants nothing — capability derivation
+  still decides alone (ADR-005). Never add a value meaning "prefer 3D"; that inverts the rule the
+  reasoning layer exists to enforce. It is brief-only and must not enter storyboard frontmatter.
+  The ceiling filters the *candidate set* after derivation, so a barred frame still records
+  `runtime_rejected:` — suppressing derivation instead would erase the evidence that 3D was ever
+  warranted.
   `music_strategy`'s vocabulary is `freesound` | `delegated` | `user-provided` | `none`, and each
   pins `final_music_track.source` differently — the exact Freesound URL, a provenance URI, the
   literal `user-provided`, or nothing at all. A **delegated** bed (retrieved from a provider catalog

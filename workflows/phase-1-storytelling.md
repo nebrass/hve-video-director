@@ -22,6 +22,8 @@ Surface and record every lever in the exact `project-plan.md` Creative Brief tab
 | Identity / design system | `identity_strategy`, `identity_choice` | Step 1.2 |
 | Voice | `voice` | Step 1.3 |
 | Transition style | `transition_style` | Step 1.5 |
+| Visual runtime | `visual_runtime` | Step 1.5 |
+| Visual runtime | `visual_runtime` |
 | Transition speed | `transition_speed` | Step 1.5 |
 | Music strategy | `music_strategy` | Step 1.5 |
 | Final exact music track | `final_music_track` | Phase 5, after candidates are known |
@@ -528,6 +530,33 @@ confirmed duration. The storyboard records each boundary as `transition_in` on t
 boundary at all.
 
 **If "Metallic swoosh" selected:** the look is a full-frame light overlay riding an incoming-only crossfade — the light family, implemented from `TRANSITION_FAMILIES`. See [../patterns/transition-catalog.md](../patterns/transition-catalog.md) and Phase 4 Step 4.5. Never a clipPath wipe ([../patterns/visual-patterns.md](../patterns/visual-patterns.md) § DON'Ts carries the why).
+
+Ask whether the film may reach for WebGL and canvas heroes at all. This is a **ceiling, not a
+request**: choosing to allow them grants no permission to use them, because capability derivation
+still decides alone (ADR-005). Choosing to keep it flat bars them everywhere, and every frame that
+would have earned one records the rejection so the user can see what the choice cost.
+
+```json
+{
+  "questions": [{
+    "question": "May the film use WebGL/canvas hero shots where a frame earns one?",
+    "header": "3D & canvas",
+    "options": [
+      { "label": "Let the reasoning decide", "description": "Recommended - a scene gets Three.js or a canvas hero only when what it must communicate cannot be shown in flat DOM (depth you can see through, structure, sheer count). Most frames stay flat either way." },
+      { "label": "Keep it flat", "description": "DOM and GSAP only - text, layout and vanilla animation. No WebGL, no canvas heroes. Frames that would have earned one degrade to their flat equivalent, and each records what it gave up." }
+    ],
+    "multiSelect": false
+  }]
+}
+```
+
+Record `visual_runtime: derived | flat`. On `flat`, carry it into Phase 3 as a hard bar; never
+re-offer it per frame, and never treat `derived` as the user asking for 3D.
+
+**It lives in the brief only.** Phases 3 and 4 read it from `.hve/brief-state.json`, not from
+storyboard frontmatter — the brief is the consent record, and a lever the user owns belongs
+where the other ten are. Writing it into frontmatter would also put a local key in the one
+namespace `STORYBOARD_FORMAT` owns.
 
 Choose the music acquisition strategy now. The exact track remains unselected until Phase 5 has
 real candidates; selecting a strategy is not permission for the agent to pick a track.

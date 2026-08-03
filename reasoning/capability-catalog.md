@@ -81,6 +81,11 @@ already does it.** A tested block beats a hand-built hero beat.
    plus tags declared by each grammar entry the frame cites, plus asset/subject realities, plus
    reasoned additions. Do not re-derive it here; do not add tags here.
 2. Candidate set = every runtime serving ALL derived capabilities.
+2b. Apply the user's `visual_runtime` ceiling from the Creative Brief. On `flat`, drop
+   three, html-in-canvas and typegpu from the CANDIDATE SET — never from step 1. The tags
+   stay derived; only the runtime is barred, so a frame that reached for one still records
+   it (step 4) instead of looking like 3D was never warranted. `derived` removes nothing
+   and permits nothing: it is the absence of a ceiling, not a request for a runtime.
 3. Apply the priors, in order — the first that decides, decides:
    a. GSAP-first. If GSAP alone serves every derived capability → GSAP. Stop.
    b. Real product. A bound capture on screen biases against replacing it with invented
@@ -95,6 +100,9 @@ already does it.** A tested block beats a hand-built hero beat.
       redesigned, never approved. No runtime may violate seek determinism.
 4. Record on the frame:  runtime:            (omit entirely when GSAP — it is the default)
                          runtime_rejected:   (whenever a non-default was considered and lost)
+                         When 2b did the barring, the reason is the ceiling and the frame
+                         also carries user_directed: true — e.g.
+                         runtime_rejected: three — visual_runtime: flat (topology-3d derived)
 5. Multi-runtime frames: GSAP remains the timeline owner; every other runtime hangs off it per
    its adapter's registration contract.
 ```

@@ -11,6 +11,7 @@
 | aspect_ratio | {16:9 1920x1080, 9:16 1080x1920, 1:1 1080x1080, or 4:5 1080x1350} |
 | identity_strategy | {design-system, hyperframes-style, screenshots, or custom} |
 | identity_choice | {design-system slug, HyperFrames style name, captured-screenshots, or custom identity name} |
+| visual_runtime | {derived or flat} |
 | voice | {elevenlabs:<name>:<voice-id> or kokoro:<voice-id>} |
 | transition_style | {metallic-swoosh, zoom-through, crossfade, or slide-from-bottom} |
 | transition_speed | {quick, medium, or slow} |

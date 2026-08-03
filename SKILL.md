@@ -29,8 +29,8 @@ flexible; explicit **MUST**, **NEVER**, prerequisite, safety, and validation rul
 **Creative instinct governs craft, not the user's choices.** The agent owns motion choreography,
 easing, composition polish, narrative craft, and implementation details. The user owns the
 creative brief: mode, product surface, duration, theme, aspect ratio, identity/design system,
-voice provider and exact voice, transition style, transition speed, music strategy, and the final
-exact music track (or an explicit no-music choice). Surface every lever as a native prompt.
+visual runtime ceiling, voice provider and exact voice, transition style, transition speed, music
+strategy, and the final exact music track (or an explicit no-music choice). Surface every lever as a native prompt.
 Phase-0 research may support a
 recommendation, but never infer, silently default, preselect, or answer for the user. If making a
 recommendation, put `Recommended - <reason>` in the option label/description; visible guidance is

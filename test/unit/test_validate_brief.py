@@ -252,6 +252,7 @@ STORY = {
     "aspect_ratio": "16:9 1920x1080",
     "identity_strategy": "design-system",
     "identity_choice": "github",
+    "visual_runtime": "derived",
     "voice": "elevenlabs:Matilda:XrExE9yKIg1WjnnlVkGX",
     "transition_style": "metallic-swoosh",
     "transition_speed": "medium",
@@ -1376,6 +1377,84 @@ class StoryboardFormatTestCase(ProjectCase):
         frame = document["frames"][0]
         self.assertEqual(frame["extra"], {"goal": "the viewer leans in"})
         self.assertIn("- tone: curiosity", frame["narrative"])
+
+
+class VisualRuntimeCeilingTestCase(ProjectCase):
+    """The `visual_runtime` lever: a ceiling the user owns, never a request.
+
+    The architectural rule it has to keep is asymmetric, so the tests are too.
+    `flat` must *bar* WebGL and canvas heroes everywhere; `derived` must grant
+    nothing — it is the absence of a ceiling, not permission for a runtime,
+    because capability derivation alone decides what a frame earns (ADR-005).
+    A third value meaning "prefer 3D" would invert that, which is why the enum
+    is closed to exactly two and this file says so out loud.
+    """
+
+    LEVER = "visual_runtime"
+
+    def test_only_the_two_ceiling_values_are_accepted(self):
+        for value in ("derived", "flat"):
+            self.write_plan(story={self.LEVER: value})
+            result, payload = self.json_cli("status")
+            self.assertEqual(result.returncode, 0, payload)
+
+        # Anything that reads as *requesting* a runtime is not a ceiling.
+        for value in ("prefer-3d", "three", "always-3d", "no-3d", ""):
+            self.write_plan(story={self.LEVER: value})
+            result, payload = self.json_cli("status")
+            self.assertEqual(result.returncode, 1, f"{value!r} was accepted")
+            self.assertTrue(
+                any(self.LEVER in error for error in payload["errors"]),
+                f"{value!r} was rejected without naming {self.LEVER}: {payload['errors']}",
+            )
+
+    def test_changing_the_ceiling_stales_every_phase(self):
+        """It changes the film, so it is a story field — not an audio-only one.
+
+        Going flat can retire a scene's whole runtime, so a storyboard and every
+        build downstream of it are no longer answers to the confirmed brief.
+        """
+        self.confirm_and_stamp_all()
+        fresh, fresh_payload = self.json_cli("status")
+        self.assertEqual(fresh.returncode, 0)
+        self.assertEqual(fresh_payload["stale_phases"], [])
+
+        self.write_plan(story={self.LEVER: "flat"})
+        changed, payload = self.json_cli("status")
+        self.assertEqual(
+            payload["stale_phases"],
+            ["phase-1", "phase-2", "phase-3", "phase-4", "phase-5"],
+        )
+        self.assertEqual(payload["earliest_stale_phase"], "phase-1")
+
+    def test_the_ceiling_vocabulary_agrees_across_every_file_that_states_it(self):
+        """Validator, brief template and Phase-1 prompt must offer one vocabulary.
+
+        Three files spell this enum. A value added to the picker but not the
+        validator is a question the user can answer and the brief then rejects;
+        the reverse is a value no one can reach. Neither shows up in a diff of
+        any single file, which is the same drift `test_instruction_parity`
+        exists to catch.
+        """
+        import re
+
+        validator = (ROOT / "scripts" / "validate_brief.py").read_text(encoding="utf-8")
+        declared = re.search(r"VISUAL_RUNTIMES = \{([^}]*)\}", validator)
+        self.assertIsNotNone(declared, "VISUAL_RUNTIMES is no longer declared as a set literal")
+        from_validator = set(re.findall(r'"([a-z0-9-]+)"', declared.group(1)))
+
+        template = (ROOT / "templates" / "project-plan.md").read_text(encoding="utf-8")
+        placeholder = re.search(rf"\| {self.LEVER} \| \{{([^}}]*)\}} \|", template)
+        self.assertIsNotNone(placeholder, f"{self.LEVER} has no row in the brief template")
+        from_template = set(re.findall(r"[a-z0-9-]+", placeholder.group(1))) - {"or"}
+
+        workflow = (ROOT / "workflows" / "phase-1-storytelling.md").read_text(encoding="utf-8")
+        recorded = re.search(rf"`{self.LEVER}: ([a-z0-9|\- ]+)`", workflow)
+        self.assertIsNotNone(recorded, f"Phase 1 never records {self.LEVER}")
+        from_workflow = {v.strip() for v in recorded.group(1).split("|")}
+
+        self.assertEqual(from_validator, from_template, "template vocabulary drifted")
+        self.assertEqual(from_validator, from_workflow, "Phase-1 vocabulary drifted")
 
 
 if __name__ == "__main__":
