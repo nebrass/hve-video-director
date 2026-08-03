@@ -359,7 +359,7 @@ The roadmap was implemented and then *exercised* — a 60s promo built by the sk
 through every phase and gate to a rendered MP4. That run is the reason several things in this
 document are now stated more strongly than they were proposed.
 
-**It found nine defects that four review passes and 220 tests did not.** Five were skill defects
+**It found ten defects that four review passes and 220 tests did not.** Six were skill defects
 and are fixed on the branch; the rest were errors in the run's own artifacts. The pattern is what
 matters, not the count:
 
@@ -370,6 +370,7 @@ matters, not the count:
 | `hf-seek` carries the **root** clock | a frozen WebGL plate is a valid frame to every gate |
 | Phase 1 never offered a validator-accepted music value | no test asserts prompt/validator parity |
 | A cited recipe's inputs were never checked against the frame | the builder, not the gate, hit the contradiction |
+| The director could ask for `material-realism` but not say what the light must *do* | a defensible highlight passes every gate; only a viewer sees the wrong one |
 
 The first three are the class ADR-003's amendment now names: **assembly-only defects**. They are
 invisible in isolation, invisible to `lint`/`check`, invisible in a single-scene preview, and
@@ -386,7 +387,11 @@ provenance clause).
 bumped the story fingerprint and staled all five phases without being asked to. The capability→
 runtime selection put Three.js on exactly one frame of eight and recorded its rejection on another.
 The caption contract refused three malformed approvals in a row. Builders reported conflicts rather
-than silently resolving them — including one that corrected the orchestrator's own diagnosis.
+than silently resolving them — including one that corrected the orchestrator's own diagnosis, and
+one that named a decision it had been given no vocabulary to make. That last one is the sixth
+defect above: a builder escalating *"this is outside the levers you gave me"* is how a missing
+piece of grammar becomes visible, because nothing downstream of it can tell an unintended result
+from an intended one.
 
 ## 29. Future-proofing
 

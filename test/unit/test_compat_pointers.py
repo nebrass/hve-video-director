@@ -191,6 +191,7 @@ RULE_DOC_ALLOWLIST = frozenset({"compat/ecosystem.md"})
 CATALOG = ROOT / "reasoning" / "capability-catalog.md"
 SCENE_ANALYSIS = ROOT / "reasoning" / "scene-analysis.md"
 CAMERA_GRAMMAR = ROOT / "grammar" / "camera.md"
+THREE_TAXONOMY = ROOT / "grammar" / "three-taxonomy.md"
 
 RULE_ELEMENT = re.compile(r'<([A-Za-z0-9][A-Za-z0-9._-]*)\s+path="rules/[^"]*"')
 BLUEPRINT_ELEMENT = re.compile(r'<blueprint\s+id="([^"]+)"')
@@ -243,6 +244,10 @@ CITE_BARE = (
 # a `Key`, a `Slug` and a `` `camera:` value `` column are the same contract.
 # Header text is backtick-stripped before matching, so `camera:` is written bare.
 CAMERA_KEY_COLUMN = re.compile(r"\bslugs?\b|\bkeys?\b|camera:")
+# The column of grammar/three-taxonomy.md that closes the surface-reading
+# vocabulary. Same contract as the camera Key column: the exact literal a
+# `runtime: three` frame states.
+SURFACE_READING_COLUMN = re.compile(r"\breadings?\b", re.I)
 # A Key cell holds one literal, or a Tier-A/Tier-B pair separated by `·` or `/`.
 CAMERA_KEY_SPLIT = re.compile(r"[·/,;]")
 CAMERA_KEY_LITERAL = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")
@@ -601,12 +606,31 @@ def camera_key_values():
     return values
 
 
+def surface_reading_values():
+    """The surface-reading vocabulary (`travelling-band`, `fixed-glint`, …).
+
+    Director-level values naming what a Three scene's key light must *do*. Like
+    the `camera:` values they share a citation's shape exactly, so the scanner
+    has to subtract them — and like those, they are read from the column that
+    owns them rather than listed here, so adding a reading needs no edit to this
+    file. Deriving is the point: a hardcoded list would pass this suite while
+    the grammar and the test disagreed about what the vocabulary is.
+    """
+    values = set()
+    for cell in table_column_cells(THREE_TAXONOMY, SURFACE_READING_COLUMN):
+        token = cell.strip().strip("*_` ").strip()
+        if CAMERA_KEY_LITERAL.fullmatch(token):
+            values.add(token)
+    return values
+
+
 def non_recipe_vocabulary():
     """Everything that shares a recipe citation's shape but is not one."""
     return (
         capability_tags()
         | runtime_values()
         | camera_key_values()
+        | surface_reading_values()
         | set(KNOWN_SKILLS)
         | set(NON_RECIPE_TOKENS)
     )
@@ -634,12 +658,14 @@ def recipe_citation_candidates():
     * a skill name — `KNOWN_SKILLS`, the ecosystem's stable API (ADR-007);
     * a `runtime:` value from the director-keys table (`html-in-canvas`);
     * a tier-suffixed `camera:` value (`orbit-3d`, `isometric-3d`, …);
+    * a surface reading from the Three taxonomy (`travelling-band`, …);
     * an identifier carrying a structural prefix (`data-`, `aria-`, `hf-`,
       `vfx-`) — see NON_RECIPE_PREFIXES;
     * one of the NON_RECIPE_TOKENS.
 
-    Four of those five subtracted sets are derived from the files that own them,
-    so adding a tag, a runtime, or a camera tier needs no edit here. The residue
+    Five of those six subtracted sets are derived from the files that own them,
+    so adding a tag, a runtime, a camera tier or a surface reading needs no edit
+    here. The residue
     is asserted to be empty by `test_every_candidate_resolves_upstream`: any
     token the grammar cannot classify is reported rather than silently dropped,
     which is what keeps the false-positive rate verifiable instead of assumed.

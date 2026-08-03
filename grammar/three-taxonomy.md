@@ -59,6 +59,22 @@ Camera-move names resolve in `grammar/camera.md`.
 - **Materials.** Standard PBR by default; emissive reserved for UI-glow accents. Anything needing
   frame history (motion-blur trails, feedback buffers) is decided by `DETERMINISM_RULES` and
   `THREE_ADAPTER` § Avoid, not here — if the idea needs it, redesign the idea.
+- **Surface reading.** `material-realism` says light carries meaning; it does not say *what the
+  light does*, and that is a communication choice, not an implementation detail. Name one:
+
+  | Reading | The viewer concludes | Use when |
+  |---|---|---|
+  | `travelling-band` | a manufactured object with real extent — the eye follows the light across it | a product hero, a device, anything whose *thingness* is the point |
+  | `fixed-glint` | a screen or a pane — lit, but flat | the surface is a display showing something, and the content matters more than the object |
+  | `matte-diffuse` | a material sample, not a product | texture or colour is the subject and a highlight would distract |
+
+  State it on a `runtime: three` frame alongside the camera move; the packet carries it. The
+  *mechanism* stays the builder's — the reading follows from surface curvature and lobe tightness
+  together, and `THREE_ADAPTER` owns both. Naming it matters because the levers that look like
+  highlight controls are not: intensity, roughness and cone angle change how *bright* and how
+  *broad* a highlight is, while whether it reads as a band or a spot is decided by the geometry
+  underneath. A frame that asked for `travelling-band` and got an ellipse is a miss the director
+  can see and name; without the word, it is nobody's defect.
 - **Transitions.** A Three scene enters and exits through the same 2D seam system as every other
   scene (opacity/transform on its clip wrapper). Never transition *inside* WebGL across a scene
   boundary — seams are `SEAM_LAW` and `seam-craft` territory.

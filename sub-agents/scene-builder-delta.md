@@ -33,6 +33,12 @@ desynchronizes from neighbours you cannot see.
 - `goal:` is the acceptance test. A viewer who misses it means the frame failed, however it looks.
 - `tone:` + `energy:` set easing character and reveal rhythm — `calm` drifts, `build` tightens,
   `peak` punches, `resolve` settles.
+- **A stated surface reading is direction, not decoration.** On a `runtime: three` frame the packet
+  may name `travelling-band`, `fixed-glint` or `matte-diffuse`. That is what the light must *do*,
+  and it is decided by surface curvature and lobe tightness together — not by intensity or cone
+  angle, which only change how bright and how broad the result is. Build the geometry the reading
+  needs. If you cannot achieve it within the packet, say which constraint blocked you rather than
+  shipping the nearest thing.
 - **When `DESIGN.md` and a recipe disagree:** a *brand* parameter (ease, duration, stagger,
   colour) follows `DESIGN.md`; the recipe's *structural* constraints still hold. Report the
   substitution — do not silently pick one.
