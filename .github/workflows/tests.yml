@@ -1,0 +1,67 @@
+name: tests
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  stdlib-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      # Every helper in scripts/ is pure standard library, so no pip install and
+      # no requirements file. Adding one here would silently permit a dependency
+      # the skill's own doctrine forbids.
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # ffmpeg/ffprobe are what the media tests probe for. They degrade
+      # gracefully when absent, so installing them is the difference between
+      # running the normalization integration test and skipping it unnoticed.
+      - name: Install ffmpeg
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
+
+      - name: Report the toolchain the suite will see
+        run: |
+          python3 --version
+          ffmpeg -version | head -1
+          ffprobe -version | head -1
+
+      - name: Run the suite
+        run: bash test/run.sh
+
+      # The checker must stay side-effect-free in report mode. CI is the only
+      # place that can prove it on a machine nobody has already set up.
+      - name: Requirements checker is side-effect-free
+        run: |
+          bash scripts/check_requirements.sh --json > /dev/null
+          bash scripts/check_requirements.sh --plan > /dev/null
+          git diff --exit-code
+          git status --porcelain --untracked-files=all > /tmp/after.txt
+          test ! -s /tmp/after.txt || { echo "checker created files:"; cat /tmp/after.txt; exit 1; }
+
+      # These are documented invariants in CLAUDE.md with copy-pasteable greps.
+      # A rule with a stated verification command and no automation is a rule
+      # that holds until the first person forgets to run it.
+      - name: SKILL_HOMES is byte-identical everywhere
+        run: |
+          n=$(grep -rho 'SKILL_HOMES="[^"]*"' SKILL.md workflows/*.md scripts/check_requirements.sh | sort -u | wc -l)
+          test "$n" -eq 1 || { echo "SKILL_HOMES diverged across $n variants"; exit 1; }
+
+      - name: GSAP version and SRI hash are pinned in lock-step
+        run: |
+          v=$(grep -rho 'gsap@[0-9][0-9.]*' templates/*.html workflows/*.md | sort -u | wc -l)
+          h=$(grep -rho 'integrity="sha384-[^"]*"' templates/*.html workflows/*.md | sort -u | wc -l)
+          test "$v" -eq 1 || { echo "$v GSAP versions in tree — a stale hash ships animation-free scenes"; exit 1; }
+          test "$h" -eq 1 || { echo "$h SRI hashes in tree — same failure"; exit 1; }

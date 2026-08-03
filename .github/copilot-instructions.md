@@ -9,7 +9,7 @@ The renderer is **HyperFrames** (HTML + GSAP, rendered via headless Chromium). R
 Keep two scopes distinct when editing:
 
 - **This repo** — the skill definition (`SKILL.md`, `workflows/`, `templates/`, `patterns/`, `scripts/`, `design-systems/`). Edits here change behavior for *all* users.
-- **Generated video projects** — created by the skill at runtime in `{project-dir}/`. They contain `project-plan.md`, `.hve/brief-state.json`, `context.md`, `storyboard.md`, `DESIGN.md`, `public/screenshots/`, `scenes/*.html`, `index.html` (root HyperFrames composition), `voiceover.mp3`, `out/final.mp4`. These do **not** live in this repo (the canonical reference build under `example/` is being regenerated — that is a human-in-the-loop run, since every phase gate needs a user approval no agent may self-grant).
+- **Generated video projects** — created by the skill at runtime in `{project-dir}/`. They contain `project-plan.md`, `.hve/brief-state.json`, `context.md`, `storyboard.md`, `DESIGN.md`, `public/screenshots/`, `scenes/*.html`, `index.html` (root HyperFrames composition), `voiceover.mp3`, `out/final.mp4`. These do **not** live in this repo, and no reference build is committed while its replacement is being regenerated (see above).
 
 ## Architecture
 
@@ -90,8 +90,9 @@ Both `ELEVENLABS_API_KEY` and `ELEVEN_LABS_API_KEY` are accepted (back-compat).
 
 There is no build or lint command for this repo. Run `bash test/run.sh` for the stdlib helper tests;
 validation of workflow changes still happens by running `/hve-video-director <project-dir>` end-to-end
-in Claude Code. The canonical reference build is `example/` (run `example/voiceover.py` then
-`npx hyperframes render` to reproduce its `out/final.mp4`).
+in Claude Code. There is no committed reference build: the pre-rebase `example/` was removed with the rebase and
+its replacement is a human-in-the-loop run (real TTS, music licensing, and per-phase approvals no
+agent may self-grant). Do not fabricate one.
 
 ## Editing rules — DON'Ts that are easy to violate
 
