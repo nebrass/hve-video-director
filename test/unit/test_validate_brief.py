@@ -252,7 +252,7 @@ STORY = {
     "aspect_ratio": "16:9 1920x1080",
     "identity_strategy": "design-system",
     "identity_choice": "github",
-    "visual_runtime": "derived",
+    "visual_ceiling": "derived",
     "voice": "elevenlabs:Matilda:XrExE9yKIg1WjnnlVkGX",
     "transition_style": "metallic-swoosh",
     "transition_speed": "medium",
@@ -1379,8 +1379,8 @@ class StoryboardFormatTestCase(ProjectCase):
         self.assertIn("- tone: curiosity", frame["narrative"])
 
 
-class VisualRuntimeCeilingTestCase(ProjectCase):
-    """The `visual_runtime` lever: a ceiling the user owns, never a request.
+class VisualCeilingTestCase(ProjectCase):
+    """The `visual_ceiling` lever: a ceiling the user owns, never a request.
 
     The architectural rule it has to keep is asymmetric, so the tests are too.
     `flat` must *bar* WebGL and canvas heroes everywhere; `derived` must grant
@@ -1390,7 +1390,7 @@ class VisualRuntimeCeilingTestCase(ProjectCase):
     is closed to exactly two and this file says so out loud.
     """
 
-    LEVER = "visual_runtime"
+    LEVER = "visual_ceiling"
 
     def test_only_the_two_ceiling_values_are_accepted(self):
         for value in ("derived", "flat"):
@@ -1439,8 +1439,8 @@ class VisualRuntimeCeilingTestCase(ProjectCase):
         import re
 
         validator = (ROOT / "scripts" / "validate_brief.py").read_text(encoding="utf-8")
-        declared = re.search(r"VISUAL_RUNTIMES = \{([^}]*)\}", validator)
-        self.assertIsNotNone(declared, "VISUAL_RUNTIMES is no longer declared as a set literal")
+        declared = re.search(r"VISUAL_CEILINGS = \{([^}]*)\}", validator)
+        self.assertIsNotNone(declared, "VISUAL_CEILINGS is no longer declared as a set literal")
         from_validator = set(re.findall(r'"([a-z0-9-]+)"', declared.group(1)))
 
         template = (ROOT / "templates" / "project-plan.md").read_text(encoding="utf-8")
@@ -1455,6 +1455,72 @@ class VisualRuntimeCeilingTestCase(ProjectCase):
 
         self.assertEqual(from_validator, from_template, "template vocabulary drifted")
         self.assertEqual(from_validator, from_workflow, "Phase-1 vocabulary drifted")
+
+    def test_the_confirmation_summary_shows_every_story_field(self):
+        """The summary the user confirms must contain what confirm-story signs.
+
+        Phase 1 promises this table holds "every story-owned field", and
+        `confirm-story` fingerprints exactly STORY_FIELDS. A field that is
+        fingerprinted but absent from the summary is consent the user never
+        actually gave — ADR-001's central failure, not a formatting slip.
+
+        This is a regression test with a real defect behind it: `visual_ceiling`
+        shipped fingerprinted and missing from this table, because an edit
+        matched a substring in the wrong table and nothing checked the two
+        against each other.
+        """
+        import re
+
+        workflow = (ROOT / "workflows" / "phase-1-storytelling.md").read_text(encoding="utf-8")
+        start = workflow.index("### Confirm the complete story brief before storyboarding")
+        end = workflow.index("Then require an explicit native confirmation", start)
+        shown = set(re.findall(r"`([a-z_]+)`", workflow[start:end]))
+
+        validator = (ROOT / "scripts" / "validate_brief.py").read_text(encoding="utf-8")
+        declared = re.search(r"STORY_FIELDS = \(([^)]*)\)", validator)
+        self.assertIsNotNone(declared, "STORY_FIELDS is no longer a tuple literal")
+        story_fields = set(re.findall(r'"([a-z_]+)"', declared.group(1)))
+
+        self.assertTrue(story_fields, "parsed no story fields — the regex has rotted")
+        self.assertEqual(
+            story_fields - shown,
+            set(),
+            "story fields are fingerprinted by confirm-story but never shown in the "
+            "summary the user confirms",
+        )
+
+    def test_every_multi_value_brief_vocabulary_agrees_with_the_validator(self):
+        """Generalizes the ceiling check to every `field: a | b | c` record line.
+
+        Scoped to that one shape on purpose — `transition_style` records one
+        value per line and needs a different reader, so sweeping it here would
+        mean a regex that matches everything and asserts nothing.
+
+        It earns its keep immediately: `music_strategy` had dropped `delegated`
+        from its record line while the picker offered it and the validator
+        accepted it, and the single-field version could not see that.
+        """
+        import re
+
+        validator = (ROOT / "scripts" / "validate_brief.py").read_text(encoding="utf-8")
+        workflow = (ROOT / "workflows" / "phase-1-storytelling.md").read_text(encoding="utf-8")
+
+        for field, constant in (("visual_ceiling", "VISUAL_CEILINGS"), ("music_strategy", "MUSIC_STRATEGIES")):
+            with self.subTest(field=field):
+                declared = re.search(rf"{constant} = \{{([^}}]*)\}}", validator)
+                self.assertIsNotNone(declared, f"{constant} is no longer a set literal")
+                accepted = set(re.findall(r'"([a-z0-9-]+)"', declared.group(1)))
+
+                recorded = re.search(rf"`{field}: ([a-z0-9|\- ]+)`", workflow)
+                self.assertIsNotNone(recorded, f"Phase 1 never records {field}")
+                written = {v.strip() for v in recorded.group(1).split("|")}
+
+                self.assertEqual(
+                    accepted, written,
+                    f"{field}: the validator accepts {sorted(accepted)} but Phase 1 records "
+                    f"{sorted(written)} — a value in one and not the other is either a question "
+                    f"the brief will reject or a value no one can reach",
+                )
 
 
 if __name__ == "__main__":

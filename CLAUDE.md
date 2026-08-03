@@ -246,7 +246,7 @@ These are enforced verbally in the `## DON'Ts` section of `SKILL.md` — except 
 - **Change the Creative Brief schema** → update `templates/project-plan.md`,
   `scripts/validate_brief.py`, workflow field names, and validator tests together. Story fields
   stale Phase 1–5; only `final_music_track` is audio-only and stales Phase 5.
-  `visual_runtime` is `derived` | `flat` and is a **ceiling, never a request**: `flat` bars
+  `visual_ceiling` is `derived` | `flat` and is a **ceiling, never a request**: `flat` bars
   three/html-in-canvas/typegpu film-wide, and `derived` grants nothing — capability derivation
   still decides alone (ADR-005). Never add a value meaning "prefer 3D"; that inverts the rule the
   reasoning layer exists to enforce. It is brief-only and must not enter storyboard frontmatter.

@@ -24,10 +24,10 @@ least one **Three-only tag**:
 | `shader-surface` | the surface is computed per-pixel, not composed of elements |
 | `cinematic-hero` | the beat's job is to feel monumental |
 
-**And only when the user's ceiling permits it.** `visual_runtime: flat` in the Creative Brief
+**And only when the user's ceiling permits it.** `visual_ceiling: flat` in the Creative Brief
 bars this runtime for the whole film. Test the tags anyway: a frame that derives a Three-only
 tag under a flat ceiling takes the Tier-A move and records `runtime_rejected: three —
-visual_runtime: flat`, exactly as the closing section requires. Barring the runtime is the
+visual_ceiling: flat`, exactly as the closing section requires. Barring the runtime is the
 user's call; pretending the need never existed is nobody's, and it is what would leave them
 unable to see what the setting cost them.
 

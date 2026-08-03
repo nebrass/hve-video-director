@@ -39,6 +39,16 @@ complies, recording `user_directed: true` on the affected frame; gates and budge
 treat such frames as exempt-but-visible, so reviews still see that the choice was directed,
 not derived.
 
+**A film-wide ceiling is not a per-frame directive (added after the M6 panel review).** The
+`visual_ceiling` brief lever is a user instruction, but it does **not** earn `user_directed: true`
+on the frames it bars. The marker above carries a budget exemption because an *expansive*
+instruction must not be clipped by an agent's budget — the user asked for more than the budget
+allows, and the budget yields. A ceiling only ever reduces ambition, so there is nothing to exempt
+it from, and granting the marker would do two false things: exempt the frame from all eight
+cognitive-load budgets, and tell a scene builder the user hand-picked a frame they never saw. A
+barred frame records `runtime_rejected: <runtime> — visual_ceiling: flat` and nothing more. The
+distinction is *scope*: a directive names a frame, a ceiling names a film.
+
 **Why.** (1) Governance is **policy**, not mechanism — policy encodes this skill's promise to
 its users and is the part upstream churn can never break. (2) The doctrines genuinely
 conflict: "never infer, never preselect" cannot be delegated to a contract whose stated rule

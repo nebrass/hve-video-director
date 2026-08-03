@@ -81,7 +81,7 @@ already does it.** A tested block beats a hand-built hero beat.
    plus tags declared by each grammar entry the frame cites, plus asset/subject realities, plus
    reasoned additions. Do not re-derive it here; do not add tags here.
 2. Candidate set = every runtime serving ALL derived capabilities.
-2b. Apply the user's `visual_runtime` ceiling from the Creative Brief. On `flat`, drop
+2b. Apply the user's `visual_ceiling` from the Creative Brief. On `flat`, drop
    three, html-in-canvas and typegpu from the CANDIDATE SET — never from step 1. The tags
    stay derived; only the runtime is barred, so a frame that reached for one still records
    it (step 4) instead of looking like 3D was never warranted. `derived` removes nothing
@@ -100,9 +100,14 @@ already does it.** A tested block beats a hand-built hero beat.
       redesigned, never approved. No runtime may violate seek determinism.
 4. Record on the frame:  runtime:            (omit entirely when GSAP — it is the default)
                          runtime_rejected:   (whenever a non-default was considered and lost)
-                         When 2b did the barring, the reason is the ceiling and the frame
-                         also carries user_directed: true — e.g.
-                         runtime_rejected: three — visual_runtime: flat (topology-3d derived)
+                         When 2b did the barring, the reason names the ceiling — e.g.
+                         runtime_rejected: three — visual_ceiling: flat (topology-3d derived)
+                         NEVER user_directed: true for a ceiling bar. That marker means the
+                         user directed THIS frame, and it exempts the frame from every budget
+                         in reasoning/scene-analysis.md. A film-wide ceiling directs no frame,
+                         and only ever reduces ambition, so it needs no exemption and earns
+                         none — granting one would also tell a builder the user hand-picked a
+                         frame they never saw.
 5. Multi-runtime frames: GSAP remains the timeline owner; every other runtime hangs off it per
    its adapter's registration contract.
 ```

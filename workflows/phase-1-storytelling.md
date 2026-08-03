@@ -21,9 +21,8 @@ Surface and record every lever in the exact `project-plan.md` Creative Brief tab
 | Aspect ratio | `aspect_ratio` | Step 1.1 |
 | Identity / design system | `identity_strategy`, `identity_choice` | Step 1.2 |
 | Voice | `voice` | Step 1.3 |
+| Visual ceiling | `visual_ceiling` | Step 1.5 |
 | Transition style | `transition_style` | Step 1.5 |
-| Visual runtime | `visual_runtime` | Step 1.5 |
-| Visual runtime | `visual_runtime` |
 | Transition speed | `transition_speed` | Step 1.5 |
 | Music strategy | `music_strategy` | Step 1.5 |
 | Final exact music track | `final_music_track` | Phase 5, after candidates are known |
@@ -542,15 +541,15 @@ would have earned one records the rejection so the user can see what the choice 
     "question": "May the film use WebGL/canvas hero shots where a frame earns one?",
     "header": "3D & canvas",
     "options": [
-      { "label": "Let the reasoning decide", "description": "Recommended - a scene gets Three.js or a canvas hero only when what it must communicate cannot be shown in flat DOM (depth you can see through, structure, sheer count). Most frames stay flat either way." },
-      { "label": "Keep it flat", "description": "DOM and GSAP only - text, layout and vanilla animation. No WebGL, no canvas heroes. Frames that would have earned one degrade to their flat equivalent, and each records what it gave up." }
+      { "label": "Allow where earned", "description": "Recommended - a frame gets Three.js, a GPU shader hero, or the real UI rendered in canvas only when what it must communicate cannot be shown flat: depth you can see through, how parts fit together, sheer count, or one monumental product beat. This grants nothing on its own - derivation still decides, and most frames stay flat either way. Any frame that earns one is named in the storyboard before it is built." },
+      { "label": "Keep it flat", "description": "No WebGL, no GPU shader heroes, no canvas rendering of the real UI - film-wide. Frames that would have earned one degrade to their flat equivalent, and each records what it gave up. Lottie accents, CSS motifs and every GSAP choreography are unaffected. This caps how a frame is rendered, not how much it moves - camera moves and transitions are unchanged." }
     ],
     "multiSelect": false
   }]
 }
 ```
 
-Record `visual_runtime: derived | flat`. Never re-offer it per frame, and never treat `derived`
+Record `visual_ceiling: derived | flat`. Never re-offer it per frame, and never treat `derived`
 as the user asking for 3D.
 
 **It is consumed in Step 1.6, not later.** Runtime is decided where the director keys are
@@ -582,7 +581,7 @@ real candidates; selecting a strategy is not permission for the agent to pick a 
 }
 ```
 
-Record `music_strategy: freesound | user-provided | none`. Leave `final_music_track` as its
+Record `music_strategy: freesound | delegated | user-provided | none`. Leave `final_music_track` as its
 placeholder until Phase 5.
 
 ### Confirm the complete story brief before storyboarding
@@ -597,6 +596,7 @@ Present one concise summary containing every story-owned field:
 | Theme | `theme` |
 | Aspect | `aspect_ratio` |
 | Identity | `identity_strategy` + `identity_choice` |
+| Visual ceiling | `visual_ceiling` |
 | Voice | `voice` |
 | Transition style | `transition_style` |
 | Transition speed | `transition_speed` |
@@ -718,9 +718,9 @@ bullets are both missing, `unknown` that no frame heading was found at all. Fix 
 
 ### Say what the ceiling cost
 
-When `visual_runtime: flat`, name every frame whose derivation reached for a barred runtime and what
+When `visual_ceiling: flat`, name every frame whose derivation reached for a barred runtime and what
 it became instead, in the same message as the storyboard. The rejections are already on the frames
-(`runtime_rejected: … — visual_runtime: flat`); this step only surfaces them — the user answered
+(`runtime_rejected: … — visual_ceiling: flat`); this step only surfaces them — the user answered
 that question in Step 1.5 **before a single frame existed**, and this is the first moment the answer
 has anything visible attached to it. A choice the user cannot see the consequences of is not one
 they can revise.

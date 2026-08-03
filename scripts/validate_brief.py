@@ -53,7 +53,7 @@ STORY_FIELDS = (
     "aspect_ratio",
     "identity_strategy",
     "identity_choice",
-    "visual_runtime",
+    "visual_ceiling",
     "voice",
     "transition_style",
     "transition_speed",
@@ -77,7 +77,7 @@ BRIEF_PLACEHOLDERS = {
         "{design-system slug, HyperFrames style name, captured-screenshots, "
         "or custom identity name}"
     ),
-    "visual_runtime": "{derived or flat}",
+    "visual_ceiling": "{derived or flat}",
     "voice": "{elevenlabs:<name>:<voice-id> or kokoro:<voice-id>}",
     "transition_style": (
         "{metallic-swoosh, zoom-through, crossfade, or slide-from-bottom}"
@@ -88,7 +88,7 @@ BRIEF_PLACEHOLDERS = {
         "{none or compact JSON with title, path, source, and license}"
     ),
 }
-VISUAL_RUNTIMES = {"derived", "flat"}
+VISUAL_CEILINGS = {"derived", "flat"}
 DESIGN_SYSTEMS = {
     "stripe",
     "linear-app",
@@ -347,8 +347,8 @@ def validate_story(values: dict[str, str]) -> list[str]:
     # A ceiling on which runtimes the film may reach, never a request for one.
     # `flat` bars WebGL and canvas heroes; `derived` imposes no ceiling and
     # grants no permission — capability derivation still decides alone.
-    if values["visual_runtime"] not in VISUAL_RUNTIMES:
-        errors.append("visual_runtime: expected derived or flat")
+    if values["visual_ceiling"] not in VISUAL_CEILINGS:
+        errors.append("visual_ceiling: expected derived or flat")
 
     voice = values["voice"]
     if not (
