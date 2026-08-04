@@ -28,8 +28,9 @@ layer had to decide how to show an *idea*.
 | Hero budget | `visual_ceiling: derived` imposed no ceiling, and derivation still spent Three.js on exactly **one** frame of eight |
 
 The source artifacts are committed (`context.md`, `storyboard.md`, `DESIGN.md`, `scenes/*.html`,
-`ledger.json`, `index.html`); media is gitignored and regenerable, and the MP4 ships as an asset on
-the v0.2.0 release.
+`ledger.json`, `index.html`). Media is **not** committed — it is regenerable from what is here, and
+a rendered MP4 is attached to a Release when one is produced. No render of this build is published
+yet; the downloads below are the older v0.1.0 films.
 
 It is a **record, not a fixture**, and it is only worth anything while every byte is what the
 pipeline actually emitted. Producing one is a **human-in-the-loop run**: every phase ends at a
