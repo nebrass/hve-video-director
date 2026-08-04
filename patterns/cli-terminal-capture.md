@@ -137,7 +137,7 @@ if [ -n "$record_ok" ] && [ -s "$CAST_TMP" ] &&
   agg --font-size 28 --theme monokai --fps-cap 30 "$CAST_TMP" "$GIF_TMP" &&
   ffmpeg -y -i "$GIF_TMP" \
     -vf "fps=30,scale=trunc(iw/2)*2:trunc(ih/2)*2" \
-    -c:v libx264 -profile:v high -pix_fmt yuv420p -movflags +faststart \
+    -c:v libx264 -profile:v high -g 30 -keyint_min 30 -pix_fmt yuv420p -movflags +faststart \
     "$MP4_TMP" &&
   [ -s "$MP4_TMP" ] &&
   ffprobe -v error -select_streams v:0 \
@@ -259,7 +259,7 @@ agg --font-size 28 --theme monokai --fps-cap 30 \
 # 2. Normalize to constant-fps MP4 — REQUIRED, not just for odd widths.
 ffmpeg -y -i "${TMPDIR:-/tmp}/scene-{NN}-{slug}.gif" \
   -vf "fps=30,scale=trunc(iw/2)*2:trunc(ih/2)*2" \
-  -c:v libx264 -profile:v high -pix_fmt yuv420p -movflags +faststart \
+  -c:v libx264 -profile:v high -g 30 -keyint_min 30 -pix_fmt yuv420p -movflags +faststart \
   public/clips/scene-{NN}-{slug}.mp4
 ```
 
@@ -271,6 +271,21 @@ rebuilds a constant 30fps timeline (a ~5s clip → ~150 frames), `pix_fmt yuv420
 fixes the colorspace, and `scale=trunc(...)*2` forces even dimensions for H.264.
 `agg --fps-cap` is a *cap*, not a floor, so it does not produce constant fps.
 
+**`-g 30 -keyint_min 30` is equally mandatory, for a different reason.** `fps=30` fixes the *frame
+rate*; it does not fix *keyframe placement*. Because agg's source is change-only, x264's
+scene-change heuristic can leave keyframes many seconds apart on a mostly-static terminal — a real
+run produced an 8.33s interval. The HyperFrames renderer detects that and warns:
+
+> `Video "<id>" has sparse keyframes (max interval: 8.33s). This causes seek failures and frame
+> freezing.`
+
+It is not cosmetic. The renderer seeks per frame, so a clip it cannot seek into renders **black or
+frozen for most of its window while `lint`, `check` and the seam gate all pass green** — the scene
+looks right in `npx hyperframes snapshot` and wrong in `out/final.mp4`. Pinning the GOP to one
+second (`-g 30` at 30fps, `-keyint_min 30` stopping x264 from inserting shorter GOPs) makes every
+30th frame seekable. Keep the value equal to the fps whenever either changes, here and in
+`scripts/stitch_clip.py`.
+
 ### Fill a longer scene window (freeze-extend)
 
 A terminal reveal often finishes in ~4s while the narration over it runs ~20s.
@@ -280,7 +295,7 @@ Clone the last frame to fill the slot instead of looping or freezing a dead
 ```bash
 ffmpeg -y -i public/clips/scene-{NN}-{slug}.gif \
   -vf "tpad=stop_mode=clone:stop_duration=N,fps=30,scale=trunc(iw/2)*2:trunc(ih/2)*2" \
-  -c:v libx264 -profile:v high -pix_fmt yuv420p -movflags +faststart \
+  -c:v libx264 -profile:v high -g 30 -keyint_min 30 -pix_fmt yuv420p -movflags +faststart \
   public/clips/scene-{NN}-{slug}.mp4
 ```
 
@@ -343,6 +358,7 @@ After the MP4 is at `public/clips/scene-{NN}-{slug}.mp4`:
 |---|---|---|
 | Cast recorded at wrong size / wide output wraps | terminal size not set (or `rec --cols/--rows` used — 3.x-only, errors on 2.x) | Set `COLUMNS=175 LINES=32` in the `rec` env; the cast header records that size |
 | MP4 won't open / stutters in player or scene | agg emits change-only frames (2–4 total); an agg `.mp4` is really a GIF | Run the mandatory `fps=30` ffmpeg normalize (step 2 above) |
+| Clip is black or frozen in `out/final.mp4` but correct in `snapshot`; render logs "sparse keyframes … seek failures" | Normalized without an explicit GOP, so x264 left keyframes seconds apart on static terminal output | Re-encode with `-g 30 -keyint_min 30` (step 2 above). `lint`/`check`/seam gate cannot see this — only the render and the hero-frame check can |
 | MP4 is letterboxed weirdly | agg `--cols`/`--rows` passed and ≠ the recorded `COLUMNS`/`LINES` | Drop `--cols/--rows` entirely — agg reads the size from the cast header |
 | Render fails: "height not divisible by 2" | agg GIF odd-width | Use the ffmpeg `scale=trunc(...)*2` filter (in the normalize) |
 | Spinner shows blank chars | Terminal font missing glyphs | `agg --font-family "JetBrains Mono"` (or the font installed on the render host) |

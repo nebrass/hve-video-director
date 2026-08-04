@@ -48,6 +48,12 @@ FPS = 30
 # The canonical encode settings — keep in parity with the normalize recipe in
 # workflows/phase-2-capture.md and patterns/cli-terminal-capture.md.
 ENCODE = ["-c:v", "libx264", "-profile:v", "high", "-pix_fmt", "yuv420p",
+          # One keyframe per second. agg emits change-only frames, so without an
+          # explicit GOP ffmpeg can leave keyframes many seconds apart and the
+          # HyperFrames renderer reports "sparse keyframes … causes seek failures
+          # and frame freezing" — the clip then renders black or frozen while every
+          # gate still passes. Tied to FPS so the two cannot drift apart.
+          "-g", str(FPS), "-keyint_min", str(FPS),
           "-movflags", "+faststart"]
 
 
