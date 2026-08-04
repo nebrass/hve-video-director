@@ -297,7 +297,7 @@ if [ -n "$record_ok" ] && [ -s "$CAST_TMP" ] &&
   agg --font-size 28 --theme monokai --fps-cap 30 "$CAST_TMP" "$GIF_TMP" &&
   ffmpeg -y -i "$GIF_TMP" \
     -vf "fps=30,scale=trunc(iw/2)*2:trunc(ih/2)*2" \
-    -c:v libx264 -profile:v high -pix_fmt yuv420p -movflags +faststart \
+    -c:v libx264 -profile:v high -g 30 -keyint_min 30 -pix_fmt yuv420p -movflags +faststart \
     "$MP4_TMP" &&
   [ -s "$MP4_TMP" ] &&
   ffprobe -v error -select_streams v:0 \

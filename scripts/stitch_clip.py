@@ -51,6 +51,23 @@ ENCODE = ["-c:v", "libx264", "-profile:v", "high", "-pix_fmt", "yuv420p",
           "-movflags", "+faststart"]
 
 
+def gop_flags(fps):
+    """Keyframe interval for the encode — one keyframe per second at `fps`.
+
+    agg emits change-only frames, so on mostly-static terminal output x264's
+    scene-change heuristic can leave keyframes many seconds apart. The
+    HyperFrames renderer then reports "sparse keyframes … causes seek failures
+    and frame freezing" and the clip renders black or frozen for most of its
+    window, while `lint`, `check` and the seam gate all pass green.
+
+    Derived from the fps actually being used, never from the module constant:
+    `--fps 24` with a hard-coded 30-frame GOP would place keyframes 1.25s apart
+    and walk straight back into the same failure. `-keyint_min` stops x264
+    inserting shorter GOPs than requested.
+    """
+    return ["-g", str(fps), "-keyint_min", str(fps)]
+
+
 def _require(tool):
     if shutil.which(tool) is None:
         print(f"Error: `{tool}` not found on PATH — install ffmpeg (bundles ffprobe).",
@@ -115,7 +132,7 @@ def build_command(segments, output, fps, width, height):
         out_label = "[v0]"
 
     cmd += ["-filter_complex", ";".join(graph), "-map", out_label]
-    cmd += ENCODE + ["-an", output]
+    cmd += ENCODE + gop_flags(fps) + ["-an", output]
     return cmd
 
 
