@@ -15,16 +15,18 @@ pipeline remains unverified.
 
 ## Reference build
 
-**The committed reference project is being regenerated.** The v0.1.0 demo project was built against
-the pipeline as it stood before the skill was rebased on the HyperFrames ecosystem, so it no longer
-demonstrates how the skill works today, and it was removed rather than left in the tree as a
-misleading example. The rendered videos below are unaffected — they are hosted artifacts, not
-working-tree files.
+**[`example/`](example/) is the committed reference build**, regenerated in v0.2.0 against the
+HyperFrames-first pipeline: `context.md`, `storyboard.md` in the official shape, `DESIGN.md`, eight
+scenes, the seam `ledger.json`, and the root `index.html`. Media is gitignored; the MP4 ships as a
+Release asset.
 
-Regenerating the reference is deliberately a **human-in-the-loop run**: every phase of this pipeline
-ends at a user-approval checkpoint, and no agent may grant one on your behalf. The rebuild also
-needs real text-to-speech, a licensed music track, and a headless-Chromium render. That is a
-production run someone sits through, not a build step.
+It is a **record, not a fixture**, and it is only worth anything while every byte is what the
+pipeline actually emitted. Producing one is a **human-in-the-loop run**: every phase ends at a
+user-approval checkpoint that no agent may grant on your behalf (ADR-001), and it needs real
+text-to-speech, a licensed music track, and a headless-Chromium render. That is a production run
+someone sits through, not a build step. `example/.hve/brief-state.json` is the consent record that
+makes the claim checkable — `validate_brief.py --project-dir example status` reports it complete,
+confirmed and unstale.
 
 ▶ **[Download the 53-second v0.1.0 reference render](https://github.com/nebrass/hve-video-director/releases/download/v0.1.0/hve-video-director-example-v0.1.0.mp4)**
 (1920×1080, H.264 + AAC, 18 MB) — a promo for [blog.nebrass.fr](https://blog.nebrass.fr) using four
