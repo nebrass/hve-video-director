@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-08-04
+
+Rebases the skill on the **HyperFrames ecosystem** ([#34](https://github.com/nebrass/hve-video-director/pull/34), milestones M0–M6). The finding behind it: roughly 70–85% of the phase prose had drifted into a hand-maintained shadow copy of the upstream manual, while the ecosystem had shipped real owners for nearly all of it. This release deletes the shadow copy and keeps the layer that has no upstream equivalent — the consent doctrine, revision fingerprints, capture determinism, and reviewed captions.
+
+No generated project is stranded: nothing is gated on the storyboard's shape, and a project created before this release still resumes.
+
+### Added
+
+- **The reasoning layer** (M1) — `reasoning/` and `grammar/` are first-class skill directories, not documentation. `reasoning/scene-analysis.md` owns the twelve per-frame questions, the closed set of director keys, and — single-sourced — the cognitive-load budgets. `reasoning/capability-catalog.md` owns and versions the capability-tag vocabulary and turns a frame's derived tags into a runtime. `grammar/camera.md`, `motion.md`, `metaphors.md` and `three-taxonomy.md` supply the vocabulary those stages choose from.
+- **`compat/ecosystem.md` — the compatibility thin waist** (ADR-007). The only file in the repo permitted to hold intra-skill paths for ecosystem skills: capability symbols, the CLI surface, behavior probes, and the pin/update policy. Everywhere else names a skill plus a capability SYMBOL and lets that map resolve it, so an upstream relayout is a one-row edit. Enforced in both directions by `test/unit/test_compat_pointers.py`.
+- **Frame packets** (M5) — a scene builder now receives one ephemeral packet per frame (that frame's storyboard block verbatim with its director keys, `DESIGN.md`, the inlined bodies of the recipes it cites, the builder role, and the bound capture paths) and returns exactly one scene file. Packets are regenerated every run and never committed. Role delta: `sub-agents/scene-builder-delta.md`.
+- **A numeric seam gate** (M3) — transition quality was previously enforced by prose DON'Ts. Phase 4 now writes a seam ledger, stamps the master seams from it (`SEAM_STAMP`), and verifies them (`SEAM_VERIFIER`, `motion-doctrine`). Velocity-matched cuts become checkable ledger rows; dissolves cannot be ledger rows, and Phase 4 reports the unverified boundary count either way.
+- **The official storyboard shape** (M4) — generated `storyboard.md` adopts `STORYBOARD_FORMAT`, buying the upstream parser, the Studio contact-sheet review, and the structured `.hyperframes/frame-comments.json` feedback channel. This skill's own keys ride along as extra bullets and are preserved verbatim; the `STORYBOARD_EXTRA_KEYS` probe guards that assumption in `bash test/run.sh`. `validate_brief.py storyboard --json` reports a project's shape, and `migrate-storyboard` converts one **only when the user asks**, preserving the original alongside it.
+- **Architecture decision records** ADR-001…ADR-008, plus the 29-section design review that produced them.
+
+### Changed
+
+- **Phase-5 audio generation is delegated** to the `media-use` audio engine (M2) — narration, music bed and SFX from one request. Delegation stops at generation: the exact-track music confirmation, the caption review state machine, the verified mix recipes, and render approval remain this skill's governance (ADR-001).
+- **`npx hyperframes check` is the required final gate**; `validate`, `inspect` and `layout` are deprecated aliases that announce themselves under `--json`.
+- **`example/` is regenerated** as a real end-to-end run against the HyperFrames-first pipeline, with every per-phase approval given by a human. Its `.hve/brief-state.json` is the consent record that makes the claim checkable.
+- **`BRIEF_FORMAT` was deliberately NOT adopted.** Its companion contract skips questions the request already answers, which contradicts this skill's consent doctrine — recommend, never preselect. `project-plan.md` remains the Creative Brief and the single record of the levers the user owns.
+
+### Removed
+
+- **The local acquisition fallbacks** (M6). `generate_voiceover.py` loses its ElevenLabs half and its Whisper verification pass; the file itself survives and must not be deleted, because `--assemble-only` is the section assembler **both** audio paths still use. With no engine installed, narration is `npx hyperframes tts` on an explicitly confirmed local voice and the music bed is user-provided.
+
+### Fixed
+
+- **Sparse keyframes in normalized terminal clips** ([#35](https://github.com/nebrass/hve-video-director/pull/35)). `agg` emits change-only frames, so on mostly-static terminal output x264 could leave keyframes many seconds apart — a real capture produced an 8.33s interval, and the renderer then reports `sparse keyframes … causes seek failures and frame freezing` and renders the clip black or frozen **while `lint`, `check` and the seam gate all pass green**. The normalize recipe now pins `-g`/`-keyint_min` to the output fps in all five places it appears, and `scripts/stitch_clip.py` derives the GOP from its `--fps` argument so the two cannot desync. New `test/unit/test_stitch_clip.py` pins the interval at 24/25/30/50/60 fps.
+
 ## [0.1.0] - 2026-07-26
 
 ### Changed — BREAKING
@@ -355,7 +385,8 @@ Initial release of the hve-video-director skill.
   earlier Pixabay integration.
 - README with install instructions and an MIT license.
 
-[Unreleased]: https://github.com/nebrass/hve-video-director/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/nebrass/hve-video-director/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/nebrass/hve-video-director/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/nebrass/hve-video-director/compare/v0.0.4...v0.1.0
 [0.0.4]: https://github.com/nebrass/hve-video-director/compare/v0.0.3...v0.0.4
 [0.0.3]: https://github.com/nebrass/hve-video-director/compare/v0.0.2...v0.0.3

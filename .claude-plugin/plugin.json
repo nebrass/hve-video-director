@@ -1,7 +1,7 @@
 {
   "name": "hve-video-director",
   "description": "End-to-end video production pipeline with design thinking. A 6-phase orchestrator (Discovery → Storytelling → Capture → Design → Production → Audio & Render) that turns your app into a polished promo, showcase, or tutorial video, rendered with HyperFrames (HTML + GSAP). Runs on Claude Code and GitHub Copilot CLI.",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "author": {
     "name": "Nebrass Lamouchi",
     "email": "lnibrass@gmail.com"

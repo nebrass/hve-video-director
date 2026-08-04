@@ -15,33 +15,47 @@ pipeline remains unverified.
 
 ## Reference build
 
-**The committed reference project is being regenerated.** The v0.1.0 demo project was built against
-the pipeline as it stood before the skill was rebased on the HyperFrames ecosystem, so it no longer
-demonstrates how the skill works today, and it was removed rather than left in the tree as a
-misleading example. The rendered videos below are unaffected — they are hosted artifacts, not
-working-tree files.
+**[`example/`](example/) is the committed reference build** — regenerated in v0.2.0 against the
+HyperFrames-first pipeline. It is a **60-second promo the skill made about itself**, which makes it
+the honest test: with `product_surface: none` there was no product UI to lean on, so the reasoning
+layer had to decide how to show an *idea*.
 
-Regenerating the reference is deliberately a **human-in-the-loop run**: every phase of this pipeline
-ends at a user-approval checkpoint, and no agent may grant one on your behalf. The rebuild also
-needs real text-to-speech, a licensed music track, and a headless-Chromium render. That is a
-production run someone sits through, not a build step.
+| | |
+|---|---|
+| Frames | 8, in the official storyboard shape, each carrying its director keys |
+| Identity | `design-system: stripe`, dark theme, 1920×1080 |
+| Seams | 4 z-axis rows in [`ledger.json`](example/ledger.json), stamped and numerically verified |
+| Hero budget | `visual_ceiling: derived` imposed no ceiling, and derivation still spent Three.js on exactly **one** frame of eight |
+
+The source artifacts are committed (`context.md`, `storyboard.md`, `DESIGN.md`, `scenes/*.html`,
+`ledger.json`, `index.html`). Media is **not** committed — it is regenerable from what is here, and
+a rendered MP4 is attached to a Release when one is produced. No render of this build is published
+yet; the downloads below are the older v0.1.0 films.
+
+It is a **record, not a fixture**, and it is only worth anything while every byte is what the
+pipeline actually emitted. Producing one is a **human-in-the-loop run**: every phase ends at a
+user-approval checkpoint that no agent may grant on your behalf (ADR-001), and it needs real
+text-to-speech, a licensed music track, and a headless-Chromium render. That is a production run
+someone sits through, not a build step. `example/.hve/brief-state.json` is the consent record that
+makes the claim checkable — `validate_brief.py --project-dir example status` reports it complete,
+confirmed and unstale.
+
+### Earlier renders
+
+Two hosted films from the v0.1.0 era. **Neither is `example/`** — they are different projects, kept
+because they are real output, and they predate the HyperFrames rebase.
 
 ▶ **[Download the 53-second v0.1.0 reference render](https://github.com/nebrass/hve-video-director/releases/download/v0.1.0/hve-video-director-example-v0.1.0.mp4)**
 (1920×1080, H.264 + AAC, 18 MB) — a promo for [blog.nebrass.fr](https://blog.nebrass.fr) using four
-real Chrome DevTools captures as the product spine, attached to the
+real Chrome DevTools captures as the product spine, built on the vendored **Vercel** design system
+([`design-systems/vercel/DESIGN.md`](design-systems/vercel/DESIGN.md)) and attached to the
 [v0.1.0 release](https://github.com/nebrass/hve-video-director/releases/tag/v0.1.0).
 
 [![Watch the v0.1.0 launch video](https://img.youtube.com/vi/6tclnFpWRMA/maxresdefault.jpg)](https://www.youtube.com/watch?v=6tclnFpWRMA)
 
 ▶ **[Watch the 60-second v0.1.0 launch video](https://www.youtube.com/watch?v=6tclnFpWRMA)** — why
 the rename happened, why `npx skills update` cannot complete it, and the two commands that fix it.
-It was produced end-to-end by hve-video-director v0.1.0 itself, as a separate project from the
-reference build.
-
-The reference render was produced with a vendored design system (Vercel, at
-[`design-systems/vercel/DESIGN.md`](design-systems/vercel/DESIGN.md)), a Phase 3–4 HyperFrames
-composition, Phase 5 voiceover + licensed music + ffmpeg mix, and `npx hyperframes render` to MP4 at
-1920×1080, 30fps.
+Produced end-to-end by hve-video-director v0.1.0 itself, as a separate project again.
 
 ## What It Does
 
