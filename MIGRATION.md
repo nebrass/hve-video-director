@@ -7,9 +7,6 @@ generated-project layout are unchanged — only the name changed.
 > it installs the new skill alongside the old one and leaves the stale copy behind. See
 > [Why `update` is not enough](#why-update-is-not-enough).
 
-▶ **[Watch the 60-second explainer](https://www.youtube.com/watch?v=6tclnFpWRMA)** if you prefer
-it on screen — it shows the stale install, the fix, and what is unaffected.
-
 ## Why the rename
 
 The previous name referenced a living public figure. Regardless of intent, using a famous
