@@ -58,20 +58,14 @@ mock-up.
 
 ### Earlier renders
 
-Two hosted films from the v0.1.0 era. **Neither is `example/`** — they are different projects, kept
-because they are real output, and they predate the HyperFrames rebase.
+One hosted film from the v0.1.0 era. **It is not `example/`** — a different project, kept because
+it is real output, and it predates the HyperFrames rebase.
 
 ▶ **[Download the 53-second v0.1.0 reference render](https://github.com/nebrass/hve-video-director/releases/download/v0.1.0/hve-video-director-example-v0.1.0.mp4)**
 (1920×1080, H.264 + AAC, 18 MB) — a promo for [blog.nebrass.fr](https://blog.nebrass.fr) using four
 real Chrome DevTools captures as the product spine, built on the vendored **Vercel** design system
 ([`design-systems/vercel/DESIGN.md`](design-systems/vercel/DESIGN.md)) and attached to the
 [v0.1.0 release](https://github.com/nebrass/hve-video-director/releases/tag/v0.1.0).
-
-[![Watch the v0.1.0 launch video](https://img.youtube.com/vi/6tclnFpWRMA/maxresdefault.jpg)](https://www.youtube.com/watch?v=6tclnFpWRMA)
-
-▶ **[Watch the 60-second v0.1.0 launch video](https://www.youtube.com/watch?v=6tclnFpWRMA)** — why
-the rename happened, why `npx skills update` cannot complete it, and the two commands that fix it.
-Produced end-to-end by hve-video-director v0.1.0 itself, as a separate project again.
 
 ## What It Does
 
