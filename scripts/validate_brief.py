@@ -1840,15 +1840,23 @@ def estimate_speech_seconds(text: str | None) -> float:
     return round(seconds, 2)
 
 
-def classify_frame(estimate: float, slot: float | None, spoken: bool) -> str:
+def classify_frame(estimate: float, slot: float | None, has_text: bool) -> str:
     """Grade one frame. Tiers differ in kind, not just degree.
 
     OVER breaches the assembler's hard limit — it inserts no silence spacer, so every
     later section inherits the drift and desyncs from its scene. TAIL only spends the
     editorial breathing room, which costs a short tail and nothing structural.
+
+    SILENT means the frame has no narration. A frame that HAS narration this estimator
+    cannot measure is UNMEASURABLE — the syllable heuristic is ASCII-Latin, so
+    non-English narration (this skill supports a confirmed non-English local voice) or
+    a numeric-only line yields no tokens. Reporting that as SILENT would suppress the
+    warning for real speech, which is the one thing this check exists to prevent.
     """
-    if not spoken:
+    if not has_text:
         return "SILENT"
+    if estimate <= 0:
+        return "UNMEASURABLE"
     if slot is None:
         return "UNMEASURABLE"
     if estimate > slot:
@@ -1870,7 +1878,7 @@ def vo_budget_payload(project_dir: Path, path: Path, text: str) -> dict[str, Any
         vo = frame.get("voiceover")
         slot = frame.get("duration_seconds")
         estimate = estimate_speech_seconds(vo)
-        spoken = estimate > 0
+        has_text = bool(vo and vo.strip().strip('"').strip("'").strip())
         total += estimate
         if slot:
             film += slot
@@ -1883,7 +1891,7 @@ def vo_budget_payload(project_dir: Path, path: Path, text: str) -> dict[str, Any
                 "estimate_low_seconds": round(estimate * (1 - ESTIMATE_SPREAD), 2),
                 "estimate_high_seconds": round(estimate * (1 + ESTIMATE_SPREAD), 2),
                 "slack_seconds": round(slot - estimate, 2) if slot else None,
-                "tier": classify_frame(estimate, slot, spoken),
+                "tier": classify_frame(estimate, slot, has_text),
             }
         )
     over = [f for f in frames if f["tier"] == "OVER"]
@@ -1942,8 +1950,15 @@ def command_vo_budget(project_dir: Path, as_json: bool) -> int:
             f"{payload['over_seconds']:.1f}s over in total. Narration that overruns "
             "inserts no silence spacer, so every later section drifts."
         )
+    unmeasurable = [f for f in payload["frames"] if f["tier"] == "UNMEASURABLE"]
+    if unmeasurable:
+        summary.append(
+            f"{len(unmeasurable)} frame(s) could not be measured (no duration, or "
+            "narration this Latin-alphabet estimator cannot tokenize) — check them by "
+            "hand: " + ", ".join(str(f["index"]) for f in unmeasurable)
+        )
     for frame in payload["frames"]:
-        if frame["tier"] in ("OVER", "TIGHT"):
+        if frame["tier"] in ("OVER", "TIGHT", "TAIL"):
             summary.append(
                 f"- {frame['tier']} frame {frame['index']} "
                 f"({frame['title'] or 'untitled'}): ~{frame['estimate_seconds']:.1f}s "

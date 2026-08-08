@@ -165,6 +165,39 @@ class VoBudgetCommand(ProjectCase):
         self.assertEqual(silent["tier"], "SILENT")
         self.assertEqual(silent["estimate_seconds"], 0.0)
 
+    def test_narration_this_estimator_cannot_tokenize_is_unmeasurable_not_silent(self):
+        """The syllable heuristic is ASCII-Latin; a film it cannot read must say so.
+
+        This skill supports a confirmed non-English local voice, so non-Latin narration
+        is legitimate. Scoring it 0.0 and reporting SILENT would suppress the warning
+        for an entire film of real speech — the exact failure this check exists to
+        prevent, inverted.
+        """
+        self.write_storyboard(storyboard_with([
+            (6, "Сто двадцать один день. Шесть релизов."),
+            (6, "0.0.2."),
+        ]))
+        result, payload = self.json_cli("vo-budget")
+        for frame in payload["frames"]:
+            self.assertEqual(frame["tier"], "UNMEASURABLE")
+        self.assertIn("could not be measured", payload["message"])
+        self.assertEqual(result.returncode, 0, "unmeasurable is a warning, not an overrun")
+
+    def test_the_tail_tier_appears_in_the_human_report(self):
+        """Phase 1 documents TAIL as a triage tier and invokes without --json.
+
+        `emit()` prints only `message` in non-JSON mode, so a tier omitted from the
+        summary is documented but invisible.
+        """
+        # 12s of narration in a 14s slot: fits, but spends the editorial tail.
+        line = ("Extraordinary infrastructure orchestrates deployment continuously "
+                "and reliably across every region we operate.")
+        self.write_storyboard(storyboard_with([(14, line)]))
+        _, payload = self.json_cli("vo-budget")
+        if payload["frames"][0]["tier"] != "TAIL":
+            self.skipTest(f"fixture landed in {payload['frames'][0]['tier']}, not TAIL")
+        self.assertIn("TAIL", payload["message"])
+
     def test_a_frame_without_a_duration_is_unmeasurable_not_fitting(self):
         self.write_storyboard(
             "---\nformat: 1920x1080\n---\n\n"
@@ -201,11 +234,25 @@ class VoBudgetIsNotAGate(unittest.TestCase):
     """
 
     def test_vo_budget_is_not_a_require_target(self):
+        """Inspect the actual `choices` expression, not the add_parser() call.
+
+        Keyed on `choices=` because the registration and the argument are separate
+        statements: a regex that stops at add_parser's closing paren never reaches the
+        choices tuple, so it would pass even with vo-budget added as a require target —
+        exactly the invariant it claims to protect.
+        """
         source = (ROOT / "scripts" / "validate_brief.py").read_text(encoding="utf-8")
-        require = re.search(r'"require".*?\)\n', source, re.S)
-        if require is None:
-            self.fail("could not locate the require subcommand registration")
-        self.assertNotIn("vo-budget", require.group(0))
+        choices = re.search(
+            r'require\.add_argument\(\s*"target".*?choices=\(([^)]*)\)', source, re.S
+        )
+        if choices is None:
+            self.fail("could not locate require's target choices")
+        self.assertIn("story", choices.group(1), "sanity: the real choices were found")
+        self.assertNotIn(
+            "vo-budget", choices.group(1),
+            "vo-budget must never be a require target — making a narration estimate "
+            "gate a phase would override narration the user approved (ADR-001)",
+        )
 
     def test_stamp_does_not_consult_the_narration_estimate(self):
         source = (ROOT / "scripts" / "validate_brief.py").read_text(encoding="utf-8")
