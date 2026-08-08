@@ -716,6 +716,38 @@ step just wrote is a defect in what you wrote: `legacy` means the frontmatter an
 bullets are both missing, `unknown` that no frame heading was found at all. Fix the file. Never run
 `migrate-storyboard` here — that command exists for projects created before this shape.
 
+### Check the narration fits before anyone approves it
+
+```bash
+python3 "$SKILL_DIR/scripts/validate_brief.py" \
+  --project-dir "$PROJECT_DIR" vo-budget
+```
+
+Every frame's `voiceover` and its `duration` were written in the same pass above, and until this
+command existed nothing compared them. The mismatch surfaced in Phase 5 instead — after narration
+had been synthesized and paid for, where the only repair is rewriting lines the user already
+approved. On one real 40-frame film the accepted narration ran **619s against a 540s composition**,
+and 34 of 40 lines had to be cut.
+
+Read two things out of the report, and treat them differently:
+
+- **The total is the alarm.** Per-frame estimates carry a real band, but their errors are
+  independent and average out, so `~Ns of speech for an Ms film` is the number to trust. A total
+  meaningfully above the film length means the script does not fit, whatever the per-frame detail
+  says.
+- **The tiers are triage.** `OVER` means the line cannot be spoken in its slot — Phase 5's assembler
+  inserts no silence spacer there, so every later section drifts out of sync with its scene.
+  `TIGHT` may breach once real speech varies. `TAIL` fits but spends the breathing room at the end
+  of the scene, which costs only a short tail.
+
+**Report it; do not act on it.** The estimate is guidance for the user, who owns the narration
+(§ the brief contract above). Never shorten a `voiceover` line because this command flagged it —
+say which frames are over, by how much, and let the user choose between cutting the line, lengthening
+the scene, or accepting the overrun. Exit status 1 marks the finding, not a blocked phase.
+
+Two limits worth stating when you report: the estimate is a heuristic, and a clip frame's slot is
+still provisional here because its real length is the footage length, fixed in Phase 2.
+
 ### Say what the ceiling cost
 
 When `visual_ceiling: flat`, name every frame whose derivation reached for a barred runtime and what

@@ -100,11 +100,13 @@ modes cost real re-renders here:
   "Sage V E". Write them phonetically: `Aitch Vee Ee`, `A I`, `ay pee eye`, `sass`, `earl`. Periods
   between letters (`H. V. E.`) work in some voices and add sentence-end pauses in others. Generate
   one section and listen before doing the rest.
-- **Duration is not word count.** Comma density dominates — most voices pause ~0.3–0.5s per comma,
-  so 22 words with 5 commas can run 15s while the same idea in 26 commaless words takes 10s. When a
-  section overruns, **drop commas before dropping words**. The assembler prints a stderr warning
-  naming any section that overruns its slot; **watch stderr**, because one overrun starts every
-  later section early.
+- **Duration is not word count.** Syllable density and comma pauses both dominate it: 22 words with
+  5 commas can run 15s while the same idea in 26 commaless words takes 10s. When a section overruns,
+  **drop commas before dropping words**. Phase 1's `vo-budget` check should have caught a film-wide
+  overrun before you got here — re-run it against a rewritten line to see whether the cut is enough;
+  it owns the timing numbers. The assembler also prints a stderr warning naming any section that
+  overruns its slot; **watch stderr**, because concat inserts no spacer for an overrun, so every
+  later section starts *late* and drifts out of sync with its scene.
 
 For a clip scene the window is footage-derived (Phase 4), not VO-derived: fit the VO to the existing
 window, never stretch the clip. **Clip-own audio is opt-in** — default `clip_audio: none` (clips
