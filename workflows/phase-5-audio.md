@@ -200,12 +200,10 @@ shape under the name it expects:
 ```bash
 # One per section; NN matches the request id.
 ffmpeg -y -i "assets/voice/00.wav" -ac 1 -ar 44100 -c:a libmp3lame -q:a 2 vo_section_00.mp3
-
-python3 ./voiceover.py --assemble-only    # places each section, pads to VIDEO_DURATION
 ```
 
-Seal the set before assembling — the assembler refuses sections nobody vouched for, because an
-existing file is not evidence it is the right take:
+Then seal the set, **before** assembling. The assembler refuses sections nobody vouched for, so
+running it first fails with exit 2 — an existing file is not evidence it is the right take:
 
 ```bash
 python3 "$SKILL_DIR/scripts/verify_vo_sections.py" --project-dir . seal
@@ -214,6 +212,12 @@ python3 "$SKILL_DIR/scripts/verify_vo_sections.py" --project-dir . seal
 For narration this engine did not produce — a confirmed local Kokoro voice, or a take the user
 supplied — there is no request to bind against, so state where it came from:
 `seal --attest local-tts` or `seal --attest user-supplied`.
+
+Only now assemble:
+
+```bash
+python3 ./voiceover.py --assemble-only    # places each section, pads to VIDEO_DURATION
+```
 
 The pad is not cosmetic: a voiceover shorter than the composition leaves the render with no audio
 for the trailing frames, and it may truncate.

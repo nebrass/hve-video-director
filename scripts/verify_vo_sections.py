@@ -37,8 +37,14 @@ green.
 import argparse
 import hashlib
 import json
+import re
 import sys
 from pathlib import Path
+
+# A section id is a zero-padded index and nothing else. It is interpolated into a
+# path, so an id like "/tmp/take" or "../../secret" would make `prepare` unlink a file
+# outside the project — pathlib lets an absolute component replace the whole path.
+SECTION_ID = re.compile(r"^\d{2,}$")
 
 PENDING_NAME = "vo-sections.pending.json"
 MANIFEST_NAME = "vo-sections.json"
@@ -90,7 +96,14 @@ def load_request(project_dir: Path) -> dict:
     for line in lines:
         if not isinstance(line, dict) or "id" not in line:
             raise ValueError("every audio_request.json line needs an id")
-        out[str(line["id"])] = str(line.get("text", ""))
+        section_id = str(line["id"])
+        if not SECTION_ID.match(section_id):
+            raise ValueError(
+                f"invalid section id {section_id!r} — ids are zero-padded indices "
+                "(00, 01, …). They are used as path components, so anything else is "
+                "refused rather than resolved."
+            )
+        out[section_id] = str(line.get("text", ""))
     return out
 
 
@@ -112,6 +125,11 @@ def read_anomalies(project_dir: Path) -> list[str]:
 def cmd_prepare(project_dir: Path, ids: list[str], as_json: bool) -> int:
     """Delete the sections about to be regenerated, so a failure leaves absence."""
     requested = load_request(project_dir)
+    malformed = [i for i in ids if not SECTION_ID.match(i)]
+    if malformed:
+        emit({"errors": [f"invalid section id(s): {', '.join(malformed)}"]},
+             as_json, stream=sys.stderr)
+        return 2
     unknown = [i for i in ids if i not in requested]
     if unknown:
         emit({"errors": [f"ids not in audio_request.json: {', '.join(unknown)}"]},
@@ -204,6 +222,47 @@ def cmd_seal(project_dir: Path, attest: str, as_json: bool) -> int:
     if attest == "engine":
         requested = load_request(project_dir)
         ids = sorted(requested)
+        # `prepare` deliberately supports a subset, so presence of the marker is not
+        # enough: an id that was never cleared has no absence-proof behind it, and
+        # sealing it would certify exactly the leftover this gate exists to catch.
+        # Such an id may be carried forward only when the previous manifest still
+        # proves BOTH its bytes and that its script line has not changed.
+        pending = json.loads(pending_path.read_text(encoding="utf-8"))
+        prepared = set(pending.get("ids", []))
+        prior = {}
+        manifest_path = state_dir(project_dir) / MANIFEST_NAME
+        if manifest_path.is_file():
+            try:
+                prior = json.loads(manifest_path.read_text(encoding="utf-8")).get(
+                    "sections", {}
+                )
+            except (json.JSONDecodeError, OSError):
+                prior = {}
+        unproven = []
+        for section_id in ids:
+            if section_id in prepared:
+                continue
+            entry = prior.get(section_id)
+            mp3 = mp3_for(project_dir, section_id)
+            if (
+                not entry
+                or not mp3.is_file()
+                or entry.get("audio_sha256") != sha256_file(mp3)
+                or entry.get("request_sha256") != sha256_text(requested[section_id])
+            ):
+                unproven.append(section_id)
+        if unproven:
+            emit(
+                {"errors": [
+                    f"{len(unproven)} section(s) were neither prepared nor provably "
+                    f"unchanged: {', '.join(unproven)}. Re-run `prepare` for them (or "
+                    "`prepare` with no ids to clear everything) and synthesize again — "
+                    "sealing them now would certify audio nothing cleared."
+                ]},
+                as_json,
+                stream=sys.stderr,
+            )
+            return 1
     else:
         # No engine ran, so there is no request to bind against. The operator states
         # where the audio came from; the bytes are still recorded.

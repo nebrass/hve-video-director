@@ -29,6 +29,7 @@ import os
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -217,6 +218,77 @@ class AssemblerRefusesStaleSections(unittest.TestCase):
             os.chdir(tmp)
             try:
                 self.assertEqual(module.main(["--assemble-only"]), 2)
+            finally:
+                os.chdir(old)
+
+    def test_editing_the_script_after_sealing_is_refused(self):
+        """Matching bytes do not prove the bytes still say what the script says.
+
+        Edit a `sections` line without re-synthesizing and the old take still matches
+        the old manifest, so the audio-hash gate alone passes and assembly ships
+        narration the script no longer asks for.
+        """
+        with tempfile.TemporaryDirectory() as tmp:
+            project = Path(tmp)
+            (project / ".hve").mkdir()
+            Path(project, "vo_section_00.mp3").write_bytes(b"take-00")
+            (project / ".hve" / "vo-sections.json").write_text(json.dumps({
+                "schema_version": 1, "attest": "engine",
+                "sections": {"00": {"audio_sha256":
+                                    hashlib.sha256(b"take-00").hexdigest()}},
+            }), encoding="utf-8")
+            old = os.getcwd()
+            os.chdir(tmp)
+            try:
+                first = load("generate_voiceover")
+                setattr(first, "sections", [(0.0, "The line that was spoken.")])
+                with mock.patch.object(first, "get_audio_duration", return_value=1.0), \
+                     mock.patch.object(first, "assemble_voiceover"):
+                    self.assertEqual(first.main(["--assemble-only"]), 0,
+                                     "first verified assembly anchors the script hash")
+
+                # Same audio, edited script, no re-synthesis.
+                second = load("generate_voiceover")
+                setattr(second, "sections", [(0.0, "A DIFFERENT line entirely.")])
+                with mock.patch.object(second, "get_audio_duration", return_value=1.0), \
+                     mock.patch.object(second, "assemble_voiceover"):
+                    self.assertEqual(second.main(["--assemble-only"]), 2)
+            finally:
+                os.chdir(old)
+
+    def test_a_reseal_reanchors_the_script_instead_of_tripping(self):
+        """`seal` rewrites the manifest, so a genuine re-synthesis is not a false positive."""
+        with tempfile.TemporaryDirectory() as tmp:
+            project = make_project(tmp, ids=("00",))
+            VV.main(["--project-dir", str(project), "prepare"])
+            write_section(project, "00", b"first-take")
+            VV.main(["--project-dir", str(project), "seal"])
+            old = os.getcwd()
+            os.chdir(tmp)
+            try:
+                m1 = load("generate_voiceover")
+                setattr(m1, "sections", [(0.0, "Original line.")])
+                with mock.patch.object(m1, "get_audio_duration", return_value=1.0), \
+                     mock.patch.object(m1, "assemble_voiceover"):
+                    self.assertEqual(m1.main(["--assemble-only"]), 0)
+            finally:
+                os.chdir(old)
+            # Rewrite the line, re-prepare, re-synthesize, re-seal.
+            (project / "audio_request.json").write_text(json.dumps({
+                "provider": "elevenlabs", "voice": "v", "lang": "en", "speed": 1.0,
+                "lines": [{"id": "00", "text": "Rewritten line."}],
+            }), encoding="utf-8")
+            VV.main(["--project-dir", str(project), "prepare"])
+            write_section(project, "00", b"second-take")
+            VV.main(["--project-dir", str(project), "seal"])
+            os.chdir(tmp)
+            try:
+                m2 = load("generate_voiceover")
+                setattr(m2, "sections", [(0.0, "Rewritten line.")])
+                with mock.patch.object(m2, "get_audio_duration", return_value=1.0), \
+                     mock.patch.object(m2, "assemble_voiceover"):
+                    self.assertEqual(m2.main(["--assemble-only"]), 0,
+                                     "a re-seal must re-anchor, not trip")
             finally:
                 os.chdir(old)
 

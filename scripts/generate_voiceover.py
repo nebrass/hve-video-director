@@ -242,6 +242,48 @@ def verify_sections_are_fresh(section_files):
     return problems
 
 
+def verify_script_unchanged():
+    """Refuse if the script changed since these takes were assembled.
+
+    Matching audio hashes prove the bytes are the ones that were sealed. They cannot
+    prove those bytes still say what `sections` now says: edit a line here without
+    re-synthesizing and the old take still matches the old manifest, so assembly would
+    succeed with narration the script no longer asks for.
+
+    Compared sections-to-sections, never sections-to-request. Those two legitimately
+    diverge — a retry synthesizes from a filtered request file, so `audio_request.json`
+    can describe text that is no longer what was spoken, and binding to it would fail
+    closed on a normal recovery. The hash is recorded on the first verified assembly
+    after a seal and re-checked afterwards; `seal` rewrites the manifest, which clears
+    it, so a genuine re-synthesis re-anchors instead of tripping.
+    """
+    if not MANIFEST.is_file():
+        return []
+    try:
+        manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return []
+    current = {
+        f"{i:02d}": hashlib.sha256(text.encode("utf-8")).hexdigest()
+        for i, (_, text) in enumerate(sections)
+    }
+    recorded = manifest.get("script_sha256")
+    if recorded is None:
+        manifest["script_sha256"] = current
+        MANIFEST.write_text(
+            json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+        )
+        return []
+    changed = [k for k, v in current.items() if recorded.get(k) != v]
+    if not changed:
+        return []
+    return [
+        f"section {k} was sealed against different narration — this script says "
+        "something the recorded audio does not"
+        for k in sorted(changed)
+    ]
+
+
 # ─── Main ────────────────────────────────────────────────────────────────────
 
 def main(argv=None):
@@ -281,6 +323,7 @@ def main(argv=None):
         return 1
 
     problems = verify_sections_are_fresh(section_files)
+    problems += verify_script_unchanged()
     if problems:
         if allow_unverified:
             print("\n  WARNING: assembling UNVERIFIED sections —", file=sys.stderr)
