@@ -127,7 +127,7 @@ pointer-validity suite on every `bash test/run.sh` where the ecosystem is instal
 | `TRANSCRIBE` | `media-use` | `audio/references/transcribe.md` | Word-level timestamps; **always pass `--model` explicitly** (the CLI default `small.en` silently translates non-English audio) | Phase 5 voiceover-timing verification |
 | `TTS_LOCAL` | `media-use` | `audio/references/tts.md` | Local Kokoro-82M TTS — 54 voices, 8 languages | Phase 5 fallback when no `ELEVENLABS_API_KEY`, on explicit user confirmation |
 | `AUDIO_REQUIREMENTS` | `media-use` | `audio/references/requirements.md` | Local prerequisites for the audio paths | `patterns/INDEX.md` § Reaching past the local patterns only, as a parenthetical beside `TTS_LOCAL`. No workflow cites it directly |
-| `AUDIO_ENGINE` | `media-use` | `audio/scripts/audio.mjs` | The shared TTS + BGM + SFX engine — one implementation for every official video workflow | Phase 5 narration + music bed + SFX (M2). the only local audio script left is `scripts/generate_voiceover.py --assemble-only` (section assembly, used by both paths); M6 retired the acquisition fallbacks |
+| `AUDIO_ENGINE` | `media-use` | `audio/scripts/audio.mjs` | The shared TTS + BGM + SFX engine — one implementation for every official video workflow | Phase 5 narration + music bed + SFX (M2). Local audio scripts are `scripts/generate_voiceover.py --assemble-only` (section assembly, used by both paths) and `scripts/verify_vo_sections.py` (freshness of this engine's output — see the `AUDIO_ENGINE_PARTIAL_FAILURE` probe); M6 retired the acquisition fallbacks |
 | `BGM` | `media-use` | `audio/references/bgm.md` | One music bed per composition, produced by `AUDIO_ENGINE` | Phase 5 (M2) — see `AUDIO_ENGINE` |
 | `SFX` | `media-use` | `audio/references/sfx.md` | Named sound effects, provider-gated by `AUDIO_ENGINE`'s single switch | Phase 5 (M2) — see `AUDIO_ENGINE` |
 
@@ -320,6 +320,30 @@ condition — see Behavior probes.
 Load-bearing upstream **behaviors** — the things that would break this skill without any path
 changing and without any gate turning red. Each names its probe and whether that probe is
 automated.
+
+### `AUDIO_ENGINE_PARTIAL_FAILURE` — a failed line is silent, and its stale audio survives
+
+- **What.** `AUDIO_ENGINE` treats a failed TTS line as a **non-fatal anomaly**: it prints the
+  anomaly, omits the line from `voices[]`, and **exits 0**. It does not delete a destination file
+  before writing, so the previous run's audio stays at the expected path. Its success predicate is
+  *exit 0 and the file exists*, so a provider that exits 0 without writing is recorded as a success
+  against that leftover — with a measured duration and word timings. Separately, `--only tts`
+  replaces `voices[]` wholesale rather than merging per line, despite the engine's header
+  advertising a merge.
+- **Why it matters.** Together these make a superseded take indistinguishable from a fresh one
+  downstream, and they defeat the two obvious defences: counting `voices[]` is unsound (a laundered
+  stale file appears as a success) and is also wrong after a partial retry (2 of 40 lines re-run
+  leaves the metadata describing 2). `scripts/verify_vo_sections.py` therefore establishes freshness
+  by **absence** — clearing targets before synthesis — rather than by anything the engine reports.
+  ADR-009 records the decision.
+- **What we read, and how narrowly.** Only `audio_request.json`'s `lines[].id` and `lines[].text`
+  are load-bearing. `audio_meta.json` and its anomalies are **advisory diagnostics only**: an
+  upstream schema change degrades the check to "no explanation printed", never to a false green.
+- **Probe — manual.** If upstream starts clearing the destination before synthesis, or exits
+  nonzero on a partial failure, the local pre-clear becomes redundant. Per ADR-006's retirement rule
+  it is **not** removed until a real end-to-end run has passed on the fixed engine — the scar M6's
+  `search_music.py` deletion left. The sealed manifest stays valuable regardless of who produced
+  the bytes.
 
 ### `STORYBOARD_EXTRA_KEYS` — unknown bullets survive parsing
 

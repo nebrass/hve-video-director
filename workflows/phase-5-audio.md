@@ -152,20 +152,47 @@ English model **translates** non-English audio instead of transcribing it — th
 `TRANSCRIBE_MODEL_DEFAULT` probe in `compat/ecosystem.md`, documented upstream under `TRANSCRIBE`.
 Set it to the narration's actual language every time.
 
+**Clear the targets first.** The engine never deletes a destination file before writing, so a
+failed line leaves the *previous* run's audio at the exact expected path — same name, plausible
+duration, valid header. Clearing first turns a failure into an absence, which fails loudly:
+
+```bash
+# Every requested id, or just the ones being re-synthesized after an edit.
+python3 "$SKILL_DIR/scripts/verify_vo_sections.py" --project-dir . prepare
+```
+
 ```bash
 # Reuse $ENGINE from Step 5.0. --only tts keeps this call to narration.
-node "$ENGINE" --request ./audio_request.json --hyperframes . --out ./audio_meta.json --only tts
+# Concurrency 2 rather than the engine's default 4: a measured ~10% of lines fail
+# transiently against a rate-limited provider, and bursts are the plausible cause.
+HYPERFRAMES_TTS_CONCURRENCY=2 \
+  node "$ENGINE" --request ./audio_request.json --hyperframes . --out ./audio_meta.json --only tts
 ```
 
 `audio_meta.json` carries `voices[]` — per line: file path, duration, word timings.
 
-**The engine exits 0 with a missing line.** A failed synthesis is a non-fatal anomaly and the run
-still succeeds, so check before assembling: `voices[]` must hold one entry per section and the
-printed `anomalies` block must be empty. A short count is a provider problem — with `elevenlabs`,
-usually a missing `ELEVENLABS_API_KEY` or local `elevenlabs` Python package; with `kokoro`,
-non-English narration also needs `espeak-ng` system-wide (`brew install espeak-ng` /
-`apt-get install espeak-ng`; `AUDIO_REQUIREMENTS` lists the rest). Fix the cause or take the
-fallback; never assemble a short set.
+**The engine exits 0 with a missing line**, and eyeballing `voices[]` cannot prove the set is
+sound: the engine's success test is *exit 0 and the file exists*, so a provider that exits 0 without
+writing reports success against the leftover — with a plausible duration and word timings. Counting
+entries is also wrong after a partial retry, because `--only tts` replaces `voices[]` wholesale, so
+re-running 2 lines of 40 leaves the metadata describing 2. Run the check instead:
+
+```bash
+python3 "$SKILL_DIR/scripts/verify_vo_sections.py" --project-dir . check
+```
+
+It names every prepared section that did not come back and writes `audio_request.retry.json`
+carrying only those ids. Re-run the engine against that file — **the failed ids only**; re-clearing
+a good take re-bills it and rolls the same ~10% dice again. **Two retries, then stop and report**:
+at the measured rate one retry still leaves a coin-flip chance of manual escalation per film, and a
+line that fails three identical attempts is a content or outage problem a human must decide on.
+Never substitute a provider or voice to get past a failure — that is a Phase-1 choice, not a repair.
+
+A persistent failure is usually a provider problem — with `elevenlabs`, a missing
+`ELEVENLABS_API_KEY` or local `elevenlabs` Python package; with `kokoro`, non-English narration also
+needs `espeak-ng` system-wide (`brew install espeak-ng` / `apt-get install espeak-ng`;
+`AUDIO_REQUIREMENTS` lists the rest). Fix the cause or take the fallback; never assemble a short
+set.
 
 The assembler concatenates against mono 44.1 kHz MP3 silence spacers, so transcode each line to that
 shape under the name it expects:
@@ -173,7 +200,22 @@ shape under the name it expects:
 ```bash
 # One per section; NN matches the request id.
 ffmpeg -y -i "assets/voice/00.wav" -ac 1 -ar 44100 -c:a libmp3lame -q:a 2 vo_section_00.mp3
+```
 
+Then seal the set, **before** assembling. The assembler refuses sections nobody vouched for, so
+running it first fails with exit 2 — an existing file is not evidence it is the right take:
+
+```bash
+python3 "$SKILL_DIR/scripts/verify_vo_sections.py" --project-dir . seal
+```
+
+For narration this engine did not produce — a confirmed local Kokoro voice, or a take the user
+supplied — there is no request to bind against, so state where it came from:
+`seal --attest local-tts` or `seal --attest user-supplied`.
+
+Only now assemble:
+
+```bash
 python3 ./voiceover.py --assemble-only    # places each section, pads to VIDEO_DURATION
 ```
 

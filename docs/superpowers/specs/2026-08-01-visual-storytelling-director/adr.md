@@ -415,3 +415,93 @@ architecture regression, not a style choice.
 Numeric communication scores now — pseudo-metrics (see ADR-005's scoring decision).
 Engagement-first — contradicts the mission ("maximizing understanding rather than visual
 novelty") and the anti-slop constitution.
+
+---
+
+## ADR-009 — Delegated output is unproven until this skill has sealed it *(added 2026-08-08, from a real Phase-5 run)*
+
+**Context.** Phase 5 delegates narration synthesis to `media-use`'s `AUDIO_ENGINE` (ADR-001:
+"delegation stops at generation"). Three properties of that engine, read in its source, make a
+partial failure both silent and durable:
+
+1. It reports a failed line as a **non-fatal anomaly and exits 0**. The anomaly is printed to
+   stdout and never written to `audio_meta.json`, so it does not survive a session boundary.
+2. It **never deletes a destination file before writing**. A failed line leaves the previous
+   run's audio at the exact expected path — same name, plausible duration, valid header.
+3. Its success predicate is `exit == 0 and the file exists`, so a provider that exits 0 without
+   writing reports success **against the leftover**, which the engine then measures and
+   transcribes. A stale take can therefore appear in `voices[]` as a clean success.
+
+A fourth property defeats the obvious repair: `--only tts` replaces `voices[]` wholesale, so
+retrying 2 lines of 40 leaves the metadata describing 2. Counting entries is wrong on exactly the
+recovery path it would exist to enable.
+
+Measured on one production run: 8 of 83 requested lines failed transiently across four batches
+(~10%), every one recovering on retry with byte-identical input. On the rewrite pass, three
+failures left **pre-rewrite** takes on disk. The workflow's defence was prose — "check `voices[]`,
+never assemble a short set" — and property 3 means that instruction is insufficient *in principle*,
+not merely in practice.
+
+**Decision.** Freshness of delegated output is established **by absence, then recorded**, and this
+skill refuses to assemble what it has not recorded.
+
+1. `scripts/verify_vo_sections.py prepare` deletes the target sections **at both layers** (the
+   engine's `assets/voice/NN.wav` and the transcoded `vo_section_NN.mp3`) before synthesis, so a
+   line that fails to regenerate is **missing** rather than stale — and missing already fails
+   loudly. It writes a pending marker recording which ids were cleared.
+2. `seal` refuses without that marker, then records each section's `sha256`. Sealing files that
+   were never cleared would faithfully certify stale bytes, so the marker is what links the two.
+3. `generate_voiceover.py` verifies those hashes before assembling and **refuses otherwise**.
+
+**This is the drift, stated plainly:** the assembler previously refused only on an *absent* or
+zero-byte section. It now also refuses on an *unproven* one. A precondition that did not exist has
+been added to a script **both** audio paths use.
+
+**Split by what each side may know.** The verifier is skill-resident, never copied, and absorbs
+upstream's `audio_request.json` schema. The assembler is `cp`'d into every project and hand-edited
+there, so it learns **nothing** about the engine — it compares a `sha256` against a manifest whose
+schema this repo owns. Putting the engine's formats into a per-project copied file would freeze a
+foreign schema into every generated project, which ADR-007 forbids even in phase prose.
+
+`audio_meta.json` and its anomalies are read as **advisory diagnostics only**. An upstream schema
+change degrades this to "no explanation printed", never to a false green or a false red.
+
+**The non-delegated paths keep working.** A confirmed local Kokoro voice and user-supplied
+narration produce no engine metadata and cannot be bound to a request. `seal --attest local-tts` /
+`--attest user-supplied` records an explicit operator statement — the same shape as
+`caption_gen approve`, which binds a human's approval to exact content rather than waiving the
+check.
+
+**Bounded retry is not a consent act.** Re-requesting byte-identical confirmed text with the
+identical confirmed voice makes no choice, so it does not engage ADR-001. Two automatic retries
+(three attempts) is the bound: at the measured rate one retry still leaves a ~54% chance of manual
+escalation per film, three attempts reduce it to ~7%, and a fourth buys little while billing the
+provider again. Retry **only the failed ids** — re-clearing a good take re-bills it and rolls the
+same dice. Substituting a provider or voice on failure **is** a consent act and remains forbidden;
+the retry rule creates no exception to "never silently fall back between providers".
+
+**Consequences.** (a) A stale section can no longer reach the film without an explicit
+`--allow-unverified`, which is an escape hatch and never an enabler — the check is on by default so
+the invocation already written into every workflow is the guarded one. (b) A project must seal
+before assembling; the failure message names the command. (c) `example/` is unaffected and **must
+not be back-ported** — it is a record of what the pipeline emitted, never re-run, and hand-editing
+it would falsify the record. (d) The engine's exit-0-on-partial-failure is now a registered
+behavior probe, so if upstream fixes it the local pre-clear becomes redundant — but per ADR-006's
+retirement rule it is **not** removed until a real end-to-end run has passed on the fixed engine.
+That rule exists because M6 deleted `search_music.py` on the strength of a replacement that then
+stalled and produced nothing.
+
+**Alternatives rejected.** *Verify without a blocking gate* — all the machinery, bypassable at the
+one command the workflow definitely runs; a gate the failure path routes around is decoration.
+*Count `voices[]` in the assembler* — broken by the wholesale-replacement property on the retry
+path, defeated by the exit-0-with-stale-file property, and it imports a foreign schema into a
+copied file. *A duration heuristic* — refuted by measurement: the same 19-word line produced
+12.074s and 10.867s on consecutive calls, so a stale take's duration sits inside natural provider
+variance. *mtime* — the transcode step launders a stale wav into a fresh-mtime mp3, and `cp -p`,
+archives and clock skew all defeat it. *Warn for one release, then fail* — a warning is precisely
+what already existed and did not hold; shipping the same failed remedy more slowly is not a
+mitigation. *Fix it upstream only* — correct long-term home, and it is being filed, but this repo
+pins `media-use` by hash and takes updates at milestone boundaries, so users on the current pin stay
+exposed for an unbounded interval. *Drive the engine from a local script* — makes this repo the
+engine's driver and owns its CLI surface, which ADR-006 places upstream; the verifier emits the
+retry request instead and the workflow makes the call.
