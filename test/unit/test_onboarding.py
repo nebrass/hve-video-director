@@ -60,19 +60,30 @@ class FirstRunOnboardingTestCase(unittest.TestCase):
         self.assertIn("--autoConnect", text)
 
     def test_skill_homes_lines_remain_byte_identical(self):
+        # Must match CLAUDE.md's documented command, which globs workflows/*.md:
+        #   grep -rho 'SKILL_HOMES="[^"]*"' SKILL.md workflows/*.md \
+        #     scripts/check_requirements.sh | sort -u | wc -l   # must print 1
+        # phase-4-production.md was previously omitted here while carrying two of the
+        # seven occurrences, so a change that missed it passed this test and failed
+        # the documented command.
         paths = [
             ROOT / "SKILL.md",
-            ROOT / "workflows" / "phase-3-design.md",
-            ROOT / "workflows" / "phase-5-audio.md",
+            *sorted((ROOT / "workflows").glob("*.md")),
             ROOT / "scripts" / "check_requirements.sh",
         ]
         lines = set()
+        occurrences = 0
         for path in paths:
-            lines.update(re.findall(
+            found = re.findall(
                 r'SKILL_HOMES="[^"]*"',
                 path.read_text(encoding="utf-8"),
-            ))
+            )
+            occurrences += len(found)
+            lines.update(found)
         self.assertEqual(len(lines), 1, sorted(lines))
+        # A set of one also passes when files are empty; pin the count so deleting
+        # a definition cannot masquerade as parity.
+        self.assertEqual(occurrences, 7, f"expected 7 SKILL_HOMES occurrences, got {occurrences}")
 
 
 if __name__ == "__main__":

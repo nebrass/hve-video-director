@@ -92,8 +92,12 @@ as follows:
 
   ```bash
   # CANONICAL pipe-delimited skill-home list (preserves spaces in paths).
+  # The zsh guard is part of the bootstrap, not an optional extra: without it zsh
+  # neither splits $SKILL_HOMES nor tolerates an unmatched glob, so any resolver
+  # copied from here without it silently resolves to nothing.
   SKILL_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
   SKILL_HOMES="$HOME/.claude/skills|$HOME/.copilot/skills|$HOME/.agents/skills|$HOME/.pi/agent/skills|$HOME/.config/opencode/skills|$HOME/.cursor/skills|$HOME/.codex/skills|/etc/codex/skills|.claude/skills|.github/skills|.agents/skills|.pi/skills|.opencode/skills|.cursor/skills|.codex/skills|$SKILL_ROOT/.claude/skills|$SKILL_ROOT/.github/skills|$SKILL_ROOT/.agents/skills|$SKILL_ROOT/.pi/skills|$SKILL_ROOT/.opencode/skills|$SKILL_ROOT/.cursor/skills|$SKILL_ROOT/.codex/skills"
+  if [ -n "${ZSH_VERSION:-}" ]; then setopt shwordsplit nullglob; fi
   ```
 
 ## Prerequisites
@@ -113,6 +117,9 @@ canonical homes without creating or downloading anything:
 # Probe the canonical skill homes ($SKILL_HOMES, defined in § Runtime Compatibility above).
 SKILL_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
 SKILL_HOMES="$HOME/.claude/skills|$HOME/.copilot/skills|$HOME/.agents/skills|$HOME/.pi/agent/skills|$HOME/.config/opencode/skills|$HOME/.cursor/skills|$HOME/.codex/skills|/etc/codex/skills|.claude/skills|.github/skills|.agents/skills|.pi/skills|.opencode/skills|.cursor/skills|.codex/skills|$SKILL_ROOT/.claude/skills|$SKILL_ROOT/.github/skills|$SKILL_ROOT/.agents/skills|$SKILL_ROOT/.pi/skills|$SKILL_ROOT/.opencode/skills|$SKILL_ROOT/.cursor/skills|$SKILL_ROOT/.codex/skills"
+# zsh does not word-split unquoted $SKILL_HOMES and makes an unmatched glob fatal;
+# both make this loop silently resolve to nothing. No-ops in bash/dash/sh.
+if [ -n "${ZSH_VERSION:-}" ]; then setopt shwordsplit nullglob; fi
 OLD_IFS=$IFS
 IFS='|'
 SKILL_DIR=

@@ -28,6 +28,9 @@ Shell state does not survive between calls; re-state this block whenever a later
 # Keep this line identical to that definition; edit it there, not here.
 SKILL_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
 SKILL_HOMES="$HOME/.claude/skills|$HOME/.copilot/skills|$HOME/.agents/skills|$HOME/.pi/agent/skills|$HOME/.config/opencode/skills|$HOME/.cursor/skills|$HOME/.codex/skills|/etc/codex/skills|.claude/skills|.github/skills|.agents/skills|.pi/skills|.opencode/skills|.cursor/skills|.codex/skills|$SKILL_ROOT/.claude/skills|$SKILL_ROOT/.github/skills|$SKILL_ROOT/.agents/skills|$SKILL_ROOT/.pi/skills|$SKILL_ROOT/.opencode/skills|$SKILL_ROOT/.cursor/skills|$SKILL_ROOT/.codex/skills"
+# zsh does not word-split unquoted $SKILL_HOMES and makes an unmatched glob fatal;
+# both make this loop silently resolve to nothing. No-ops in bash/dash/sh.
+if [ -n "${ZSH_VERSION:-}" ]; then setopt shwordsplit nullglob; fi
 SKILL_DIR=$(
   OLD_IFS=$IFS
   IFS='|'
