@@ -1,5 +1,7 @@
 import importlib.util
 import io
+import hashlib
+import json
 import os
 import tempfile
 import unittest
@@ -15,6 +17,22 @@ def load_module():
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
+
+
+def seal_sections(project, bodies):
+    """Write the manifest `verify_vo_sections.py seal` produces after a verified run."""
+    (project / ".hve").mkdir(exist_ok=True)
+    (project / ".hve" / "vo-sections.json").write_text(
+        json.dumps({
+            "schema_version": 1,
+            "attest": "engine",
+            "sections": {
+                sid: {"audio_sha256": hashlib.sha256(body).hexdigest()}
+                for sid, body in bodies.items()
+            },
+        }),
+        encoding="utf-8",
+    )
 
 
 class GenerateVoiceoverTest(unittest.TestCase):
@@ -59,6 +77,11 @@ class GenerateVoiceoverTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             Path(tmp, "vo_section_00.mp3").write_bytes(b"first")
             Path(tmp, "vo_section_01.mp3").write_bytes(b"second")
+            # Since #40 the assembler refuses sections nobody vouched for: an
+            # existing file is not evidence it is the right take, because the TTS
+            # engine leaves a failed line's previous audio in place. Sealing is what
+            # `verify_vo_sections.py seal` writes after a verified synthesis run.
+            seal_sections(Path(tmp), {"00": b"first", "01": b"second"})
             old_cwd = os.getcwd()
             os.chdir(tmp)
             try:

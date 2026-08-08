@@ -47,6 +47,8 @@ Pitfalls handled (each one a real failure mode you'd otherwise hit silently):
     numbers; Phase 1 runs it before the storyboard is approved.
 """
 
+import hashlib
+import json
 import os
 import sys
 import subprocess
@@ -198,6 +200,48 @@ def assemble_voiceover(section_files: list, output_path: str = "voiceover.mp3"):
     print(f"  Assembled + padded: {output_path} ({final_dur:.2f}s)")
 
 
+# ─── Freshness gate ──────────────────────────────────────────────────────────
+
+MANIFEST = Path(".hve/vo-sections.json")
+
+
+def verify_sections_are_fresh(section_files):
+    """Refuse to assemble a section whose bytes nobody vouched for.
+
+    The delegated TTS engine leaves a failed line's PREVIOUS audio in place, so a
+    section file can exist, be non-empty and be entirely the wrong take. Existence
+    is therefore not evidence. `verify_vo_sections.py seal` records the bytes that
+    were actually produced for this script; this compares against that record.
+
+    Deliberately narrow: a sha256 against a manifest whose schema this repo owns.
+    This file is copied into every project and edited there, so it must never learn
+    the engine's formats — that knowledge lives in the skill-resident verifier.
+
+    Returns a list of complaints; empty means every section is accounted for.
+    """
+    if not MANIFEST.is_file():
+        return ["no .hve/vo-sections.json — run `verify_vo_sections.py seal` first"]
+    try:
+        recorded = json.loads(MANIFEST.read_text(encoding="utf-8")).get("sections", {})
+    except (json.JSONDecodeError, OSError) as error:
+        return [f"unreadable .hve/vo-sections.json ({error})"]
+
+    problems = []
+    for i, (_, path) in enumerate(section_files):
+        section_id = f"{i:02d}"
+        entry = recorded.get(section_id)
+        if not entry:
+            problems.append(f"section {section_id} is not in the manifest")
+            continue
+        digest = hashlib.sha256(Path(path).read_bytes()).hexdigest()
+        if digest != entry.get("audio_sha256"):
+            problems.append(
+                f"section {section_id} does not match the sealed bytes — it is a "
+                "different take than the one recorded"
+            )
+    return problems
+
+
 # ─── Main ────────────────────────────────────────────────────────────────────
 
 def main(argv=None):
@@ -205,8 +249,15 @@ def main(argv=None):
     # `--assemble-only` is retained as the documented spelling — assembly is now
     # the only mode, so the flag is accepted and optional rather than removed,
     # and every invocation already written into a workflow keeps working.
+    # `--allow-unverified` is an escape hatch, never an enabler: the freshness check
+    # is on by default so the invocation already written into every workflow is the
+    # guarded one. A flag that had to be *added* to get the check would leave the
+    # default path exactly as exposed as it is today.
+    allow_unverified = "--allow-unverified" in args
+    args = [a for a in args if a != "--allow-unverified"]
     if args not in ([], ["--assemble-only"]):
-        print("Usage: generate_voiceover.py [--assemble-only]", file=sys.stderr)
+        print("Usage: generate_voiceover.py [--assemble-only] [--allow-unverified]",
+              file=sys.stderr)
         return 2
 
     print("hve-video-director — Voiceover Assembly")
@@ -223,13 +274,42 @@ def main(argv=None):
             )
             return 2
         section_files.append((start, output))
-        duration = get_audio_duration(output)
-        print(f"    Duration: {duration:.1f}s (starts at {start}s)")
 
     if not section_files:
         print("No sections configured — set the `sections` list in this file.",
               file=sys.stderr)
         return 1
+
+    problems = verify_sections_are_fresh(section_files)
+    if problems:
+        if allow_unverified:
+            print("\n  WARNING: assembling UNVERIFIED sections —", file=sys.stderr)
+            for problem in problems:
+                print(f"    - {problem}", file=sys.stderr)
+            print("  A section left over from an earlier run is indistinguishable "
+                  "from a fresh one here.", file=sys.stderr)
+        else:
+            print("\nRefusing to assemble unverified sections:", file=sys.stderr)
+            for problem in problems:
+                print(f"  - {problem}", file=sys.stderr)
+            print(
+                "\nThe TTS engine leaves a failed line's previous audio in place, so "
+                "an existing section file is not evidence it is the right take.\n"
+                "Run:  python3 \"$SKILL_DIR/scripts/verify_vo_sections.py\" "
+                "--project-dir . seal\n"
+                "For narration this engine did not make (a confirmed local voice, or "
+                "your own recording), seal it with --attest local-tts or "
+                "--attest user-supplied.\n"
+                "To assemble anyway, pass --allow-unverified.",
+                file=sys.stderr,
+            )
+            return 2
+
+    # Durations are probed only once the set is proven, so a stale or unsealed
+    # project fails before spending an ffprobe call per section.
+    for start, output in section_files:
+        duration = get_audio_duration(output)
+        print(f"    Duration: {duration:.1f}s (starts at {start}s)")
 
     print("\n[2/2] Assembling voiceover...")
     assemble_voiceover(section_files)
