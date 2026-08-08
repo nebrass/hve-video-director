@@ -68,6 +68,22 @@ def make_skill(home: Path, name: str) -> Path:
     return d
 
 
+def the_guard():
+    """The single guard spelling, read from every SKILL_HOMES block."""
+    guards = set()
+    for doc in {d for d, _, _ in RESOLVERS}:
+        text = doc.read_text(encoding="utf-8")
+        for block in re.findall(r"```bash\n(.*?)```", text, re.S):
+            if "SKILL_HOMES=" in block:
+                guards.update(
+                    line.strip()
+                    for line in re.findall(r"^.*ZSH_VERSION.*$", block, re.M)
+                )
+    if len(guards) != 1:
+        raise AssertionError(f"guard spellings diverged: {sorted(guards)}")
+    return guards.pop()
+
+
 def available_shells():
     return [s for s in ("zsh", "bash", "dash", "sh") if shutil.which(s)]
 
@@ -145,36 +161,44 @@ class ResolverGuardIsUniform(unittest.TestCase):
     """
 
     def test_guard_present_and_byte_identical(self):
+        """Every fenced block that defines SKILL_HOMES carries the same guard.
+
+        Keyed off the SKILL_HOMES definition, not off a result variable. The
+        canonical block in SKILL.md § Runtime Compatibility assigns nothing — it is
+        the template resolvers are copied from — so a check that only visited blocks
+        with a `VAR=` assignment would let its guard be removed while staying green,
+        and the next resolver written from it would reintroduce the bug.
+        """
         guards = set()
-        for doc, var, _ in RESOLVERS:
-            block = extract_block(doc, var)
-            found = re.findall(r"^.*ZSH_VERSION.*$", block, re.M)
-            self.assertTrue(
-                found, f"{doc.name}:{var} has no zsh portability guard"
-            )
-            guards.update(line.strip() for line in found)
+        blocks = 0
+        for doc in {d for d, _, _ in RESOLVERS}:
+            text = doc.read_text(encoding="utf-8")
+            for block in re.findall(r"```bash\n(.*?)```", text, re.S):
+                if "SKILL_HOMES=" not in block:
+                    continue
+                blocks += 1
+                found = re.findall(r"^.*ZSH_VERSION.*$", block, re.M)
+                self.assertTrue(
+                    found,
+                    f"a SKILL_HOMES block in {doc.name} has no zsh portability guard",
+                )
+                guards.update(line.strip() for line in found)
+        self.assertEqual(
+            blocks, 6, f"expected 6 markdown SKILL_HOMES blocks, found {blocks}"
+        )
         self.assertEqual(
             len(guards), 1, f"guard spellings diverged: {sorted(guards)}"
         )
 
     def test_guard_enables_both_options(self):
         """`shwordsplit` alone still dies on the first missing home."""
-        guard = next(iter({
-            line.strip()
-            for doc, var, _ in RESOLVERS
-            for line in re.findall(r"^.*ZSH_VERSION.*$", extract_block(doc, var), re.M)
-        }))
+        guard = the_guard()
         self.assertIn("shwordsplit", guard)
         self.assertIn("nullglob", guard)
 
     def test_guard_tolerates_set_u(self):
         """check_requirements.sh runs under `set -u`; a bare $ZSH_VERSION is fatal there."""
-        guard = next(iter({
-            line.strip()
-            for doc, var, _ in RESOLVERS
-            for line in re.findall(r"^.*ZSH_VERSION.*$", extract_block(doc, var), re.M)
-        }))
-        self.assertIn("${ZSH_VERSION:-}", guard, "guard must default the variable")
+        self.assertIn("${ZSH_VERSION:-}", the_guard(), "guard must default the variable")
 
 
 if __name__ == "__main__":
