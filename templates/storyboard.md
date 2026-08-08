@@ -34,9 +34,10 @@ Phase 4 root `index.html` references them via `data-composition-src`.
 > (`scenes/00-hero.html`) to match developer convention, so frame 1's `src` is `scenes/00-…`. See
 > `patterns/anti-slop.md` § "AI Tool Promo Specifics".
 
-> **VO timing:** word count is a weak proxy for spoken duration. TTS voices often pause ~0.3–0.5s
-> per comma. When a section overruns budget, drop commas before dropping words. See
-> `workflows/phase-5-audio.md` § "Voice timing is non-linear".
+> **VO timing:** word count is a weak proxy for spoken duration — syllable density and comma
+> pauses both move it. When a line overruns its slot, drop commas before dropping words.
+> `validate_brief.py vo-budget` estimates this per frame and film-wide, and owns the numbers;
+> Phase 1 § "Check the narration fits before anyone approves it" runs it before approval.
 
 > **Pronunciation:** TTS models render space-separated capital letters as a phonetic blob ("H V E"
 > → "Sage V E"). Write acronyms phonetically ("Aitch Vee Ee") to force letter-by-letter

@@ -14,6 +14,7 @@ Examples:
     python3 validate_brief.py --project-dir ./my-video status --json
     python3 validate_brief.py --project-dir ./my-video migrate
     python3 validate_brief.py --project-dir ./my-video storyboard --json
+    python3 validate_brief.py --project-dir ./my-video vo-budget --json
     python3 validate_brief.py --project-dir ./my-video migrate-storyboard
     python3 validate_brief.py --project-dir ./my-video confirm-story
     python3 validate_brief.py --project-dir ./my-video confirm-audio
@@ -1756,6 +1757,223 @@ def command_migrate(project_dir: Path, as_json: bool) -> int:
     return 0
 
 
+# ── Narration fit ────────────────────────────────────────────────────────────
+#
+# Phase 1 writes each frame's `duration` and `voiceover` in the same pass, then nobody
+# compares them. The mismatch surfaces in Phase 5, after TTS is paid for: on one real
+# 40-frame / 540s run the accepted narration measured 619.4s — 147s of overrun.
+#
+# The estimate keys off SYLLABLES, not words. Across the narration of the `example/`
+# reference build, syllables-per-word ranges 1.17–2.13, so two 12-word lines in one
+# film can carry 14 and 21 syllables; a words-per-second model asserts they take the
+# same time. Measured against that run's own evidence — its Phase-1 storyboard and its
+# Phase-5 `voiceover.py` disagree on exactly the two frames that were shortened before
+# synthesis — the syllable form selects those two frames and a word-rate form does not.
+#
+# Everything below is READ-ONLY and outside every fingerprint, for the same reason the
+# storyboard itself is: it describes the film, it does not record consent. A verdict
+# here is guidance the user may overrule (ADR-001) — never a gate, and never a licence
+# to rewrite a `voiceover` line the user approved.
+
+# Speaking pace. `SYLLABLES_PER_WORD` normalizes syllables back onto the word-rate
+# calibration rather than adding a free parameter, so a wrong corpus mean shifts every
+# estimate by a flat factor the band absorbs, instead of distorting one term.
+SYLLABLES_PER_WORD = 1.50
+WORDS_PER_SECOND = 2.5
+COMMA_PAUSE_S = 0.35
+SENTENCE_PAUSE_S = 0.55
+
+# Estimate spread. Dominated by syllable-density dispersion, not by the ~10% run-to-run
+# variance a TTS provider adds on identical text; both are folded in here.
+ESTIMATE_SPREAD = 0.20
+
+# The editorial target from `workflows/phase-5-audio.md` § Write the aligned script:
+# narration starts ~1s into its scene and ends ~0.5s before it. That prose is
+# deliberately approximate for a human writing lines; these are the exact values the
+# machine check uses, and this is their only numeric home.
+VO_LEAD_IN_S = 1.0
+VO_TAIL_S = 0.5
+
+_VOWEL_RUN = re.compile(r"[aeiouy]+")
+_WORD = re.compile(r"[A-Za-z][A-Za-z'’-]*")
+
+
+def count_syllables(word: str) -> int:
+    """Count syllables in one English word. Heuristic, pure stdlib, no corpus."""
+    w = word.lower().strip("'’-")
+    if not w:
+        return 0
+    groups = _VOWEL_RUN.findall(w)
+    n = len(groups)
+    # Hiatus: some vowel pairs are two syllables, not one. Common in this domain —
+    # "video", "audio", "radio", "media" — so a single vowel run undercounts them.
+    for group in groups:
+        n += sum(group.count(pair) for pair in ("eo", "ia", "io", "ua", "eou"))
+    # A trailing "e" is usually silent ("make", "scene") unless it is the only vowel
+    # group ("the") or the word ends in consonant + "le" ("subtle").
+    if w.endswith("e") and not w.endswith(("le", "ee", "ye")) and n > 1:
+        n -= 1
+    if w.endswith("le") and len(w) > 2 and w[-3] not in "aeiouy":
+        n = max(n, 1)
+    return max(n, 1)
+
+
+def estimate_speech_seconds(text: str | None) -> float:
+    """Estimate how long `text` takes to speak, in seconds."""
+    if not text:
+        return 0.0
+    body = text.strip().strip('"').strip("'")
+    if not body:
+        return 0.0
+    words = _WORD.findall(body)
+    if not words:
+        return 0.0
+    syllables = sum(count_syllables(w) for w in words)
+    effective_words = syllables / SYLLABLES_PER_WORD
+    commas = body.count(",") + body.count(";") + body.count("—")
+    sentences = len(re.findall(r"[.!?]", body))
+    seconds = (
+        effective_words / WORDS_PER_SECOND
+        + commas * COMMA_PAUSE_S
+        + sentences * SENTENCE_PAUSE_S
+    )
+    return round(seconds, 2)
+
+
+def classify_frame(estimate: float, slot: float | None, has_text: bool) -> str:
+    """Grade one frame. Tiers differ in kind, not just degree.
+
+    OVER breaches the assembler's hard limit — it inserts no silence spacer, so every
+    later section inherits the drift and desyncs from its scene. TAIL only spends the
+    editorial breathing room, which costs a short tail and nothing structural.
+
+    SILENT means the frame has no narration. A frame that HAS narration this estimator
+    cannot measure is UNMEASURABLE — the syllable heuristic is ASCII-Latin, so
+    non-English narration (this skill supports a confirmed non-English local voice) or
+    a numeric-only line yields no tokens. Reporting that as SILENT would suppress the
+    warning for real speech, which is the one thing this check exists to prevent.
+    """
+    if not has_text:
+        return "SILENT"
+    if estimate <= 0:
+        return "UNMEASURABLE"
+    if slot is None:
+        return "UNMEASURABLE"
+    if estimate > slot:
+        return "OVER"
+    if estimate * (1 + ESTIMATE_SPREAD) > slot:
+        return "TIGHT"
+    if estimate * (1 + ESTIMATE_SPREAD) > slot - (VO_LEAD_IN_S + VO_TAIL_S):
+        return "TAIL"
+    return "OK"
+
+
+def vo_budget_payload(project_dir: Path, path: Path, text: str) -> dict[str, Any]:
+    """Estimate narration against each frame's slot. Reads only; writes nothing."""
+    document = parse_storyboard(text)
+    frames: list[dict[str, Any]] = []
+    total = 0.0
+    film = 0.0
+    for frame in document["frames"]:
+        vo = frame.get("voiceover")
+        slot = frame.get("duration_seconds")
+        estimate = estimate_speech_seconds(vo)
+        has_text = bool(vo and vo.strip().strip('"').strip("'").strip())
+        total += estimate
+        if slot:
+            film += slot
+        frames.append(
+            {
+                "index": frame.get("index"),
+                "title": frame.get("title"),
+                "slot_seconds": slot,
+                "estimate_seconds": estimate,
+                "estimate_low_seconds": round(estimate * (1 - ESTIMATE_SPREAD), 2),
+                "estimate_high_seconds": round(estimate * (1 + ESTIMATE_SPREAD), 2),
+                "slack_seconds": round(slot - estimate, 2) if slot else None,
+                "tier": classify_frame(estimate, slot, has_text),
+            }
+        )
+    over = [f for f in frames if f["tier"] == "OVER"]
+    return {
+        "complete": bool(frames),
+        "storyboard": str(path),
+        "frame_count": len(frames),
+        "frames": frames,
+        "estimated_total_seconds": round(total, 2),
+        "film_seconds": round(film, 2),
+        "over_count": len(over),
+        "over_seconds": round(sum(f["estimate_seconds"] - f["slot_seconds"] for f in over), 2),
+        "tier_counts": {
+            tier: sum(1 for f in frames if f["tier"] == tier)
+            for tier in ("OVER", "TIGHT", "TAIL", "OK", "SILENT", "UNMEASURABLE")
+        },
+        "errors": [],
+        "warnings": [],
+    }
+
+
+def command_vo_budget(project_dir: Path, as_json: bool) -> int:
+    """Report whether the approved narration can be spoken in the time it has."""
+    try:
+        path, text = read_storyboard(project_dir)
+    except FileNotFoundError as error:
+        emit(
+            error_payload(str(error)),
+            as_json,
+            stream=sys.stdout if as_json else sys.stderr,
+        )
+        return 1
+    except BriefFormatError as error:
+        emit(
+            error_payload(str(error)),
+            as_json,
+            stream=sys.stdout if as_json else sys.stderr,
+        )
+        return 2
+
+    payload = vo_budget_payload(project_dir, path, text)
+    if not payload["complete"]:
+        payload["message"] = f"No frames found in {payload['storyboard']}."
+        emit(payload, as_json, stream=sys.stdout if as_json else sys.stderr)
+        return 1
+
+    # The total is the alarm; per-frame tiers are triage for where to cut.
+    summary = [
+        f"Narration estimate: ~{payload['estimated_total_seconds']:.0f}s of speech "
+        f"for a {payload['film_seconds']:.0f}s film "
+        f"({payload['frame_count']} frames)."
+    ]
+    if payload["over_count"]:
+        summary.append(
+            f"{payload['over_count']} frame(s) cannot be spoken in their slot — "
+            f"{payload['over_seconds']:.1f}s over in total. Narration that overruns "
+            "inserts no silence spacer, so every later section drifts."
+        )
+    unmeasurable = [f for f in payload["frames"] if f["tier"] == "UNMEASURABLE"]
+    if unmeasurable:
+        summary.append(
+            f"{len(unmeasurable)} frame(s) could not be measured (no duration, or "
+            "narration this Latin-alphabet estimator cannot tokenize) — check them by "
+            "hand: " + ", ".join(str(f["index"]) for f in unmeasurable)
+        )
+    for frame in payload["frames"]:
+        if frame["tier"] in ("OVER", "TIGHT", "TAIL"):
+            summary.append(
+                f"- {frame['tier']} frame {frame['index']} "
+                f"({frame['title'] or 'untitled'}): ~{frame['estimate_seconds']:.1f}s "
+                f"({frame['estimate_low_seconds']:.1f}–{frame['estimate_high_seconds']:.1f}s) "
+                f"in a {frame['slot_seconds']:.1f}s slot"
+            )
+    summary.append(
+        "Estimates only. This is guidance for the user, who owns the narration — "
+        "never edit an approved voiceover line on its say-so."
+    )
+    payload["message"] = "\n".join(summary)
+    emit(payload, as_json)
+    return 1 if payload["over_count"] else 0
+
+
 def command_storyboard(project_dir: Path, as_json: bool) -> int:
     try:
         path, text = read_storyboard(project_dir)
@@ -2169,6 +2387,15 @@ def build_parser() -> argparse.ArgumentParser:
     )
     storyboard.add_argument("--json", action="store_true", help="Emit one JSON object.")
 
+    vo_budget = subparsers.add_parser(
+        "vo-budget",
+        help=(
+            "Estimate how long each frame's voiceover takes to speak and report it "
+            "against that frame's duration. Guidance for the user, never a gate."
+        ),
+    )
+    vo_budget.add_argument("--json", action="store_true", help="Emit one JSON object.")
+
     migrate_storyboard = subparsers.add_parser(
         "migrate-storyboard",
         help=(
@@ -2214,6 +2441,8 @@ def main(argv: list[str] | None = None) -> int:
         return command_migrate(project_dir, args.json)
     if args.command == "storyboard":
         return command_storyboard(project_dir, args.json)
+    if args.command == "vo-budget":
+        return command_vo_budget(project_dir, args.json)
     if args.command == "migrate-storyboard":
         return command_migrate_storyboard(project_dir, args.json)
     if args.command == "confirm-story":

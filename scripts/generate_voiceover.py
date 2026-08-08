@@ -41,10 +41,10 @@ Pitfalls handled (each one a real failure mode you'd otherwise hit silently):
     cwd. Always use absolute paths in concat lists.
   - Voiceover must be padded to VIDEO_DURATION (`apad=whole_dur=N`). Otherwise
     HyperFrames render finds no audio for the trailing frames.
-  - Word count is a poor proxy for spoken duration — comma density inflates
-    the duration significantly (a 22-word sentence with 5 commas can be 15s;
-    the same idea in 26 commaless words takes 10s). When a section overruns
-    its slot, drop commas before dropping words.
+  - Word count is a poor proxy for spoken duration — syllable density and comma
+    pauses both inflate it. When a section overruns its slot, drop commas before
+    dropping words. `validate_brief.py vo-budget` owns the estimate and its
+    numbers; Phase 1 runs it before the storyboard is approved.
 """
 
 import os
@@ -153,8 +153,8 @@ def assemble_voiceover(section_files: list, output_path: str = "voiceover.mp3"):
                     elif gap < 0:
                         print(f"  WARNING: section {i} audio overruns its "
                               f"{next_start - start_time:.1f}s slot by {-gap:.1f}s "
-                              "— every later section starts early and desyncs from "
-                              "its scene. Shorten this section's text.",
+                              "— no spacer is inserted, so every later section starts late "
+                              "and desyncs from its scene. Shorten this section's text.",
                               file=sys.stderr)
 
         subprocess.run([
