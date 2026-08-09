@@ -11,11 +11,13 @@
        MSTART = the storyboard's `Clip in` (trim offset, seconds; 0 if whole).
        SPEED  = the storyboard's `Speed` (0.1–5.0; normally 1.0). HyperFrames reads
                 defaultPlaybackRate while footage-locking, so set it explicitly.
-     A bare <video> (no data-start) is auto-discovered for display but never
-     time-synced, so it's safe ONLY as the single clip in a composition (and
-     even then it never advances past frame 0); with 2+ clip scenes, bare
-     videos cross-route (one scene plays another's footage, another plays
-     black). Animate the WRAPPER (.term-frame) only — never the <video>
+     A <video> without data-start is auto-discovered for display but never
+     time-synced, so it never advances past frame 0 — lint errors on that
+     (media_missing_data_start). The unguarded case is the partly wired one:
+     no lint rule covers data-media-start or data-track-index, so with 2+ clip
+     scenes a fully attributed video can still cross-route (one scene plays
+     another's footage, another plays black).
+     Animate the WRAPPER (.term-frame) only — never the <video>
      dimensions (see DON'T: img/video dimension tweens).
      Authored by Phase 2 after asciinema → agg has produced the MP4.
      See patterns/cli-terminal-capture.md for the recording workflow. -->

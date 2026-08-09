@@ -14,11 +14,14 @@
                 Phase 5's clip-audio extraction (CIN).
        SPEED  = the storyboard's `Speed` (0.1–5.0; normally 1.0). HyperFrames reads
                 defaultPlaybackRate while footage-locking, so set it explicitly.
-     The runtime only seeks videos that carry data-start: a bare <video> is
-     auto-discovered for display but never time-synced, so it's safe ONLY as
-     the single clip in a composition (and even then it never advances past
-     frame 0). With 2+ clip scenes, bare videos cross-route — one scene plays
-     another's footage, another plays black. Animate the wrapper, NEVER the
+     The runtime only seeks videos that carry data-start: without it a <video>
+     is auto-discovered for display but never time-synced, so it never advances
+     past frame 0. lint errors on that (media_missing_data_start,
+     media_missing_id) and check skips the browser when lint errors — so the
+     bare case is caught. What is NOT caught: no lint rule covers
+     data-media-start or a media element's data-track-index, so a fully
+     attributed video with the wrong offset plays the wrong footage, or another
+     scene's, with every gate green. Animate the wrapper, NEVER the
      <video> dimensions. The element stays muted; opt-in clip-own audio is
      mixed separately in Phase 5. -->
 <template id="scene-NN-clip-template">

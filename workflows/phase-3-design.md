@@ -367,9 +367,12 @@ from those attributes (Wiring S — render-verified). Two values matter:
   video at `1.0` desynchronizes footage whenever `speed != 1`.
 
 **Do not omit the contract**: the runtime only seeks
-videos that carry `data-start`, so a bare `<video>` is displayed but never time-synced — safe only
-as the single clip in the whole composition, and with two or more clip scenes bare videos
-cross-route (one scene plays another's footage, another plays black). And **never animate the
+videos that carry `data-start`, so a video without it is displayed but never time-synced. `lint`
+errors on that case (`media_missing_data_start`, `media_missing_id`) and `check` skips the browser
+when lint errors — so the *bare* video is caught. The dangerous case is the partly wired one: no
+lint rule covers `data-media-start` or a media element's `data-track-index`, so a video with an id
+and a start but the wrong offset plays the wrong footage, or another scene's, with every gate
+green. And **never animate the
 `<video>` dimensions** — wrap it in a non-timed `.clip-frame` div and animate the wrapper. Copy
 `templates/scene-clip.html` as the starting point (`templates/scene-terminal-clip.html` for
 asciinema/agg terminal footage).

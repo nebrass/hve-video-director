@@ -206,9 +206,10 @@ every sampled timestamp.
   is written to fit the footage-derived window in Phase 5.
 - **Verify the inner `<video>`'s attribute contract; never re-derive it here.** It is
   `workflows/phase-3-design.md` § Clip scene, over `DATA_ATTRIBUTES` — confirm the builder wired it
-  from the frame's bullets, because the runtime frame-syncs only a video declaring `data-start` and
-  a bare one cross-routes across 2+ clip scenes (one plays another's footage, another plays black)
-  while every gate stays green.
+  from the frame's bullets, because the runtime frame-syncs only a video declaring `data-start`.
+  A bare one is caught by `lint` (`media_missing_data_start`, error); what is *not* caught is a
+  wrong `data-media-start` or `data-track-index` — neither has a lint rule — so a fully-attributed
+  video can still play the wrong footage with every gate green.
   One value only Phase 4 can supply: the inner video's `data-duration` is **its own loader's full
   window**, read off the loader you sized above — not the bare clip length. The runtime hides an
   expired track, so a video ending before its loader blanks the frame for the rest of the window,
@@ -471,7 +472,7 @@ optional gate does not block Phase 5.
 
 ### Hero-frame content check (mandatory — gates can't see "wrong content")
 
-`lint` and `check` are mechanical: structure, layout overflow, contrast. **Neither judges whether each scene is showing the *right* content** — a clip wired to the wrong footage or a stale `<img src>` passes both GREEN (this is exactly how the bare-`<video>` clip cross-route shipped unnoticed). Catch it here, cheaply, *before* the full render in Phase 5.
+`lint` and `check` are mechanical: structure, layout overflow, contrast. **Neither judges whether each scene is showing the *right* content** — a clip wired to the wrong footage or a stale `<img src>` passes both GREEN (this is exactly how the clip cross-route shipped unnoticed — the attributes that decide *which* footage plays, `data-media-start` and `data-track-index`, have no lint rule). Catch it here, cheaply, *before* the full render in Phase 5.
 
 Capture a `snapshot` at the **midpoint of each scene** (not a uniform sweep) so every scene contributes one readable hero frame:
 
