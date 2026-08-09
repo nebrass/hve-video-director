@@ -197,6 +197,37 @@ class SealBindsBytes(unittest.TestCase):
             self.assertEqual(manifest["attest"], "local-tts")
 
 
+class StateWritesAreAtomic(unittest.TestCase):
+    """A crash or full disk mid-write must not destroy the previous record.
+
+    The manifest is the proof generate_voiceover.py consults before
+    assembling; a truncated manifest destroys the seal and the only remedy
+    is re-synthesis. Publication must be tmp-write + rename, so a failed
+    publish leaves the sealed record byte-identical.
+    """
+
+    def test_a_failed_manifest_publish_preserves_the_previous_seal(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            project = make_project(tmp)
+            VV.main(["--project-dir", str(project), "prepare"])
+            write_section(project, "00")
+            write_section(project, "01")
+            self.assertEqual(VV.main(["--project-dir", str(project), "seal"]), 0)
+            manifest = project / ".hve" / "vo-sections.json"
+            before = manifest.read_bytes()
+
+            VV.main(["--project-dir", str(project), "prepare", "01"])
+            write_section(project, "01", b"retake")
+            with mock.patch.object(VV.os, "replace", side_effect=OSError("disk full")):
+                with self.assertRaises(OSError):
+                    VV.main(["--project-dir", str(project), "seal"])
+            self.assertEqual(
+                manifest.read_bytes(), before,
+                "a failed publish must leave the sealed record byte-identical",
+            )
+            self.assertEqual(list(manifest.parent.glob(".vo-sections.json.*.tmp")), [])
+
+
 class UpstreamSchemaChurnDegradesSafely(unittest.TestCase):
     """audio_meta.json is an advisory diagnostic. It must never gate."""
 

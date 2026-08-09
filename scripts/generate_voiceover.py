@@ -53,6 +53,7 @@ import os
 import sys
 import subprocess
 import tempfile
+import uuid
 from pathlib import Path
 
 # ─── Configuration ────────────────────────────────────────────────────────────
@@ -288,10 +289,22 @@ def verify_script_unchanged():
     }
     recorded = manifest.get("script_sha256")
     if recorded is None:
+        # Anchoring happens on an ORDINARY assembly, so this write must not be
+        # able to truncate the seal it is annotating: publish via tmp + rename.
         manifest["script_sha256"] = current
-        MANIFEST.write_text(
-            json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"
-        )
+        tmp = MANIFEST.parent / f".{MANIFEST.name}.{os.getpid()}.{uuid.uuid4().hex}.tmp"
+        try:
+            with tmp.open("x", encoding="utf-8") as handle:
+                handle.write(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
+                handle.flush()
+                os.fsync(handle.fileno())
+            os.replace(tmp, MANIFEST)
+        except OSError:
+            try:
+                tmp.unlink()
+            except FileNotFoundError:
+                pass
+            raise
         return []
     changed = [k for k, v in current.items() if recorded.get(k) != v]
     if not changed:

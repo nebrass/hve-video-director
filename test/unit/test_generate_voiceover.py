@@ -232,6 +232,41 @@ class AssemblerBehaviourTest(unittest.TestCase):
         self.assertIn("apad only extends", err.getvalue())
 
 
+class ManifestAnchorWriteIsAtomic(unittest.TestCase):
+    """Recording script_sha256 must not be able to truncate the sealed manifest.
+
+    verify_script_unchanged writes the anchor into the manifest on the first
+    verified assembly after a seal — an ordinary run, not an exceptional one.
+    An in-place write opens a corruption window on every assembly: a crash or
+    full disk mid-write destroys the freshness proof and forces re-synthesis.
+    """
+
+    def test_a_failed_anchor_write_preserves_the_manifest(self):
+        module = load_module()
+        module.sections = [(0.0, "hello")]
+        with tempfile.TemporaryDirectory() as tmp:
+            old_cwd = os.getcwd()
+            os.chdir(tmp)
+            try:
+                seal_sections(Path(tmp), {"00": b"audio"})
+                manifest = Path(tmp) / ".hve" / "vo-sections.json"
+                before = manifest.read_bytes()
+                with mock.patch.object(
+                    module.os, "replace", side_effect=OSError("disk full")
+                ):
+                    with self.assertRaises(OSError):
+                        module.verify_script_unchanged()
+                self.assertEqual(
+                    manifest.read_bytes(), before,
+                    "a failed anchor write must leave the seal byte-identical",
+                )
+                self.assertEqual(
+                    list(manifest.parent.glob(".vo-sections.json.*.tmp")), []
+                )
+            finally:
+                os.chdir(old_cwd)
+
+
 class ConcatListRobustnessTest(unittest.TestCase):
     """The concat list must survive paths ffmpeg's demuxer parses specially.
 
