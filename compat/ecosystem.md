@@ -605,10 +605,14 @@ automated.
   notes), `workflows/phase-4-production.md` (Step 4.5 shine, Step 4.7 register, the hero-frame
   check's rationale), `workflows/phase-5-audio.md` (the caption-kill rule),
   `sub-agents/non-default-runtime-rider.md` (the module-script ban).
-- **Exit.** n/a — these are gaps in an upstream gate, not defects; several are things a gate
-  arguably should not check. Where one *should*, `hyperframes feedback` is the route (ADR-003).
+- **Exit.** One narrow ask, not yet filed: **`data-start` on a sub-composition root**. Upstream
+  already says the *host clip* owns placement, so a scene root carrying `data-start` is
+  meaningless in every case — a rule with no false positives. Deliberately NOT asking for a
+  blanket "no timing attributes on a scene root": `THREE_ADAPTER` *requires* `data-duration`
+  there, so that rule would fire on every Three.js scene. Otherwise n/a — these are gaps in an
+  upstream gate, not defects, and several are things a gate arguably should not check.
 - **What.** This repo makes ~30 claims of the form "`check` does not flag it" or "every gate stays
-  green", and they justify DON'Ts and manual review steps. Verified against the pinned CLI on
+  green", and they justify DON'Ts and manual review steps. Ten cases verified against the pinned CLI on
   2026-08-09, `lint` **and** `check` (browser pass), each defect diffed against a control that
   differs only by the injected defect. All eight agree with the gates:
   `tl.from()` + stagger (blind) · jitter/shake (blind) · one ease across a 0.05s duration band
@@ -627,6 +631,11 @@ automated.
   `bash test/run.sh`: it needs the CLI and a browser, same reason as `CHECK_DEPRECATION_SIGNAL`.
   Re-run at each pin bump — a gate that *gains* a rule turns one of these claims false, and the
   failure mode is silent because the claim keeps reading plausibly.
+- **A blanket rule here would be wrong**, which is probably why upstream has none. `data-start`
+  on a scene root is always meaningless; `data-duration` there is **required** on a `runtime:
+  three` frame (no duration auto-inference) and present on this repo's own reference hero scene.
+  A local bullet stating the blanket form was corrected on 2026-08-09 — it had been reasoned
+  rather than run.
 - **Adjacent fact, found while verifying and written nowhere else.** Timing attributes on a
   **direct child of the composition root** without `class="clip"` *are* an error
   (`timed_element_missing_clip_class`: "will be visible for the entire composition instead of only
