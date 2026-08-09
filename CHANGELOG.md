@@ -141,6 +141,29 @@ contribution, or `not yet filed`). Nine say not yet filed, which is the point: r
 ten minutes and filing costs a day, so the likely failure of the whole mechanism is a
 well-registered probe made permanent by a slower route.
 
+### Claims verified by running the gates
+
+~30 claims in this repo say "`check` does not flag it" or "every gate stays green". They justify
+DON'Ts and manual review steps, only 2 of them named a lint code, and they are the one class no
+guard in `test/unit/` can reach — those all prove the repo is consistent *with itself*, while a
+gate-blindness claim is about an external tool's behaviour on a case nobody ran.
+
+`test/verify_gate_blindness.py` builds the composition each claim describes, runs the real `lint`
+and `check`, and diffs against a control differing only by the injected defect. **Ten of ten agree
+with the gates**, browser pass included — including a control positive proving the harness detects
+at all, and one claim confirmed *positively* (a module script in a sub-composition really does fail
+`check`, with "Cannot use import statement outside a module"). Opt-in; registered as
+`GATE_BLIND_SPOTS` so the pin-bump walk re-runs it, because a gate that *gains* a rule turns one of
+these claims false and the claim keeps reading plausibly.
+
+It also settled a third false claim. `patterns/transition-catalog.md` said a scene file's root
+carries `data-composition-id` + `data-width` + `data-height` "and that is all" — contradicted by
+`THREE_ADAPTER`, which *requires* `data-duration` there, and by this repo's own reference hero
+scene, which carries it. A builder following that bullet on a `runtime: three` frame would have
+removed a required attribute. What survives is the half upstream states: the **host clip** owns
+placement, so `data-start` on a scene root is meaningless — which is also the only lint rule worth
+asking upstream for, since a blanket one would fire on every Three.js scene.
+
 ### Rejected, with reasons recorded
 
 Five audit proposals were refused on recorded grounds rather than implemented: a hero
