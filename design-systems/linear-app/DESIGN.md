@@ -73,7 +73,7 @@ The brand voice is "things work because they're well-built, not because they loo
 ## 6. Video applications
 
 - **Hero scene:** Single Inter 510 headline at 140px on `#08090a`. No mockup, no decoration. Subtitle at 32px in `#d0d6e0` arrives 0.4s later. Both elements settle, then transition.
-- **Feature scene:** Product screenshot in a card with elevated surface `#191a1b` and the inset-highlight shadow stack. Tilt ≤3°. Caption in 32px Inter 510 beside it.
+- **Feature scene:** Product screenshot in a card with elevated surface `#191a1b` and the inset-highlight shadow stack. Tilt ≤3° on Y. Caption in 32px Inter 510 beside it.
 - **Stat scene:** Number at 200px on dark canvas, tabular-figures, counter ease `power2.out` over ~1.8s. Label at 32px below.
 - **CTA scene:** `npm i linear` or equivalent in Berkeley Mono on an elevated surface. Brand mark below at 80px. Hold.
 

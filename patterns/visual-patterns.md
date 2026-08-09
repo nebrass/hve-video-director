@@ -290,7 +290,7 @@ non-final scene, and no `clipPath` seam. Transition duration comes from the conf
 ## DON'Ts (Critical)
 
 - **No jitter or shake** — reads as cheap. `check` will not catch it; self-police.
-- **No full 360° rotations** — disorienting. Subtle `rotateY` ≤ 8° or `rotateZ` ≤ 4° only, and on
+- **No full 360° rotations** — disorienting. Subtle `rotateY` ≤ 8°, `rotateX` ≤ 4° or `rotateZ` ≤ 4° only, and on
   mockups only.
 - **No `elastic` or `bounce` eases** — they read as toy-like in a product video. This narrows
   `EASING_AND_STAGGER`, which permits overshoot as a rare explicitly-playful register: in this

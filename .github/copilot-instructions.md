@@ -103,7 +103,7 @@ replacement needs real TTS, music licensing and per-phase approvals no agent may
 These are enforced verbally in the `## DON'Ts` section of `SKILL.md`. If you modify workflows or patterns, do not reintroduce them:
 
 - **No jitter** (shaking, vibrating motion).
-- **No 360° scene spins.** Subtle `rotateY` ≤ 8° / `rotateZ` ≤ 4° on mockups only.
+- **No 360° scene spins.** Subtle `rotateY` ≤ 8° / `rotateX` ≤ 4° / `rotateZ` ≤ 4° on mockups only. Always name the axis a limit governs.
 - **No 3D transforms in transitions.** 2D only (opacity, position, scale, gradient masks).
 - **No clipPath transitions.** A polygon `clipPath` sweeping between two scenes leaves an anti-aliased black sliver at the boundary, and no gate catches it. Use a crossfade with a full-frame light overlay over it (the light family, `TRANSITION_FAMILIES`); render-side rules are `SEAM_RENDER_MECHANICS`. See `patterns/visual-patterns.md` § DON'Ts.
 - **No exit animations except on the closing scene.** The inter-scene transition owns the exit.

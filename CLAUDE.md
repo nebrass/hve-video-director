@@ -216,7 +216,7 @@ engine's ElevenLabs route, which is the only path that still consumes it.
 These are enforced verbally in the `## DON'Ts` section of `SKILL.md` — except the seam rules, which `SEAM_VERIFIER` enforces numerically. If you modify workflows or patterns, do not reintroduce them:
 
 - **No jitter** (shaking, vibrating motion).
-- **No 360° scene spins.** Subtle `rotateY` ≤ 8° / `rotateZ` ≤ 4° on mockups only.
+- **No 360° scene spins.** Subtle `rotateY` ≤ 8° / `rotateX` ≤ 4° / `rotateZ` ≤ 4° on mockups only. Always name the axis a limit governs.
 - **Seams belong to `SEAM_LAW`, not to this repo.** The vector law (axis/direction/speed/phase), the ban on a scene authoring its own exit — only the closing scene may animate out — and the fact that a crossfade carries nothing across the cut (a dissolve, not a seam) are `motion-doctrine`'s, stamped by `SEAM_STAMP` and checked by `SEAM_VERIFIER`. **The numeric gate is authoritative where local prose disagrees**; fix the seam ledger, not the assertion. It still never overrides the user's confirmed transition style — it governs execution, not choice (ADR-001).
 - **Additive seam bans this repo keeps** (narrowing only, never overriding the law): no `clipPath`-driven inter-scene wipe (anti-aliased black sliver at the boundary; render-side rules are `SEAM_RENDER_MECHANICS`) and no 3D/perspective transforms as a seam effect — a Z seam is a signed *scale* change.
 - **Never animate `display`, `visibility`, or call `.play()` inside a timeline.** Breaks HyperFrames' deterministic seek; use `opacity` + `pointer-events`.

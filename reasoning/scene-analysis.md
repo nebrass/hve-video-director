@@ -37,10 +37,29 @@ Answer all twelve for every frame. One line each, no essays — the answers *are
   grammar file's local convention note, and a frame's set is never empty.
   1. every capability tag **declared by each grammar entry the frame cites** in Q8/Q9/Q10;
   2. **asset and subject realities** — a prebaked export exists → `prebaked-asset`; the subject is
-     a per-frame simulation → `gpu-compute`; Q7 answered yes → the spatial tag it names;
+     a per-frame simulation → `gpu-compute`; Q7 answered yes → the spatial tag it names, per the
+     table below;
   3. **explicit additions**, each of which must carry a stated reason on the frame.
   Tags come from the vocabulary owned by `reasoning/capability-catalog.md`. Never invent one.
   A frame citing a spatial camera move while declaring no spatial capability is a derivation bug.
+
+  **Q7 → the tag it names.** Q7 has no key of its own, so this is the only place its answer
+  becomes a capability. Naming the mapping is what keeps the step mechanical (ADR-005) rather
+  than a re-reading of the question at each frame. Read top-down; the first row that describes
+  the frame decides.
+
+  | What Q7 found the frame needs | Tag |
+  |---|---|
+  | parts that must pass in front of **and behind** one another — true self-occlusion | `topology-3d` |
+  | a viewpoint that **travels**, so perspective changes as it moves | `perspective-camera` |
+  | quantity itself is the message, past what the DOM can instance | `volumetric-count` |
+  | layering in Z — occlusion between planes, parallax, stacked surfaces | `spatial-depth` |
+  | none of the above | *no tag from Q7* |
+
+  `spatial-depth` is the common answer and stays 2.5D: the discriminator against `topology-3d` is
+  **self-occlusion**, stated once in `grammar/three-taxonomy.md`, and this table does not restate
+  the reasoning behind it. A "yes" to Q7 that matches no row means the question was answered about
+  the *look* rather than the need — re-answer it, do not invent a tag.
 - **A cited recipe whose inputs the frame cannot supply is the same class of bug.** Q10 names
   motion; it does not check that the frame can feed it. Two failures found in a real run:
   a data-viz rule cited on a frame carrying no numbers (the builder must either invent a

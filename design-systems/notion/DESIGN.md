@@ -72,7 +72,7 @@ Notion's brand is *editorial-software calm*. Soft eases, generous timing, hand-d
 ## 6. Video applications
 
 - **Hero scene:** `#ffffff` canvas. Brand wordmark in NotionInter 700 at 140px, near-black text. Subtitle at 36px in warm gray `#615d59`. A *marker highlight* on one emphasized word in the headline lands well here.
-- **Feature scene:** Screenshot in a card with whisper border + barely-there shadow. Tilt ≤3°. Caption at 36px weight 500.
+- **Feature scene:** Screenshot in a card with whisper border + barely-there shadow. Tilt ≤3° on Y. Caption at 36px weight 500.
 - **Stat scene:** Number at 180px weight 700 with `lnum`, on `#f6f5f4` warm-white surface. Counter ease `power2.out` over ~2.2s. Label at 28px in warm gray.
 - **CTA scene:** A pill badge with Notion Blue tinted background (`rgba(0,117,222,0.12)` fill, `#0075de` text) at 32px. Wordmark below. Hold.
 
