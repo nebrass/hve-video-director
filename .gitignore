@@ -42,6 +42,7 @@ __pycache__/
 # Throwaway render/verify harnesses; keep only the stdlib test entrypoint/suite
 test/*
 !test/run.sh
+!test/install_ecosystem.py
 !test/unit/
 test/unit/__pycache__/
 

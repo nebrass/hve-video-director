@@ -116,3 +116,41 @@ jobs:
           h=$(grep -rho 'integrity="sha384-[^"]*"' templates/*.html workflows/*.md | sort -u | wc -l)
           test "$v" -eq 1 || { echo "$v GSAP versions in tree — a stale hash ships animation-free scenes"; exit 1; }
           test "$h" -eq 1 || { echo "$h SRI hashes in tree — same failure"; exit 1; }
+
+  # The pointer-validity suite and the storyboard extra-keys probes skip on a
+  # machine without the HyperFrames ecosystem — correct on a contributor's
+  # machine, fatal as the only CI: the guards ADR-007 calls "the only thing
+  # that protects the registry" never ran here, so an upstream relayout would
+  # have landed green. This job installs the ecosystem from skills-lock.json's
+  # sources and then REQUIRES those suites to run: HVE_REQUIRE_ECOSYSTEM=1
+  # turns their skip conditions into failures (test_ecosystem_required.py), so
+  # a failed or partial install fails loudly instead of skipping unnoticed.
+  # The bare job above stays exactly as it is — the ecosystem remains optional
+  # at test time everywhere except this job.
+  ecosystem-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # node runs the vendored storyboard parser in the round-trip half of the
+      # STORYBOARD_EXTRA_KEYS probe.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install ffmpeg
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
+
+      # Tracks upstream's default branch on purpose: catching an upstream
+      # relayout before a user does is this job's reason to exist. A skill
+      # whose recorded skillPath vanished upstream fails the install by name.
+      - name: Install the HyperFrames ecosystem from skills-lock.json
+        run: python3 test/install_ecosystem.py --dest .agents/skills
+
+      - name: Run the suite with the ecosystem required
+        run: HVE_REQUIRE_ECOSYSTEM=1 bash test/run.sh
