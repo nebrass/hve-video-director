@@ -40,7 +40,7 @@ SKILL.md (orchestrator)
 - `mcp__chrome-devtools__*` for app capture (Phase 2)
 - The `hyperframes` companion agent skill for HTML/GSAP authoring rules (Phases 3 + 4) — distinct from the `hyperframes` npm CLI
 - GSAP choreography reference lives in the `hyperframes-animation` skill (there is no standalone `gsap` companion skill)
-- `npx hyperframes` CLI for `init`, `add` (pull catalog blocks, Phase 4), `lint`, `preview`, `check` (required final gate; `inspect`/`validate`/`layout` are deprecated aliases), `snapshot`, `render`, `doctor` (render-environment diagnostics, Phase 5), `transcribe` (preferred voiceover-timing verifier in Phase 5; falls back to standalone Whisper if unavailable), and `tts` (used in Phase 5 when the user explicitly confirms a local Kokoro voice)
+- `npx hyperframes` CLI for `init`, `add` (pull catalog blocks — registry-first scene planning in Phase 3, seams and furniture in Phase 4), `lint`, `preview`, `check` (required final gate; `inspect`/`validate`/`layout` are deprecated aliases), `snapshot`, `render`, `doctor` (render-environment diagnostics, Phase 5), `transcribe` (preferred voiceover-timing verifier in Phase 5; falls back to standalone Whisper if unavailable), and `tts` (used in Phase 5 when the user explicitly confirms a local Kokoro voice)
 - `mcp__chrome-devtools__screencast_*` + `resize_page` for Phase-2 web-clip capture (experimental, feature-detected — needs `--experimentalScreencast=true`; falls back to screenshots), and optional `asciinema`+`agg` for CLI clip recording (otherwise the authored-terminal path)
 - `mcp__chrome-devtools__list_pages` + `select_page` for the explicit authenticated-session path. The user must first connect the MCP to running Chrome with Chrome 144+ `--autoConnect` (preferred) or the dedicated-profile `--browser-url` fallback; attached capture never navigates and follows `patterns/authenticated-browser-capture.md`.
 - `scripts/generate_voiceover.py` → `--assemble-only` section assembler used by both audio paths (exact start times, padding, overrun warning). M6 retired its ElevenLabs acquisition path; narration now comes from the `media-use` audio engine
@@ -67,8 +67,9 @@ standard library. Caption finalization invokes the required `ffprobe` binary for
 duration validation.
 
 ```bash
-# Voiceover generation (from inside a generated project)
-ELEVENLABS_API_KEY=... python3 scripts/generate_voiceover.py
+# Voiceover-section assembly (from inside a generated project) — both audio
+# paths use it, whoever synthesized the sections. No API key, no network.
+python3 scripts/generate_voiceover.py --assemble-only
 
 # Fixed-duration silent native screen/region capture
 python3 scripts/capture_screen.py --duration 6 --region 100,80,1280,720 \
@@ -86,7 +87,9 @@ python3 /path/to/hve-video-director/scripts/validate_brief.py \
 
 ```
 
-Both `ELEVENLABS_API_KEY` and `ELEVEN_LABS_API_KEY` are accepted (back-compat).
+`scripts/check_requirements.sh` accepts both `ELEVENLABS_API_KEY` and `ELEVEN_LABS_API_KEY`
+(back-compat). Since M6 no script in this repo reads either one — the key serves the delegated
+engine's ElevenLabs route.
 
 There is no build or lint command for this repo. Run `bash test/run.sh` for the stdlib helper tests;
 validation of workflow changes still happens by running `/hve-video-director <project-dir>` end-to-end
