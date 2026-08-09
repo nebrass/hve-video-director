@@ -108,6 +108,40 @@ class KeysAuditTests(unittest.TestCase):
         _, payload = self.audit()
         self.assertIn("timeline-choreography", json.dumps(payload["frames"]))
 
+    def test_an_undeclared_frame_bullet_is_reported(self):
+        """The real sideways-growth surface: a generated project, not a grammar file.
+
+        Upstream's parser preserves an unknown bullet under `extra`, a packet carries
+        it, and a builder may act on it — while every doc-to-doc check stays green,
+        because the name was never in a contract table. A misspelled `surface_readng:`
+        was invisible here until ADR-010's supersession review found it.
+        """
+        self.write(storyboard(frame(1, extra="surface_readng: shiny|parallax_bed: shallow")))
+        proc, payload = self.audit()
+        self.assertEqual(1, proc.returncode)
+        blob = json.dumps(payload["frames"])
+        self.assertIn("surface_readng", blob)
+        self.assertIn("parallax_bed", blob)
+
+    def test_an_official_field_and_a_capture_binding_are_not_undeclared(self):
+        """The vocabulary is derived from the template's own tables, so a legitimate
+        binding must not read as growth. A check that fires on `screenshot:` would be
+        deleted within a day."""
+        self.write(storyboard(frame(
+            1, extra="screenshot: public/screenshots/x.png|transition_in: crossfade",
+        )))
+        _, payload = self.audit()
+        blob = json.dumps(payload["frames"])
+        for legitimate in ("screenshot", "transition_in"):
+            self.assertNotIn(f"`{legitimate}:` is not", blob, blob)
+
+    def test_the_fifteenth_key_is_audited_like_any_other(self):
+        """surface_reading: was promoted out of a second vocabulary precisely so this
+        works: a bad value is now a vocabulary finding, not an invisible bullet."""
+        self.write(storyboard(frame(1, extra="surface_reading: shiny")))
+        _, payload = self.audit()
+        self.assertIn("surface_reading: shiny", json.dumps(payload["frames"]))
+
     def test_a_frame_with_neither_blueprint_nor_motion_is_reported(self):
         self.write(storyboard(frame(1)).replace("- motion: fade-in, rise\n", ""))
         _, payload = self.audit()
@@ -127,6 +161,7 @@ class KeysAuditTests(unittest.TestCase):
         skill = self.dir / "skill"
         (skill / "reasoning").mkdir(parents=True, exist_ok=True)
         shutil.copytree(REPO / "scripts", skill / "scripts")
+        shutil.copytree(REPO / "templates", skill / "templates")
         for name in ("scene-analysis.md", "capability-catalog.md"):
             shutil.copy(REPO / "reasoning" / name, skill / "reasoning" / name)
 

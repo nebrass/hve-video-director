@@ -2057,6 +2057,37 @@ def load_key_contract() -> dict[str, dict[str, Any]]:
     return contract
 
 
+TEMPLATE_PATH = SKILL_ROOT / "templates" / "storyboard.md"
+TEMPLATE_KEY_SECTIONS = ("## Official keys", "## Capture and clip keys")
+
+
+def load_frame_vocabulary() -> set[str]:
+    """Bullet names a frame may carry that are not director keys.
+
+    Official storyboard fields and capture bindings, read from the template's own
+    tables so a new binding needs no edit here. Without this the unknown-bullet
+    check below would report every legitimate `screenshot:` as undeclared.
+    """
+    try:
+        text = TEMPLATE_PATH.read_text(encoding="utf-8")
+    except OSError as error:
+        raise SkillSourceError(
+            f"cannot read the frame vocabulary from {TEMPLATE_PATH}: {error}"
+        ) from error
+    names: set[str] = set()
+    for heading in TEMPLATE_KEY_SECTIONS:
+        if heading not in text:
+            continue
+        body = text.split(heading, 1)[1].split("\n## ", 1)[0]
+        for line in body.splitlines():
+            stripped = line.strip()
+            if not stripped.startswith("|"):
+                continue
+            first = stripped.strip("|").split("|")[0].strip()
+            names |= set(re.findall(r"`([a-z][a-z0-9_]*)`", first))
+    return names
+
+
 def load_catalog_tags() -> set[str]:
     try:
         text = CAPABILITY_CATALOG_PATH.read_text(encoding="utf-8")
@@ -2088,6 +2119,7 @@ def audit_frame(
     frame: dict[str, Any],
     contract: dict[str, dict[str, Any]],
     tags: set[str],
+    vocabulary: set[str] | None = None,
 ) -> dict[str, Any]:
     extra = frame.get("extra") or {}
     findings: list[str] = []
@@ -2100,11 +2132,15 @@ def audit_frame(
             continue
         if not value:
             continue
-        vocabulary = rule["vocabulary"]
-        if vocabulary and value not in vocabulary:
+        # Named `allowed_values`, not `vocabulary`: this loop used to rebind the
+        # function's `vocabulary` parameter, so the undeclared-bullet check below ran
+        # against the last key's value list instead of the frame vocabulary and flagged
+        # every legitimate `screenshot:`.
+        allowed_values = rule["vocabulary"]
+        if allowed_values and value not in allowed_values:
             findings.append(
                 f"`{key}: {value}` is outside its closed vocabulary "
-                f"({', '.join(vocabulary)})"
+                f"({', '.join(allowed_values)})"
             )
 
     if not (extra.get("blueprint") or extra.get("motion")):
@@ -2123,6 +2159,20 @@ def audit_frame(
             )
         elif tag not in tags:
             findings.append(f"capability `{tag}` is not in the catalog vocabulary")
+
+    # A bullet nobody declared is the real sideways-growth surface: upstream's parser
+    # preserves it under `extra`, a packet carries it, and a builder may act on it, while
+    # every doc-to-doc check stays green because the name was never in a contract table.
+    # This is where a user actually violates the vocabulary -- a misspelled `surface_readng:`
+    # was invisible until now.
+    known = set(contract) | (vocabulary or set())
+    for name in sorted(extra):
+        if name in known:
+            continue
+        findings.append(
+            f"`{name}:` is not a director key or an official storyboard field — upstream's "
+            "parser will preserve it and nothing will read it"
+        )
 
     rejected = str(extra.get("runtime_rejected", "")).strip()
     if rejected:
@@ -2153,7 +2203,8 @@ def keys_audit_payload(path: Path, text: str) -> dict[str, Any]:
     tags = load_catalog_tags()
     hero = load_hero_budget()
 
-    frames = [audit_frame(f, contract, tags) for f in document["frames"]]
+    vocabulary = load_frame_vocabulary()
+    frames = [audit_frame(f, contract, tags, vocabulary) for f in document["frames"]]
 
     # Frames are reported by position. When two headings carry the same number the parser
     # renumbers, so "Frame 2" in a finding may be a heading that says Frame 1 — say so
