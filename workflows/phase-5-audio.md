@@ -253,9 +253,26 @@ For exact per-section gaps use `silencedetect`:
 ffmpeg -i voiceover.mp3 -af "silencedetect=noise=-40dB:d=0.3" -f null - 2>&1 | grep silence
 ```
 
-Compare the reported `silence_start` / `silence_end` against your section timings. On ANY overlap:
-drop commas first, then shorten text, then push the next section's start 1–2s later, then add "..."
-pauses; regenerate and re-verify. **Repeat until ZERO overlaps. Do NOT ask the user — just fix it.**
+Compare the reported `silence_start` / `silence_end` against your section timings. On ANY overlap,
+repair autonomously with the levers the agent owns: drop commas first, then add "..." pauses, then
+push the next section's start 1–2s later; regenerate and re-verify. **Repeat until ZERO overlaps.**
+Craft repairs need no permission — but **shortening narration text is not a craft repair**. The
+`voiceover` lines were approved with the storyboard and belong to the user (ADR-001; Phase 1's
+vo-budget rule already forbids shortening a line unilaterally). When no combination of commas,
+pauses and start-shifts clears an overlap, stop and present the remaining overage as a choice:
+
+```json
+{"questions": [{
+  "question": "Section <NN> still overruns its slot by <X.X>s after every pause and start-shift repair. How should it fit?",
+  "header": "VO overrun",
+  "multiSelect": false,
+  "options": [
+    {"label": "Shorten the narration", "description": "Cut '<the exact words proposed for removal>' from this section's text, then re-synthesize this section only"},
+    {"label": "Re-time the scene", "description": "Extend the scene by <X.X>s to fit the take — re-opens its seams, so the seam gate re-runs before render"},
+    {"label": "Keep the take, start late", "description": "Let the next section start <X.X>s late and drift from its scene"}
+  ]
+}]}
+```
 
 ### Captions (REQUIRED in tutorial mode)
 
