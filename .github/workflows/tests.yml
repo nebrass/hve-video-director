@@ -152,6 +152,22 @@ jobs:
   # a failed or partial install fails loudly instead of skipping unnoticed.
   # The bare job above stays exactly as it is — the ecosystem remains optional
   # at test time everywhere except this job.
+  #
+  # SECURITY — this job runs third-party code, on purpose.
+  # The storyboard round-trip probe imports an upstream ESM module and drives it
+  # under node, from a clone of upstream's default branch. That is the job's
+  # reason to exist (catch a relayout before a user does) and it cannot be had
+  # by reading files alone. install_ecosystem.py allowlists the source and
+  # refuses a skillPath that escapes its checkout, which stops the accidental
+  # redirect; it cannot stop a hostile PR that edits the guard out in the same
+  # commit. What bounds the blast radius is this job holding nothing worth
+  # taking:
+  #   - no secrets are referenced here, and none may be added;
+  #   - the workflow token is read-only (permissions: contents: read, above);
+  #   - the trigger is `pull_request`, so fork runs get no secrets and a
+  #     read-only token. NEVER switch it to `pull_request_target`, which would
+  #     run PR-authored code with the base repo's secrets and a write token.
+  # Each run prints the commit it installed, so what executed is attributable.
   ecosystem-tests:
     runs-on: ubuntu-latest
     timeout-minutes: 20
