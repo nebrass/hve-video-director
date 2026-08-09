@@ -7,9 +7,9 @@ output is a closed set of **director keys** written onto the frame.
 Optimization order is fixed (ADR-008): **comprehension → retention → engagement**. Honesty,
 consent, and determinism are constraints, never traded against any of the three.
 
-## The twelve questions
+## The thirteen questions
 
-Answer all twelve for every frame. One line each, no essays — the answers *are* the plan.
+Answer all thirteen for every frame — Q13 only when its condition holds. One line each, no essays — the answers *are* the plan.
 
 | # | Question | Key | Value vocabulary |
 |---|---|---|---|
@@ -25,6 +25,7 @@ Answer all twelve for every frame. One line each, no essays — the answers *are
 | 10 | What **motion vocabulary**? | `blueprint:` / `motion:` | a blueprint id via `BLUEPRINT_INDEX` when one fits; otherwise 2–4 rule names via `RULES_INDEX` |
 | 11 | Which **capabilities** follow? | `capabilities:` | see the derivation rule below |
 | 12 | Which **runtime**, and what lost? | `runtime:` / `runtime_rejected:` | the procedure in `reasoning/capability-catalog.md` |
+| 13 | *(only when light carries meaning)* What does the light **conclude**? | `surface_reading:` | the **Reading** column of `grammar/three-taxonomy.md` § Ingredient defaults |
 
 ### Judgment vs. derivation — the split is not a style choice
 
@@ -70,6 +71,12 @@ Answer all twelve for every frame. One line each, no essays — the answers *are
   cite a different recipe — never make the builder resolve it, because the builder's only
   honest options are to break data honesty or to weaken the recipe.
 - **Q12 follows the catalog's procedure.** Not a preference, not a taste call.
+- **Q13 is judgment, and conditional.** It fires only where Q11 derived `material-realism` and
+  Q12 selected `runtime: three` — both, not either. `material-realism` says light carries meaning;
+  it does not say *what the light does*, and nothing in the other keys computes that. Answer it
+  the way you answered Q1–Q10, reading the frame's `goal:` against the **Use when** column of
+  `grammar/three-taxonomy.md` § Ingredient defaults, which owns the values. Where the condition is
+  false the key is simply absent — most films have no frame that triggers it.
 
 A reviewer reading the keys alone must be able to reconstruct *why* every visual choice exists.
 Reasoning traceability is load-bearing: a change that makes a frame's rationale unrecoverable
@@ -77,7 +84,7 @@ from its keys is an architecture regression (ADR-008).
 
 ## Director keys — the closed contract
 
-Fourteen key names, emitted by the twelve questions plus the ADR-001 override. **The set is
+Fifteen key names, emitted by the thirteen questions plus the ADR-001 override. **The set is
 closed.** Adding a key means adding or replacing a question, which is an architecture change
 reviewed as such — not a convenience. Written as `- key: value` bullets on the frame; upstream's
 storyboard parser preserves unknown bullets under `extra` (`STORYBOARD_FORMAT`, and the
@@ -99,6 +106,7 @@ the official format unchanged.
 | `capabilities:` | yes, non-empty | comma-separated tags from the catalog vocabulary only |
 | `runtime:` | optional | `three` \| `html-in-canvas` \| `typegpu` \| `lottie` \| `anime` \| `css` \| `waapi`. **Omit for GSAP** — it is the default |
 | `runtime_rejected:` | conditional | `<runtime> — <reason>`. Required whenever a non-default runtime was considered and not chosen |
+| `surface_reading:` | conditional | `travelling-band` \| `fixed-glint` \| `matte-diffuse`. Required when `material-realism` is derived **and** `runtime: three` was selected; absent otherwise. Values owned by `grammar/three-taxonomy.md` § Ingredient defaults |
 | `user_directed:` | optional | `true` (only value) |
 
 ### User override (ADR-001)
@@ -108,32 +116,6 @@ runtime selection and every budget below. State the tradeoff once, then comply, 
 `user_directed: true` on the affected frame. Such frames are **exempt from the budgets but still
 counted and shown** in the budget report, so a reviewer sees the choice was directed, not derived.
 Never infer an override from a vague preference; only an explicit instruction qualifies.
-
-### Execution notes — the second, capped category (ADR-010)
-
-A frame may also carry **execution notes**: bounded instructions about how an *already-decided*
-frame is realized. They are not director keys and never become them — a key answers "what should
-the viewer understand", a note answers "how is this one realized". The distinction is what keeps
-the fourteen closed while the pipeline can still direct craft.
-
-**Every execution note lives in this table.** That registration is what caps the category; an
-unregistered note reaching a builder is the sideways growth ADR-010 exists to prevent, and
-`test/unit/test_execution_notes.py` fails on one. Six rules, from ADR-010, all binding:
-
-1. Never participates in derivation — adds no capability tag, changes no runtime verdict.
-2. Triggered by an **authoring fact**, never by taste. "On a `runtime: three` frame" qualifies;
-   "when the frame reads flat" does not.
-3. Never counted against a budget, and never exempted from one. A note that needs a budget is a
-   director key in disguise and belongs in front of the twelve questions instead.
-4. Must be carried by the frame packet (it rides on the frame block, packet item 1) — a note a
-   builder never receives is prose, not a rule.
-5. Registered here, with owner, trigger and vocabulary.
-6. Its name may not collide with any of the fourteen keys — a collision is reinterpreted by the
-   storyboard parser and silently loses its meaning (`STORYBOARD_EXTRA_KEYS`).
-
-| Note | Owner | Trigger (authoring fact) | Vocabulary |
-|---|---|---|---|
-| `surface_reading:` | `grammar/three-taxonomy.md` § Ingredient defaults | frame has `runtime: three` **and** `material-realism` in `capabilities:` | `travelling-band` \| `fixed-glint` \| `matte-diffuse` |
 
 ## Cognitive-load budgets — THE single source
 

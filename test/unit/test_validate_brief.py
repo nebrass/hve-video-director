@@ -101,6 +101,7 @@ DIRECTOR_VALUES = {
     "capabilities": "timeline-choreography, spatial-depth",
     "runtime": "gsap",
     "runtime_rejected": "three — no hero beat left in the budget",
+    "surface_reading": "travelling-band",
     "user_directed": "true",
 }
 

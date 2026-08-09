@@ -75,10 +75,11 @@ Camera-move names resolve in `grammar/camera.md`.
   | `fixed-glint` | a screen or a pane — lit, but flat | the surface is a display showing something, and the content matters more than the object |
   | `matte-diffuse` | a material sample, not a product | texture or colour is the subject and a highlight would distract |
 
-  State it as `surface_reading: <one of the three>` on a `runtime: three` frame alongside the
-  camera move; the packet carries it. It is an **execution note**, not a director key — it refines
-  a `material-realism` frame that derivation has already decided, adds no capability and changes no
-  runtime, and is registered as such in `reasoning/scene-analysis.md` § Execution notes (ADR-010).
+  This is **Q13**, and the answer is the frame's `surface_reading:` key — required whenever
+  `material-realism` is derived and `runtime: three` is selected, absent otherwise
+  (`reasoning/scene-analysis.md`). It is a director key like any other: written on the frame,
+  carried by the packet, and recoverable by a reviewer reading the keys alone, which is what
+  ADR-008 requires of anything that changes what a viewer concludes.
   The *mechanism* stays the builder's — the reading follows from surface curvature and lobe
   tightness together, and `THREE_ADAPTER` owns both. Naming it matters because the levers that look
   like highlight controls are not: intensity, roughness and cone angle change how *bright* and how

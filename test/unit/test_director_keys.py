@@ -66,7 +66,7 @@ METAPHOR_GRAMMAR = ROOT / "grammar" / "metaphors.md"
 
 # The two section headings that own the key contract. Matched by prefix so the
 # em-dash subtitle of the second one can be reworded without breaking the parse.
-QUESTIONS_SECTION = "## The twelve questions"
+QUESTIONS_SECTION = "## The thirteen questions"
 CONTRACT_SECTION = "## Director keys"
 
 FENCE = re.compile(r"^[ \t]*(?:```|~~~)")
@@ -823,6 +823,93 @@ class CapabilityVocabulary(unittest.TestCase):
             "tag column was renamed to something TAG_COLUMN does not recognize, "
             "or the entries stopped declaring tags and Q11's union is now "
             "incomplete: " + ", ".join(silent),
+        )
+
+
+
+# --- The cap: nothing writes a frame key the contract does not declare -------
+#
+# Kept from the superseded ADR-010 delivery, which is the one thing that record
+# was right about: the growth this stops is sideways, not upward. A new key
+# needs a question and trips the arithmetic above; a *bullet* needs nothing, and
+# nothing was looking. Repointing it at the closed fifteen is what makes the cap
+# absolute -- while an execution-note registry existed, the cap had a legal exit
+# (register another note), and the exit was the whole problem.
+
+# A line that tells a frame to carry something.
+INSTRUCTS_FRAME = re.compile(
+    r"\bon(?:to)? (?:a |the |an )?[\w`: -]*frame\b|\bthe packet carries\b|\bwrite[s]? .*frame\b",
+    re.I,
+)
+FRAME_KEY_TOKEN = re.compile(r"`([a-z][a-z0-9_]*):(?:\s[^`]*)?`")
+
+# Where a frame's OTHER vocabularies are defined. A frame block carries official
+# fields and capture bindings as well as director keys; read them from the
+# template's own tables so a new binding needs no edit here.
+TEMPLATE_KEY_SECTIONS = ("## Official keys", "## Capture and clip keys")
+
+
+def template_frame_keys():
+    text = read(TEMPLATE)
+    names = set()
+    for heading in TEMPLATE_KEY_SECTIONS:
+        if heading not in text:
+            continue
+        body = text.split(heading, 1)[1].split("\n## ", 1)[0]
+        for line in body.splitlines():
+            stripped = line.strip()
+            if not stripped.startswith("|"):
+                continue
+            first = ROW_SPLIT.split(stripped.strip("|"))[0].strip()
+            names |= {f"{n}:" for n in re.findall(r"`([a-z][a-z0-9_]*)`", first)}
+    return names
+
+
+class NothingWritesAnUndeclaredFrameKey(unittest.TestCase):
+    """The reasoning layer may not invent a frame bullet on its way past.
+
+    A grammar or a workflow that says "state `parallax_bed: shallow` on the
+    frame" creates a fifteenth-and-a-half key: the upstream parser preserves it
+    under `extra`, a packet carries it, a builder may act on it, and no arithmetic
+    notices because it was never in the contract table.
+    """
+
+    def test_the_other_frame_vocabularies_parse(self):
+        """Guard on the guard: an empty allowed-set would flag everything, and
+        the repair instinct under a red suite is to widen the filter."""
+        self.assertTrue(
+            template_frame_keys(),
+            f"{rel(TEMPLATE)}: no official/capture key tables parsed — the scan "
+            "below would report every legitimate binding as undeclared",
+        )
+
+    def test_no_file_writes_an_undeclared_key_onto_a_frame(self):
+        allowed = (
+            {key for key, _required, _line in contract_rows()}
+            | template_frame_keys()
+            | {OVERRIDE_KEY}
+        )
+        sources = (
+            sorted((ROOT / "grammar").glob("*.md"))
+            + sorted((ROOT / "patterns").glob("*.md"))
+            + sorted((ROOT / "workflows").glob("*.md"))
+        )
+        offenders = []
+        for path in sources:
+            for number, line in enumerate(read(path).splitlines(), 1):
+                if not INSTRUCTS_FRAME.search(line):
+                    continue
+                for token in FRAME_KEY_TOKEN.findall(line):
+                    if f"{token}:" in allowed:
+                        continue
+                    offenders.append(
+                        f"{rel(path)}:{number}: writes `{token}:` onto a frame, and the "
+                        "closed contract does not declare it"
+                    )
+        self.assertEqual(
+            [], sorted(set(offenders)),
+            "a frame bullet nobody declared reaches a builder — add the question that "
+            "emits it, or stop writing it:\n  " + "\n  ".join(sorted(set(offenders))),
         )
 
 

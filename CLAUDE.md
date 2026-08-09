@@ -294,7 +294,7 @@ These are enforced verbally in the `## DON'Ts` section of `SKILL.md` — except 
   (through `compat/ecosystem.md`) owns the official keys, which this repo does not restate. A new
   local key must not collide with an official one — `test/unit/test_storyboard_extra_keys.py` fails
   if it does, because a colliding bullet is reinterpreted as upstream's field instead of preserved
-  under `extra`. Adding a *director* key is an architecture change (the key set is closed); adding a
+  under `extra`. Adding a *director* key is an architecture change (the key set is closed at fifteen); adding a
   capture binding also means updating `workflows/phase-1-storytelling.md`, the Phase-2/3 readers,
   and the legacy mapping table in `templates/storyboard.md` so `migrate-storyboard` keeps round-tripping.
 - **Adjust prerequisite checks** → update `scripts/check_requirements.sh` and its stdlib tests. `SKILL.md` Phase -1 consumes `--json` only for direct/default `new` mode with no `project-plan.md`; explicit `continue`/`jump` skip it.

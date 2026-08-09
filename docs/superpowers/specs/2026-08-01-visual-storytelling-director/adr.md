@@ -555,7 +555,55 @@ retry request instead and the workflow makes the call.
 
 ---
 
-## ADR-010 — Execution notes: frame direction that is not a director key *(added 2026-08-09)*
+## ADR-010 — Execution notes: frame direction that is not a director key *(added 2026-08-09; **SUPERSEDED the same day** — see the note below)*
+
+> **SUPERSEDED 2026-08-09, hours after it landed.** `surface_reading:` is now the **fifteenth
+> director key**, emitted by a new Q13, and the execution-note category does not exist. The record
+> is kept because a decision that reverses is worth more in the log than a decision that was never
+> written down — and because the reasons it failed are reusable.
+>
+> An adversarial review found four things, three of them checkable facts rather than arguments:
+>
+> 1. **A parser split shipped inside this record's own commit.** Three readers of the key set
+>    returned fourteen; `test_storyboard_extra_keys.py` returned **fifteen**, because its section
+>    reader spans the `###` subsection and read the registry's first column. The registry introduced
+>    to prevent drift produced drift, in the same commit, undetected by its own suite. A boundary
+>    that exists only by parser convention is not a boundary.
+> 2. **The stated ground for rejecting a fifteenth key was circular, and false.** This record said
+>    the key "breaks the arithmetic the closed set is verified by". The arithmetic asserts
+>    `contract - questions == {user_directed:}` and `len(contract) == len(questions) + 1` — it
+>    forbids a key with *no question*, and says nothing about whether the question should exist.
+>    A reviewer added the question row in a scratch copy and the suite went green. The record
+>    treated the absence of a question it had declined to write as proof the question was
+>    impossible.
+> 3. **The sharpened boundary contradicted ADR-008, which this record never cites.** ADR-008
+>    requires a frame's rationale to stay recoverable from its keys, and calls any change that
+>    breaks that "an architecture regression, not a style choice". This record conceded that a note
+>    "may certainly change what a viewer concludes". A thing that changes what the viewer concludes
+>    and is not a key is exactly the regression ADR-008 names.
+> 4. **The claim that justified tolerating a second vocabulary was untrue.** This record said notes
+>    get "the same treatment the fourteen already get". `keys-audit` iterates the contract table and
+>    never scans a frame's `extra`, so a misspelled `surface_readng: shiny` on a real storyboard was
+>    reported as **zero findings** — the vocabulary was enforced doc-to-doc and nowhere a user could
+>    actually violate it.
+>
+> There was also a shape to how this record was written that is worth recording. Its boundary moved
+> to fit its only instance — the amendment called that "sharpened after review"; the commit message
+> said plainly that "the record forbade the thing it was written to legalise", which is
+> accommodation described as discovery. The alternative that most threatened it got one clause, on
+> a ground disproved in minutes. And the effort ratio was one registry entry to ten tests: the work
+> went into proving the cap held rather than into asking whether the thing being capped should
+> exist.
+>
+> **What survived, and it is the part worth keeping.** The observation was right: per-frame
+> execution decisions are where this pipeline's quality defects live, and a builder sees only its
+> packet. And the cap works **better** without the category — `test_director_keys.py` §
+> `NothingWritesAnUndeclaredFrameKey` scans the grammars, patterns and workflows for a bullet
+> written onto a frame that the contract does not declare. While a registry existed, that cap had a
+> legal exit: register another note. Now it has none. Add the question or do not write it.
+>
+> The rest of this record stands as written, including its rejection list — none of those eight was
+> refused on ADR-010's authority, which is itself evidence the category was doing no work.
 
 **Context.** The director-key set is closed at fourteen (`reasoning/scene-analysis.md` § Director
 keys — the closed contract), and the closure is real: it is derived from the twelve questions plus

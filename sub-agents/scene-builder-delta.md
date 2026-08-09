@@ -24,17 +24,18 @@ must understand, carried by the bound capture when the packet binds one.
 
 ## The director keys are binding direction
 
-Your frame block carries up to fourteen: `goal:` `abstraction:` `complexity:` `tone:` `energy:`
+Your frame block carries up to fifteen: `goal:` `abstraction:` `complexity:` `tone:` `energy:`
 `density:` `camera:` `metaphor:` `blueprint:` `motion:` `capabilities:` `runtime:`
-`runtime_rejected:` `user_directed:`. They are **direction, not suggestion** — each was derived
+`runtime_rejected:` `surface_reading:` `user_directed:`. They are **direction, not suggestion** — each was derived
 against the whole film's budgets and its emotional arc, so a frame that quietly ignores one
 desynchronizes from neighbours you cannot see.
 
 - `goal:` is the acceptance test. A viewer who misses it means the frame failed, however it looks.
 - `tone:` + `energy:` set easing character and reveal rhythm — `calm` drifts, `build` tightens,
   `peak` punches, `resolve` settles.
-- **A stated surface reading is direction, not decoration.** On a `runtime: three` frame the packet
-  may name `travelling-band`, `fixed-glint` or `matte-diffuse`. That is what the light must *do*,
+- **`surface_reading:` is direction, not decoration.** On a `runtime: three` frame carrying
+  `material-realism` your block names one of `travelling-band`, `fixed-glint` or `matte-diffuse`.
+  That is what the light must *do*,
   and it is decided by surface curvature and lobe tightness together — not by intensity or cone
   angle, which only change how bright and how broad the result is. Build the geometry the reading
   needs. If you cannot achieve it within the packet, say which constraint blocked you rather than

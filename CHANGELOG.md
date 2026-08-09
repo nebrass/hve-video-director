@@ -60,10 +60,16 @@ caught it.
   contradictory: this skill depends on upstream behavior no upstream file documents. ADR-006 decides
   where the capability belongs, ADR-002 decides what may be committed meanwhile, ADR-007's compat
   map is the register, and retirement waits for a real end-to-end run.
-- **ADR-010 — execution notes** *(new)*. A frame may carry bounded, registered instructions about
-  how an already-decided frame is realized. The category was found, not invented:
-  `grammar/three-taxonomy.md` has told frames to carry a surface reading since M1, correctly and
-  unrecorded. Six constraints cap it, and the registry that caps it is tested.
+- **`surface_reading:` is the fifteenth director key**, emitted by a new Q13 (conditional: fires
+  only where `material-realism` was derived and `runtime: three` selected). `grammar/three-taxonomy.md`
+  had told frames to carry a surface reading since M1, correctly and unrecorded; it is now a key
+  like any other. **ADR-010 proposed a second "execution note" vocabulary for this and was
+  superseded the same day** — an adversarial review found that a parser split had shipped inside
+  its own commit, that its stated ground for rejecting a fifteenth key was circular and false, that
+  its boundary contradicted ADR-008's traceability clause, and that `keys-audit` could not see a
+  misspelled note at all. The record is kept with the reasons. What survived is the better half:
+  the cap on undeclared frame bullets now has *no* legal exit — add the question, or do not write
+  it on a frame.
 - **`SUBCOMP_CLONE_SEMANTICS`** registered as a behavior probe — a cloned module script throws,
   native `window` calls hit an injected scoped Proxy, and `hf-seek` delivers the **root** clock to a
   scene that believes it starts at zero. All three fail only once the film is assembled, with every

@@ -421,11 +421,15 @@ automated.
   whole beat while lint, runtime, motion and contrast all report green, because a static plate is a
   perfectly valid frame.
 - **Where it is written, and why here.** The imperatives are in `sub-agents/scene-builder-delta.md`
-  because a frame packet carries that role text and no other file — a builder cannot be pointed at
-  this map. Under ADR-002 § Precedence that is legal precisely because no upstream file is the
-  author of record: the local text is the narrowing imperative, this row is the registration, and
-  an upstream contribution is the exit. Retirement follows ADR-006's rule — a real end-to-end run
-  on the fixed upstream, never a changelog line.
+  because a builder reads only its packet and cannot be pointed at this map. Note what that reason
+  does *not* say: a packet carries five items, and item 3 already ships `THREE_ADAPTER` **only when
+  `runtime:` names a non-default runtime** — so the subset of these imperatives that is meaningless
+  without an adapter excerpt could ride beside it instead of in the role every frame pays. An
+  earlier draft of this row claimed the role was the only file a packet carries, which is simply
+  untrue. Under ADR-002 § Precedence the local text is legal wherever it sits, precisely because no
+  upstream file is the author of record: the text is the narrowing imperative, this row is the
+  registration, and an upstream contribution is the exit. Retirement follows ADR-006's rule — a real
+  end-to-end run on the fixed upstream, never a changelog line.
 - **Probe — manual.** Re-read `SUB_COMPOSITIONS` and `THREE_ADAPTER` at each pin bump and ask
   whether either now documents the intersection, auto-subtracts the mount offset, or drops the
   Proxy wrapper. Any "yes" makes the corresponding imperative wrong rather than merely redundant —

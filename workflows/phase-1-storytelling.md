@@ -434,7 +434,7 @@ and `music_strategy` remain the user's in Step 1.5. A derived curve may only sha
 
 ## Step 1.4b: Scene Analysis
 
-For each beat planned above, answer the twelve questions in `reasoning/scene-analysis.md` and write
+For each beat planned above, answer the thirteen questions in `reasoning/scene-analysis.md` and write
 the resulting **director keys** as ordinary `- key: value` bullets in that frame's metadata block in
 Step 1.6 (`templates/storyboard.md` carries the key list and a filled example). That file owns the questions,
 the closed key set, and every allowed value — read them there. Do not restate them here or in the
