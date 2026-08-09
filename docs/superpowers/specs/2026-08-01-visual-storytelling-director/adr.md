@@ -552,3 +552,90 @@ pins `media-use` by hash and takes updates at milestone boundaries, so users on 
 exposed for an unbounded interval. *Drive the engine from a local script* — makes this repo the
 engine's driver and owns its CLI surface, which ADR-006 places upstream; the verifier emits the
 retry request instead and the workflow makes the call.
+
+---
+
+## ADR-010 — Execution notes: frame direction that is not a director key *(added 2026-08-09)*
+
+**Context.** The director-key set is closed at fourteen (`reasoning/scene-analysis.md` § Director
+keys — the closed contract), and the closure is real: it is derived from the twelve questions plus
+the ADR-001 override, every value comes from a stated vocabulary, every key is counted against a
+budget, and `test/unit/test_director_keys.py` enforces the arithmetic. Adding a key is an
+architecture change, deliberately.
+
+But the tree already writes something onto a frame that is not one of the fourteen.
+`grammar/three-taxonomy.md` § Ingredient defaults names a **surface reading** —
+`travelling-band` / `fixed-glint` / `matte-diffuse` — and instructs: *"State it on a `runtime:
+three` frame alongside the camera move; the packet carries it."* Its own justification is exactly
+right and worth preserving: `material-realism` says light carries meaning but not *what the light
+does*, and *"a frame that asked for `travelling-band` and got an ellipse is a miss the director can
+see and name; without the word, it is nobody's defect."*
+
+So a second category exists in practice, once, unrecorded — while
+`test/unit/test_director_keys.py` asserts the storyboard template is "the only surface a key is
+ever written on". Two consequences of leaving it unrecorded. It reads as a violation of the closed
+set to anyone auditing, so the honest response is to delete a line that is doing real work. And it
+is an unbounded precedent: the next proposal that wants to reach a builder cites it, and the set
+that was closed at fourteen grows sideways instead of upward, where no test is looking.
+
+The forcing question came from a review of a nine-item "premium motion" program. Most of it was
+rejected against ADR-001/002/003/005/006/008 — a budget cap re-read as a floor, a capability tag no
+runtime serves differently, mandated ambient motion four files ban by name, a locally-authored ease
+family `EASING_AND_STAGGER` owns. What survived was the observation that the pipeline's real
+quality defects are per-frame *execution* decisions: no declared light direction, no named
+`transformOrigin`, no staged depth. None of those is a communication choice, so none earns a
+director key. All of them have to reach a builder, and a builder sees only its packet.
+
+**Decision.** A frame may carry **execution notes** alongside its director keys. An execution note
+is a *bounded, registered* instruction about how an already-decided frame is realized. Six
+constraints, all of them load-bearing:
+
+1. **It never participates in derivation.** It cannot add or remove a capability tag, change a
+   runtime verdict, or alter what the twelve questions concluded. It is written *downstream* of a
+   decision, never as an input to one (ADR-005).
+2. **It is conditioned on an authoring fact, never on taste.** `grammar/camera.md`'s existing test
+   governs: *"'If parts travel in Z' is checkable; 'if it feels dimensional' is not."* "On a
+   `runtime: three` frame" qualifies. "When the frame reads flat" does not, and is the exact form
+   this ADR must not license.
+3. **It is never counted, and never exempted.** Budgets ration the viewer's attention; an execution
+   note spends none. A note that needs a budget is a director key wearing a disguise, and belongs
+   in front of the twelve questions or nowhere.
+4. **It must be carried by the packet.** A builder opens nothing outside its packet, so a note that
+   does not ride in one is not a rule — it is prose nobody reads. This is what distinguishes an
+   execution note from ordinary grammar text.
+5. **It is registered in one place, with its owner, its trigger fact, and its vocabulary.** The
+   category is capped by being enumerable. An unregistered note is the sideways growth this record
+   exists to prevent.
+6. **Its name may not collide with a director key**, and its values come from a closed vocabulary
+   when it has one. A colliding name is reinterpreted as upstream's field by the storyboard parser
+   (`STORYBOARD_EXTRA_KEYS`) and silently loses its meaning.
+
+**Consequences.** The surface reading is legal, and stops looking like a defect. The staging
+contract — declared key light direction, shadow layering, named `transformOrigin`, resting depth —
+has a lawful channel that does not touch derivation, does not grow the key set, and does not add a
+sixth packet item (notes ride on the frame block, packet item 1). The category is testable: the
+registry is a single list, so a note that reaches a builder without being registered fails, as does
+a name that collides with the closed fourteen. Constraint 3 is what keeps ADR-008's budgets
+meaningful — nothing can grow the film's attention cost by calling itself execution.
+
+The cost is honest: this is a second vocabulary, and vocabularies drift. The mitigation is that it
+is small, registered in one file, and machine-checked — the same treatment the fourteen already get.
+
+**What this does not license.** Not a route around the closed key set: anything that answers "what
+should the viewer understand" is a communication choice and needs a question, not a note. Not a
+back door for derivation-by-taste (constraints 1 and 2). Not a budget exemption (constraint 3). Not
+a sixth packet item — that is a separate architecture change with its own review (ADR-004,
+`test/unit/test_packet_contract.py`). And not a reopening of the rejected program: an under-spend
+report, a `depth-staging` tag, an atmosphere floor of ambient motion, elevation prompts, a
+retention tie-break, a local ease family and a local `three` pin were each refused on a recorded
+ground, and none of them becomes legal by being re-proposed as an execution note.
+
+**Alternatives rejected.** *Open the key set to fifteen* — the surface reading fails the entry
+test: it is emitted by no question, and a key that no question produces breaks the arithmetic the
+closed set is verified by. *Delete the surface-reading line* — it does real work, and deleting a
+correct instruction to preserve a tidy invariant is how a taxonomy starts costing more than it
+returns. *Leave it unrecorded* — the status quo, and the precedent then gets cited by every
+proposal that wants builder reach, with no cap and no test. *Put execution notes in `DESIGN.md`
+instead* — brand-wide values do belong there and some of the staging contract will land there, but
+a note that varies per frame cannot: `DESIGN.md` is one document for the whole film, and per-frame
+variation is precisely what a frame block is for.

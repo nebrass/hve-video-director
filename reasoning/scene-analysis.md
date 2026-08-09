@@ -90,6 +90,32 @@ runtime selection and every budget below. State the tradeoff once, then comply, 
 counted and shown** in the budget report, so a reviewer sees the choice was directed, not derived.
 Never infer an override from a vague preference; only an explicit instruction qualifies.
 
+### Execution notes — the second, capped category (ADR-010)
+
+A frame may also carry **execution notes**: bounded instructions about how an *already-decided*
+frame is realized. They are not director keys and never become them — a key answers "what should
+the viewer understand", a note answers "how is this one realized". The distinction is what keeps
+the fourteen closed while the pipeline can still direct craft.
+
+**Every execution note lives in this table.** That registration is what caps the category; an
+unregistered note reaching a builder is the sideways growth ADR-010 exists to prevent, and
+`test/unit/test_execution_notes.py` fails on one. Six rules, from ADR-010, all binding:
+
+1. Never participates in derivation — adds no capability tag, changes no runtime verdict.
+2. Triggered by an **authoring fact**, never by taste. "On a `runtime: three` frame" qualifies;
+   "when the frame reads flat" does not.
+3. Never counted against a budget, and never exempted from one. A note that needs a budget is a
+   director key in disguise and belongs in front of the twelve questions instead.
+4. Must be carried by the frame packet (it rides on the frame block, packet item 1) — a note a
+   builder never receives is prose, not a rule.
+5. Registered here, with owner, trigger and vocabulary.
+6. Its name may not collide with any of the fourteen keys — a collision is reinterpreted by the
+   storyboard parser and silently loses its meaning (`STORYBOARD_EXTRA_KEYS`).
+
+| Note | Owner | Trigger (authoring fact) | Vocabulary |
+|---|---|---|---|
+| `surface_reading:` | `grammar/three-taxonomy.md` § Ingredient defaults | frame has `runtime: three` **and** `material-realism` in `capabilities:` | `travelling-band` \| `fixed-glint` \| `matte-diffuse` |
+
 ## Cognitive-load budgets — THE single source
 
 > **ADR-008/C6: this table is the only place these numbers live.** Every other file in this repo
