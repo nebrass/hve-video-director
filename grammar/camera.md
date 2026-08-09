@@ -21,7 +21,7 @@ it in their frame packet.
 
 | Tier | Mechanism | Cost | Budget |
 |---|---|---|---|
-| **A — DOM camera** | GSAP transforms on one world wrapper (scale / x / y; ≤8° `rotateY`, ≤4° `rotateZ`) | ~zero | the default for every frame |
+| **A — DOM camera** | GSAP transforms on one world wrapper (scale / x / y; ≤8° `rotateY`, ≤4° `rotateX`, ≤4° `rotateZ`) | ~zero | the default for every frame |
 | **B — true 3D camera** | Three.js perspective camera posed from seek time | high — importmap pinning, asset preload, mandatory `data-duration` | spends a hero beat; see the budget table in `reasoning/scene-analysis.md` |
 
 Tier B's integration contract belongs entirely to THREE_ADAPTER, and `grammar/three-taxonomy.md`
@@ -102,8 +102,16 @@ the derivation would stop being mechanical.
    there. This file deliberately does not enumerate its terms: a local copy is a second author of
    record (ADR-002), and a copy that drifts is worse than a pointer.
 7. **The repo DON'Ts still bind Tier A** (`SKILL.md` § DON'Ts): no 360° scene spins; mockup tilt
-   ≤8° `rotateY` / ≤4° `rotateZ`; no 3D transforms inside an inter-scene transition; no camera
-   tween that animates a layout property.
+   ≤8° `rotateY` / ≤4° `rotateX` / ≤4° `rotateZ`; no 3D transforms inside an inter-scene
+   transition; no camera tween that animates a layout property.
+
+   **All three axes are capped, and the asymmetry is deliberate.** `rotateY` yaws a card the way a
+   product is turned toward you, so it takes the widest angle. `rotateX` pitches it away, which
+   foreshortens type *vertically* and costs legibility exactly where a screenshot's own words are —
+   comprehension outranks looks (ADR-008), so it is capped with `rotateZ`, not with `rotateY`.
+   `rotateZ` rolls the horizon, which reads as a mistake before it reads as style. A brand may
+   narrow any of them further; nothing may widen them. **State the axis whenever you state a
+   limit** — an unqualified "tilt ≤3°" leaves a builder to pick which rotation it governs.
 
 ## Pacing coupling
 

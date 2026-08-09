@@ -37,8 +37,10 @@ green.
 import argparse
 import hashlib
 import json
+import os
 import re
 import sys
+import uuid
 from pathlib import Path
 
 # A section id is a zero-padded index and nothing else. It is interpolated into a
@@ -107,6 +109,39 @@ def load_request(project_dir: Path) -> dict:
     return out
 
 
+def write_text_atomic(path: Path, content: str) -> None:
+    """Publish state via tmp-write + fsync + rename.
+
+    Both files this writes are proofs (the pending marker's absence-proof, the
+    sealed manifest's byte record); truncating one mid-write destroys the seal
+    and the only remedy is re-synthesis. Duplicated from validate_brief.py by
+    design — every script here is standalone stdlib with no shared module.
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.parent / f".{path.name}.{os.getpid()}.{uuid.uuid4().hex}.tmp"
+    try:
+        with tmp.open("x", encoding="utf-8") as handle:
+            handle.write(content)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(tmp, path)
+        try:
+            dir_fd = os.open(path.parent, os.O_RDONLY)
+        except OSError:
+            dir_fd = None
+        if dir_fd is not None:
+            try:
+                os.fsync(dir_fd)
+            finally:
+                os.close(dir_fd)
+    except OSError:
+        try:
+            tmp.unlink()
+        except FileNotFoundError:
+            pass
+        raise
+
+
 def read_anomalies(project_dir: Path) -> list[str]:
     """Best-effort diagnostic. Never load-bearing — see the module docstring."""
     path = project_dir / "audio_meta.json"
@@ -145,13 +180,29 @@ def cmd_prepare(project_dir: Path, ids: list[str], as_json: bool) -> int:
                 path.unlink()
                 removed.append(str(path.relative_to(project_dir)))
     state_dir(project_dir).mkdir(parents=True, exist_ok=True)
+    pending_path = state_dir(project_dir) / PENDING_NAME
+    # A subset prepare during a retry round must EXTEND the round, not restart
+    # it: dropping a previously-cleared id from the marker erases the
+    # absence-proof behind its already-good take, and on a first round (no
+    # prior manifest to carry it forward) seal then refuses exactly the
+    # sections that synthesized correctly. `seal` unlinks the marker, which is
+    # what ends the round.
+    existing = {}
+    if pending_path.is_file():
+        try:
+            existing = json.loads(pending_path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            existing = {}  # corrupt marker: its ids lose their proof; seal refuses them
     pending = {
         "schema_version": SCHEMA_VERSION,
-        "ids": target,
-        "request_sha256": {i: sha256_text(requested[i]) for i in target},
+        "ids": sorted(set(existing.get("ids", [])) | set(target)),
+        "request_sha256": {
+            **existing.get("request_sha256", {}),
+            **{i: sha256_text(requested[i]) for i in target},
+        },
     }
-    (state_dir(project_dir) / PENDING_NAME).write_text(
-        json.dumps(pending, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    write_text_atomic(
+        pending_path, json.dumps(pending, indent=2, sort_keys=True) + "\n"
     )
     payload = {
         "prepared": target,
@@ -304,8 +355,9 @@ def cmd_seal(project_dir: Path, attest: str, as_json: bool) -> int:
         "sections": sections,
     }
     state_dir(project_dir).mkdir(parents=True, exist_ok=True)
-    (state_dir(project_dir) / MANIFEST_NAME).write_text(
-        json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    write_text_atomic(
+        state_dir(project_dir) / MANIFEST_NAME,
+        json.dumps(manifest, indent=2, sort_keys=True) + "\n",
     )
     pending_path.unlink(missing_ok=True)
     emit(

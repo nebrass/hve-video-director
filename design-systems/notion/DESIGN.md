@@ -48,11 +48,17 @@ Notion uses *whisper-weight* borders and barely-there shadows. Multi-layer shado
 ```css
 box-shadow:
   0 1px 0 rgba(0,0,0,0.02),
-  0 2px 6px rgba(0,0,0,0.04);
+  1px 2px 6px rgba(0,0,0,0.04);
 border: 1px solid rgba(0,0,0,0.1);
 ```
 
 Border-radius: 4–8px for cards. **Pill badges at 9999px** with tinted blue backgrounds for status indicators.
+
+**Shadow offsets follow the film's key light, not this page.** The x-offsets above assume the
+house key at 32% 14% (upper-left). Blur, alpha and colour are this brand's and never move; only
+the offset answers to the light, and it flips sign if a film declares its key on the other side.
+A stack with every casting layer at x=0 reads as no light at all — it is a web-card shadow, and
+on video it disappears.
 
 ## 5. Motion
 
@@ -72,7 +78,7 @@ Notion's brand is *editorial-software calm*. Soft eases, generous timing, hand-d
 ## 6. Video applications
 
 - **Hero scene:** `#ffffff` canvas. Brand wordmark in NotionInter 700 at 140px, near-black text. Subtitle at 36px in warm gray `#615d59`. A *marker highlight* on one emphasized word in the headline lands well here.
-- **Feature scene:** Screenshot in a card with whisper border + barely-there shadow. Tilt ≤3°. Caption at 36px weight 500.
+- **Feature scene:** Screenshot in a card with whisper border + barely-there shadow. Tilt ≤3° on Y. Caption at 36px weight 500.
 - **Stat scene:** Number at 180px weight 700 with `lnum`, on `#f6f5f4` warm-white surface. Counter ease `power2.out` over ~2.2s. Label at 28px in warm gray.
 - **CTA scene:** A pill badge with Notion Blue tinted background (`rgba(0,117,222,0.12)` fill, `#0075de` text) at 32px. Wordmark below. Hold.
 

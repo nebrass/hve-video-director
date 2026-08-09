@@ -66,7 +66,7 @@ METAPHOR_GRAMMAR = ROOT / "grammar" / "metaphors.md"
 
 # The two section headings that own the key contract. Matched by prefix so the
 # em-dash subtitle of the second one can be reworded without breaking the parse.
-QUESTIONS_SECTION = "## The twelve questions"
+QUESTIONS_SECTION = "## The thirteen questions"
 CONTRACT_SECTION = "## Director keys"
 
 FENCE = re.compile(r"^[ \t]*(?:```|~~~)")
@@ -823,6 +823,183 @@ class CapabilityVocabulary(unittest.TestCase):
             "tag column was renamed to something TAG_COLUMN does not recognize, "
             "or the entries stopped declaring tags and Q11's union is now "
             "incomplete: " + ", ".join(silent),
+        )
+
+
+
+# --- The cap: nothing writes a frame key the contract does not declare -------
+#
+# Kept from the superseded ADR-010 delivery, which is the one thing that record
+# was right about: the growth this stops is sideways, not upward. A new key
+# needs a question and trips the arithmetic above; a *bullet* needs nothing, and
+# nothing was looking. Repointing it at the closed fifteen is what makes the cap
+# absolute -- while an execution-note registry existed, the cap had a legal exit
+# (register another note), and the exit was the whole problem.
+
+# A line that tells a frame to carry something.
+INSTRUCTS_FRAME = re.compile(
+    r"\bon(?:to)? (?:a |the |an )?[\w`: -]*frame\b|\bthe packet carries\b|\bwrite[s]? .*frame\b",
+    re.I,
+)
+FRAME_KEY_TOKEN = re.compile(r"`([a-z][a-z0-9_]*):(?:\s[^`]*)?`")
+
+# Where a frame's OTHER vocabularies are defined. A frame block carries official
+# fields and capture bindings as well as director keys; read them from the
+# template's own tables so a new binding needs no edit here.
+TEMPLATE_KEY_SECTIONS = (
+    "## Official keys",
+    "## Local helper keys",   # this repo's own additions, e.g. `window`
+    "## Capture and clip keys",
+)
+
+
+def template_frame_keys():
+    text = read(TEMPLATE)
+    names = set()
+    for heading in TEMPLATE_KEY_SECTIONS:
+        if heading not in text:
+            continue
+        body = text.split(heading, 1)[1].split("\n## ", 1)[0]
+        for line in body.splitlines():
+            stripped = line.strip()
+            if not stripped.startswith("|"):
+                continue
+            first = ROW_SPLIT.split(stripped.strip("|"))[0].strip()
+            names |= {f"{n}:" for n in re.findall(r"`([a-z][a-z0-9_]*)`", first)}
+    return names
+
+
+class TemplateVocabularySectionsAgree(unittest.TestCase):
+    """`keys-audit` and this suite must read the same sections of the template.
+
+    Both derive "what bullet names a frame may legally carry" from the template's own
+    tables, and they hold the list separately — a two-site duty, created the moment
+    `window` moved into its own section. Diverging is silent and asymmetric: if the
+    script's list loses a section, `keys-audit` reports every bullet from it as
+    undeclared on a real user's storyboard while this suite stays green.
+    """
+
+    def test_validate_brief_reads_the_same_sections(self):
+        source = read(ROOT / "scripts" / "validate_brief.py")
+        start = source.index("TEMPLATE_KEY_SECTIONS")
+        literal = source[start:source.index(")", start) + 1]
+        script_sections = tuple(re.findall(r'"(## [^"]+)"', literal))
+        self.assertEqual(
+            TEMPLATE_KEY_SECTIONS, script_sections,
+            "scripts/validate_brief.py and this suite disagree about which template "
+            "sections define a frame's legal bullet names. The script's list is the one "
+            "a user feels: a section missing there makes keys-audit report legitimate "
+            "bullets as undeclared.",
+        )
+
+    def test_every_named_section_exists_in_the_template(self):
+        template = read(TEMPLATE)
+        missing = [s for s in TEMPLATE_KEY_SECTIONS if s not in template]
+        self.assertEqual([], missing, f"template has no section(s): {missing}")
+
+
+class TheFencedSkeletonIsGuardedToo(unittest.TestCase):
+    """The most-copied surface in the template, and nothing was looking at it.
+
+    `key_mentions()` skips fenced blocks — correctly, because the skeleton legitimately
+    shows official fields and capture bindings the director-key contract does not
+    declare. The consequence was that the fence became the one place an undeclared key
+    could sit unnoticed: an adversarial pass added an invented `parallax_bed:` inside it
+    and the whole suite stayed green. It is also the path of least resistance, which is
+    what makes it the one to guard.
+
+    So check it against the union of every vocabulary a frame may legally carry.
+    """
+
+    def _skeleton(self):
+        """The fenced block itself, not "up to the next `## `".
+
+        The skeleton *contains* a `## Frame {N} — {title}` heading — it is showing what a
+        storyboard looks like — so splitting on the next `## ` truncates it after sixteen
+        lines and the bullets never get read. Found by mutating this test: an invented
+        bullet added below that heading was missed.
+        """
+        text = read(TEMPLATE)
+        body = text.split("## File skeleton", 1)
+        self.assertEqual(2, len(body), f"{rel(TEMPLATE)}: no `## File skeleton` section")
+        lines, block, inside = body[1].splitlines(), [], False
+        for line in lines:
+            if line.strip().startswith("```"):
+                if inside:
+                    break
+                inside = True
+                continue
+            if inside:
+                block.append(line)
+        self.assertTrue(block, f"{rel(TEMPLATE)}: `## File skeleton` has no fenced block")
+        return "\n".join(block)
+
+    def test_the_skeleton_writes_no_undeclared_bullet(self):
+        allowed = (
+            {key for key, _required, _line in contract_rows()}
+            | template_frame_keys()
+            | {OVERRIDE_KEY}
+        )
+        strays = []
+        for number, line in enumerate(self._skeleton().splitlines(), 1):
+            bullet = KEY_BULLET.match(line)
+            if not bullet:
+                continue
+            name = f"{bullet.group(1)}:"
+            if name not in allowed:
+                strays.append(f"{rel(TEMPLATE)} § File skeleton:{number}: `{name}`")
+        self.assertEqual(
+            [], strays,
+            "the fenced skeleton — the block authors copy — writes a bullet no vocabulary "
+            "declares:\n  " + "\n  ".join(strays),
+        )
+
+
+class NothingWritesAnUndeclaredFrameKey(unittest.TestCase):
+    """The reasoning layer may not invent a frame bullet on its way past.
+
+    A grammar or a workflow that says "state `parallax_bed: shallow` on the
+    frame" creates a fifteenth-and-a-half key: the upstream parser preserves it
+    under `extra`, a packet carries it, a builder may act on it, and no arithmetic
+    notices because it was never in the contract table.
+    """
+
+    def test_the_other_frame_vocabularies_parse(self):
+        """Guard on the guard: an empty allowed-set would flag everything, and
+        the repair instinct under a red suite is to widen the filter."""
+        self.assertTrue(
+            template_frame_keys(),
+            f"{rel(TEMPLATE)}: no official/capture key tables parsed — the scan "
+            "below would report every legitimate binding as undeclared",
+        )
+
+    def test_no_file_writes_an_undeclared_key_onto_a_frame(self):
+        allowed = (
+            {key for key, _required, _line in contract_rows()}
+            | template_frame_keys()
+            | {OVERRIDE_KEY}
+        )
+        sources = (
+            sorted((ROOT / "grammar").glob("*.md"))
+            + sorted((ROOT / "patterns").glob("*.md"))
+            + sorted((ROOT / "workflows").glob("*.md"))
+        )
+        offenders = []
+        for path in sources:
+            for number, line in enumerate(read(path).splitlines(), 1):
+                if not INSTRUCTS_FRAME.search(line):
+                    continue
+                for token in FRAME_KEY_TOKEN.findall(line):
+                    if f"{token}:" in allowed:
+                        continue
+                    offenders.append(
+                        f"{rel(path)}:{number}: writes `{token}:` onto a frame, and the "
+                        "closed contract does not declare it"
+                    )
+        self.assertEqual(
+            [], sorted(set(offenders)),
+            "a frame bullet nobody declared reaches a builder — add the question that "
+            "emits it, or stop writing it:\n  " + "\n  ".join(sorted(set(offenders))),
         )
 
 

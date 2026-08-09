@@ -101,6 +101,7 @@ web_capture_source: {navigate | attached-session | pending | n/a}
 - capabilities: {…}
 - runtime: {…}
 - runtime_rejected: {…}
+- surface_reading: {…}
 - user_directed: true
 
 Narrative — free prose. What is on screen, the entry/during choreography, why this beat earns its
@@ -139,6 +140,17 @@ capture-coverage gate. `emotional_journey` is the film's tone curve (Phase 1 Ste
 from the Phase-0 answer in `context.md`); every frame's `tone` traces it, and Phase 5 reads it for
 the music brief. It is *not* `arc`, which is the narrative arc.
 
+## Local helper keys
+
+Not upstream's, and not part of the official contract — this repo's own additions to a frame
+block. They ride in the parser's `extra` like the director keys do. Kept out of § Official keys
+deliberately: a reader who cannot tell which half upstream owns cannot tell what a format change
+would break.
+
+| Key | Meaning |
+|---|---|
+| `window` | **a reading aid, never a source of truth** — the frame's start → end on the film's clock, so a reviewer can place a frame without adding durations in their head. `duration` is authoritative; where the two disagree the disagreement is worth reporting, because it usually means a hand-edit landed in one place only |
+
 ## Capture and clip keys
 
 | Key | Meaning |
@@ -158,7 +170,7 @@ the music brief. It is *not* `arc`, which is the narrative arc.
 
 ## Director keys
 
-Phase 1 Step 1.4b. `reasoning/scene-analysis.md` owns the twelve questions, the closed key set, and
+Phase 1 Step 1.4b. `reasoning/scene-analysis.md` owns the thirteen questions, the closed key set, and
 every allowed value — read them there; the list below is the shape, not the contract. They are
 ordinary metadata bullets and belong in the frame's bullet block; the parser preserves them under
 `extra`, so they survive the official format untouched.
@@ -176,6 +188,7 @@ ordinary metadata bullets and belong in the frame's bullet block; the parser pre
 - capabilities: {DERIVED, never chosen — the union of the tags declared by every grammar entry this frame cites, plus asset/subject realities, plus additions each carrying a stated reason. Vocabulary owned by `reasoning/capability-catalog.md`; never invent a tag}
 - runtime: {omit this bullet entirely for the default runtime; otherwise the value the selection procedure in `reasoning/capability-catalog.md` returns}
 - runtime_rejected: {`<runtime> — <reason>`, REQUIRED whenever a non-default runtime was considered and not chosen; omit the bullet when none was}
+- surface_reading: {`travelling-band` | `fixed-glint` | `matte-diffuse`, REQUIRED when `material-realism` is derived AND `runtime: three` was selected — what the light must make the viewer conclude; omit the bullet otherwise. Values owned by `grammar/three-taxonomy.md` § Ingredient defaults}
 - user_directed: true                                        *(only when the user explicitly directed this frame; exempt from the budgets, but still counted and shown in the Step 1.4c report)*
 
 ## Filled example

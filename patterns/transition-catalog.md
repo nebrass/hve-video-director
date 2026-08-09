@@ -98,14 +98,30 @@ carries versus the attributes of the loaded file's own root. Neither states the 
 two imply for this skill's file layout, and a builder who reads only the positive form marks a
 scene root as a clip:
 
-- **A scene file's own root `<div>` is not a clip.** No `class="clip"`, no `data-start`, no
-  `data-duration` on it — it carries `data-composition-id` + `data-width` + `data-height`, and
-  that is all. A scene's *timing* is declared exactly once, on its loader slot in the root
-  `index.html`. Timing attributes on a scene root declare a window nothing renders by
-  (`DATA_ATTRIBUTES` explains why an element that is not a direct child of the composition root is
-  never registered as a clip), so the scene reads as if it owned its own window while only the
-  loader's window is real — every gate stays green, and the two numbers drift apart the first time
-  one of them changes.
+- **A scene file's own root `<div>` is not a clip.** No `class="clip"` and **no `data-start`**:
+  a scene's *placement* is declared exactly once, on its loader slot in the root `index.html` —
+  `SUB_COMPOSITIONS` puts it plainly, the **host clip** is what needs `data-start`,
+  `data-duration`, `data-track-index`, `data-width`, `data-height`. A `data-start` on a scene root
+  declares a window nothing renders by (`DATA_ATTRIBUTES`: an element that is not a direct child of
+  the composition root is never registered as a clip), so the scene reads as if it owned its own
+  placement while only the loader's is real, and the two numbers drift apart the first time one
+  changes.
+
+  **`data-duration` is the exception, and an earlier version of this bullet had it wrong.** It said
+  a scene root carries `data-composition-id` + `data-width` + `data-height` "and that is all" —
+  contradicted by `THREE_ADAPTER`, which *requires* `data-duration` on the root
+  `[data-composition-id]` element because the `three` adapter has no duration auto-inference, and
+  contradicted by this repo's own reference build, whose hero scene carries it. On a
+  `runtime: three` frame it is mandatory; elsewhere it is redundant with the loader window and
+  best omitted. The blanket rule was reasoned rather than run.
+
+  **No gate sees any of this** — verified on the pinned CLI, browser pass included: a scene root
+  with `data-start`, with `data-duration`, with both, or with no duration source at all produces
+  findings identical to a clean control (`GATE_BLIND_SPOTS`). The adjacent case behaves
+  oppositely: timing attributes on a *direct child of the composition root* without `class="clip"`
+  are a lint **error**. A blanket upstream rule here would be wrong for the same reason this
+  bullet was — it would fire on every Three.js scene — so the narrow ask is a rule for `data-start`
+  alone, which the host owns in every case.
 
 The single exception is the `<video>` inside a clip scene, which **does** carry its own
 `data-start`/`data-duration`/`data-media-start`/`data-track-index` and must never be stripped. That

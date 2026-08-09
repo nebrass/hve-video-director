@@ -50,7 +50,7 @@ pointer-validity suite on every `bash test/run.sh` where the ecosystem is instal
 | `COMPOSITION_ARCHITECTURE` | `hyperframes-core` | `references/composition-patterns.md` | **Architecture**: monolithic vs modular, and the thin *Modular Orchestrator* `index.html` that declares slots, mounts audio, and registers a near-empty root timeline | Phase 4 root `index.html` wiring — this repo is always modular |
 | `STORYBOARD_FORMAT` | `hyperframes-core` | `references/storyboard-format.md` | `STORYBOARD.md` shape + the `StoryboardManifest` it parses into; unknown `- key: value` bullets are preserved under `extra` | **Adopted at M4** — this repo's `storyboard.md` *is* this shape (frontmatter, `## Frame N — Title`, `- key: value` bullets), so the upstream parser, the Studio board review and the `.hyperframes/frame-comments.json` sidecar all apply to it. Everything the official key set has no home for — the M1 director keys, the capture bindings, this skill's own frontmatter fields — rides in `extra`, which is what the `STORYBOARD_EXTRA_KEYS` probe guards. Phase 1 writes it; `templates/storyboard.md` is the local shape doc |
 | `FRAME_WORKER_CORE` | `hyperframes-core` | `references/frame-worker-core.md` | The workflow-agnostic frame-builder role: reveal paced across the frame's **full** duration (front-loading is the "PowerPoint slide" failure), the exit ban, and what `scene`/`voiceover`/`duration` mean to a builder | M1 `grammar/motion.md` (Reveal, Progressive disclosure, Exit discipline); Phase 3 scene direction |
-| `FULL_SCREEN_MOTION` | `hyperframes-core` | `references/full-screen-motion.md` | One shared continuous background layer + transparent timed content layers, instead of stacked opaque per-scene backgrounds | **Not wired today, and unclaimed** — no M1 module cites it. Registered purely so a continuous-background need resolves to this name instead of a new one. Drop the row if M2 still has no caller |
+| `FULL_SCREEN_MOTION` | `hyperframes-core` | `references/full-screen-motion.md` | One shared continuous background layer + transparent timed content layers, instead of stacked opaque per-scene backgrounds | **Not wired, and unclaimed** — no module cites it. Registered so a continuous-background need resolves to this name instead of re-deriving a path. An earlier note said to drop the row if M2 brought no caller; M2–M6 shipped without one and the row was kept anyway, because a name that resolves costs one line and a duplicate costs a divergence. Kept as a reservation, not as a pending decision |
 | `BRIEF_FORMAT` | `hyperframes-core` | `references/brief-format.md` | `BRIEF.md` — the ecosystem's confirmed-intent document | **Deliberately NOT adopted — decided at M4, on ADR-001.** `project-plan.md` stays this skill's Creative Brief and the single record of the levers the user owns; `validate_brief.py` is not re-pointed at `BRIEF.md`. Registered so the name resolves here rather than being re-derived, and so the decision is found before someone "finishes the job". The reason is `BRIEF_CONTRACT` |
 | `BRIEF_CONTRACT` | `hyperframes-core` | `references/brief-contract.md` | Collaborative/autonomous run-shape derivation; skips questions the request already answers | **The reason `BRIEF_FORMAT` is not adopted.** Deriving a run shape and skipping questions the request already answers is the opposite of this skill's consent doctrine — recommend, never preselect; never infer an answer the user did not give (ADR-001). Adopting the brief would import a contract that contradicts the skill's central promise, which is why M4 adopted the *storyboard* (a description of the film) and not the brief (a consent record). **Not wired** — and its interaction `mode` is the one official storyboard frontmatter key this repo never writes |
 
@@ -90,6 +90,7 @@ pointer-validity suite on every `bash test/run.sh` where the ecosystem is instal
 
 | Symbol | Owning skill | Skill-relative path | What it is | Used by |
 |---|---|---|---|---|
+| `DESIGN_SPEC` | `hyperframes-creative` | `references/design-spec.md` | The design-spec contract and its resolution order for a project's design file | Phase 3 Step 3.1, which writes `DESIGN.md`. Registered after a sweep found Phase 3 citing a "HyperFrames Visual Identity Gate" and a `visual-style.md` that exist nowhere upstream — the invented name is why this row exists |
 | `VISUAL_STYLES` | `hyperframes-creative` | `references/visual-styles.md` | The 8 named mood-based visual identities | Phase 1 `identity_strategy: hyperframes-style`; Phase 3 (Path B); `design-systems/README.md` |
 | `PALETTES` | `hyperframes-creative` | `palettes/<name>.md`, 9 files: `bold-energetic`, `clean-corporate`, `dark-premium`, `jewel-rich`, `monochrome`, `nature-earth`, `neon-electric`, `pastel-soft`, `warm-editorial` | Ready colour systems, paired with a visual style | Phase 3 `DESIGN.md` |
 | `HOUSE_STYLE` | `hyperframes-creative` | `references/house-style.md` | Sensible defaults for motion, colour, type when there is no strong opinion | Phase 3 fallback |
@@ -148,6 +149,12 @@ pointer-validity suite on every `bash test/run.sh` where the ecosystem is instal
 > `cut-the-curve` in prose elsewhere is legal and expected (skill names are stable); only a path
 > *inside* them would be a violation.
 
+### `general-video` — dispatch economics
+
+| Symbol | Owning skill | Skill-relative path | What it is | Used by |
+|---|---|---|---|---|
+| `DISPATCH_ECONOMICS` | `general-video` | `SKILL.md` | The measured inline-vs-packetized tradeoff, the ~6-scene threshold, the 2–3-scenes-per-worker rule and the single-wave rule | Phase 3 Step 3.4. Registered after a sweep found this repo restating the measurement's **numbers** with no symbol and no path — `general-video` was in no registry section at all, which made this repo the author of record for someone else's measurement (ADR-002's one illegal form) |
+
 ### `oversized-cursor` / `motion-graphics` — technique skills
 
 | Symbol | Owning skill | Skill-relative path | What it is | Used by |
@@ -174,7 +181,7 @@ pointer-validity suite on every `bash test/run.sh` where the ecosystem is instal
 | `PREVIEW_RENDER` | `hyperframes-cli` | `references/preview-render.md` | `preview` studio + `render` semantics | Phase 3/4 preview; Phase 5 final render |
 | `DOCTOR` | `hyperframes-cli` | `references/doctor-browser.md` | Render-environment diagnosis and browser management | Phase 5 pre-render troubleshooting (ADR-003: defer to `doctor`, never build a parallel diagnostic) |
 | `INIT_SCAFFOLD` | `hyperframes-cli` | `references/init-and-scaffold.md` | `init` project scaffolding (and `capture`) | Phase 4 Step 4.1 |
-| `CLI_MISC` | `hyperframes-cli` | `references/upgrade-info-misc.md` | `transcribe`, `tts`, `info`, `upgrade` | Phase 5 |
+| `CLI_MISC` | `hyperframes-cli` | `references/upgrade-info-misc.md` | `transcribe`, `tts`, `info`, `upgrade` | **Reserved name — no file here cites the symbol.** Phase 5 *runs* `transcribe` and `tts`, but it names those commands directly from § CLI surface, which is their owner. This row exists so the upstream reference behind them resolves to one path. `info` and `upgrade` are unused |
 
 **Not registered.** The `hyperframes` skill is an intent **router**: it ships only `SKILL.md` and
 holds no reference files of its own. Name it when you want routing; never cite a path "inside" it.
@@ -323,6 +330,9 @@ automated.
 
 ### `AUDIO_ENGINE_PARTIAL_FAILURE` — a failed line is silent, and its stale audio survives
 
+- **Local text.** `scripts/verify_vo_sections.py` (the clear-before-synthesis contract and the
+  sealed manifest), `workflows/phase-5-audio.md` (the prepare → check → seal steps that use it).
+- **Exit.** not yet filed — the engine exiting 0 on a partial failure is the fix worth asking for
 - **What.** `AUDIO_ENGINE` treats a failed TTS line as a **non-fatal anomaly**: it prints the
   anomaly, omits the line from `voices[]`, and **exits 0**. It does not delete a destination file
   before writing, so the previous run's audio stays at the expected path. Its success predicate is
@@ -347,6 +357,10 @@ automated.
 
 ### `STORYBOARD_EXTRA_KEYS` — unknown bullets survive parsing
 
+- **Local text.** none — this probe guards an upstream *guarantee* this repo relies on, not a
+  local imperative. `templates/storyboard.md` and `reasoning/scene-analysis.md` depend on it;
+  neither restates upstream mechanism.
+- **Exit.** n/a — this guards a guarantee we want kept, not a defect to fix
 - **What.** `STORYBOARD_FORMAT` states that per-frame `- key: value` bullets outside the known
   set are "kept verbatim under the frame's `extra`", and unknown frontmatter keys under
   `globals.extra`. The parser is documented as **lenient**: it never throws and records anything
@@ -397,8 +411,246 @@ automated.
   `templates/storyboard.md` are exercised only as a representative sample, so a collision against
   one of those is caught by the execution half and not by the documented-contract half.
 
+### `SUBCOMP_CLONE_SEMANTICS` — three consequences of cloning that no upstream file owns
+
+- **Local text.** `sub-agents/non-default-runtime-rider.md` (the module ban, the root-clock
+  offset, the `__threeReady` classic-script form) and `sub-agents/scene-builder-delta.md`
+  § Running inside a host document (the two rules that bite whatever the runtime).
+- **Exit.** not yet filed — the intersection of SUB_COMPOSITIONS and THREE_ADAPTER wants documenting upstream
+- **What.** `SUB_COMPOSITIONS` states the runtime clones `<template>` **contents** into the host
+  document. The `three` adapter (`THREE_ADAPTER`) is written for a **standalone** composition: it
+  uses `<script type="module">` and reads `window.__hfThreeTime || 0` from time zero. Both are
+  correct on their own. Neither documents what happens at their intersection, which is where every
+  scene this skill builds actually lives — a sub-composition whose script is cloned out of its
+  `<template>` and re-executed inside the host document. Three consequences follow:
+  1. **A module script cannot survive the clone.** A bare `import` in re-executed script text
+     throws; the scene must consume an already-published global from a **classic** script.
+  2. **`window`, `document` and `gsap` arrive as injected scoped Proxies** (that is how the runtime
+     publishes one timeline under both the authored and the mount id). Property reads are fine;
+     *calling a native method on the window Proxy* throws `Illegal invocation`, so native calls go
+     through `globalThis`. A module script bypasses the wrapper — so this surfaces the moment
+     consequence 1 forces the conversion to classic.
+  3. **`hf-seek` and `__hfThreeTime` carry the ROOT clock.** A scene mounted at 36s receives
+     36…44, not 0…8. The mount's `data-start` has to be subtracted, and read from the DOM rather
+     than hard-coded, because the compiler rewrites the mount's attributes and relabels the root.
+- **Why it matters.** All three fail **only once the film is assembled** — the scene is perfect in
+  isolation — and all three pass every gate. The clock one is the worst: unsubtracted, every root
+  time past the scene's duration clamps to its last frame, so the scene renders **frozen** for its
+  whole beat while lint, runtime, motion and contrast all report green, because a static plate is a
+  perfectly valid frame.
+- **Where it is written, and why here.** The imperatives are in `sub-agents/scene-builder-delta.md`
+  because a builder reads only its packet and cannot be pointed at this map. Note what that reason
+  does *not* say: a packet carries five items, and item 3 already ships `THREE_ADAPTER` **only when
+  `runtime:` names a non-default runtime** — so the subset of these imperatives that is meaningless
+  without an adapter excerpt could ride beside it instead of in the role every frame pays. An
+  earlier draft of this row claimed the role was the only file a packet carries, which is simply
+  untrue. Under ADR-002 § Precedence the local text is legal wherever it sits, precisely because no
+  upstream file is the author of record: the text is the narrowing imperative, this row is the
+  registration, and an upstream contribution is the exit. Retirement follows ADR-006's rule — a real
+  end-to-end run on the fixed upstream, never a changelog line.
+- **Probe — manual.** Re-read `SUB_COMPOSITIONS` and `THREE_ADAPTER` at each pin bump and ask
+  whether either now documents the intersection, auto-subtracts the mount offset, or drops the
+  Proxy wrapper. Any "yes" makes the corresponding imperative wrong rather than merely redundant —
+  the offset rule especially, since subtracting an offset the runtime already removed re-introduces
+  the frozen-scene failure from the other side. Not automatable from this repo: the evidence is an
+  assembled multi-scene render, which is what a real run produces and a unit test cannot.
+
+### `CLIP_KEYFRAME_DENSITY` — a sparse-GOP clip renders black, and every gate passes
+
+- **Local text.** `patterns/cli-terminal-capture.md` (§ the normalize step and the troubleshooting
+  table), `scripts/stitch_clip.py` (the CFR30 + `-g 30 -keyint_min 30` contract),
+  `scripts/capture_screen.py` (which normalizes through it).
+- **Exit.** not yet filed — the renderer already warns; documenting the GOP requirement is the ask
+- **What.** The renderer seeks per frame. A clip encoded with sparse keyframes — which x264 produces
+  by default on static content like terminal output, where whole seconds are identical — cannot be
+  seeked accurately, so the clip renders **black or frozen for most of its window**. The renderer
+  says so at render time: `Video "<id>" has sparse keyframes (max interval: 8.33s). This causes seek
+  failures and frame freezing.`
+- **Why it matters.** `lint`, `check` and the seam gate all pass: the markup is right, the timing is
+  right, and the defect lives inside the media. Only the render and the hero-frame check see it. The
+  local response is to pin the GOP to the frame rate when normalizing, which is a *narrowing*
+  constraint on ffmpeg, not a restatement of anything upstream owns.
+- **Undocumented upstream.** Searched at this pin: "sparse keyframes", "keyint" and "GOP" appear in
+  no HyperFrames skill. The behavior is real, load-bearing and stated only here — which is exactly
+  what ADR-002 § Precedence describes, and it went unregistered until an adversarial review of the
+  probe machinery went looking for an instance and found one.
+- **Probe — manual, and cheap.** The renderer's own warning is the detector; it fires in the render
+  log. Re-read at each pin bump only to ask whether the renderer has started normalizing GOP itself,
+  in which case the local `-g` becomes redundant rather than wrong.
+
+### `CLIP_PLAYBACK_RATE_SOURCE` — clip speed rides a DOM property no reference names
+
+- **Local text.** `workflows/phase-3-design.md` § Clip scene (the `defaultPlaybackRate` /
+  `playbackRate` write and the 0.1–5.0 rejection), `templates/scene-clip.html` and
+  `templates/scene-terminal-clip.html` header comments, the `speed` row of `templates/storyboard.md`.
+- **Exit.** not yet filed — `data-playback-rate` belongs in DATA_ATTRIBUTES
+- **What.** The runtime reads `data-playback-rate` first and falls back to the DOM property
+  `el.defaultPlaybackRate`, then clamps to `[0.1, 5]` and returns **1** for anything outside.
+  Neither the attribute, the property read, nor the clamp appears in `DATA_ATTRIBUTES` or
+  `TRACKS_AND_CLIPS`. The `0.1–5` figure that *is* documented belongs to the Studio player's
+  preview knob, which its own page explicitly calls "**not** a composition `data-*` attribute" — so
+  the doc that looks like the source for this says the opposite of what we use it for. The runtime
+  also prefers `data-playback-start` over `data-media-start`; that alias is undocumented too.
+- **Why it matters.** Every speed-ramped or trimmed clip depends on it. If the property fallback
+  goes, every such clip renders at 1×: footage runs long, desyncs from its scene window and from
+  Phase 5's `mix_clip_audio.py` placement, and lint, check and the seam gate stay green because the
+  markup and timing are untouched. Out-of-range fails *soft* to 1 rather than erroring, so a bad
+  `speed:` bullet is invisible.
+- **Probe — manual.** At each pin bump grep the CLI dist for `readElementPlaybackRate` /
+  `normalizePlaybackRate`, confirm the `defaultPlaybackRate` fallback and the bounds, and re-read
+  `DATA_ATTRIBUTES` to see whether `data-playback-rate` has been promoted into the documented table.
+  If it has, author the attribute and retire the property write — after a real end-to-end run.
+
+### `AUDIO_ENGINE_ASSET_LAYOUT` — the engine's own docs disagree with its source about where it writes
+
+- **Local text.** `workflows/phase-5-audio.md` (the `assets/voice/NN.wav` transcode, the
+  `assets/bgm/` copy, the `assets/sfx/` cue path), `scripts/verify_vo_sections.py` (which clears
+  `assets/voice/NN.wav` as the engine layer).
+- **Exit.** not yet filed — the reference and the source disagree; either is fine, agreeing is the ask
+- **What.** With `--hyperframes <dir>` the engine writes each line to `assets/voice/<id>.wav`.
+  `media-use`'s `references/audio.md` says it writes "under `.media/audio/{voice,bgm,sfx}`" — a
+  different tree. Verified at this pin: the source writes `assets/voice/`, and **no** upstream
+  markdown mentions that path at all. The `--hyperframes <dir>` flag is likewise documented only in
+  the script's own header.
+- **Why it matters.** Three local steps address those paths by hand — the per-section transcode,
+  the byte-copy of the confirmed music bed (whose `sha256` provenance depends on copying the exact
+  file), and `verify_vo_sections.py`'s clear-before-synthesis contract, whose whole guarantee is
+  that a failed line becomes an *absence at a known path*. A layout change makes `prepare` clear
+  nothing, so the stale-take failure ADR-009 exists to prevent returns with `seal` still passing.
+- **Probe — automatable, manual today.** After any `--only tts` run, assert every
+  `audio_meta.voices[].path` starts with `assets/voice/` and that the file exists there. Cheap to
+  fold into `verify_vo_sections.py check`, which already reads `audio_meta.json` advisorily.
+
+### `SUBCOMP_MEDIA_SUPPORT` — upstream says both that clip scenes work and that they never work
+
+- **Local text.** `workflows/phase-3-design.md` § Clip scene, `templates/scene-clip.html`,
+  `templates/scene-terminal-clip.html`, `patterns/cli-terminal-capture.md` § Wiring into a scene —
+  the entire clip-scene archetype, which puts `<video>` inside a sub-composition `<template>`.
+- **Exit.** not yet filed — two upstream pages contradict each other and one must yield
+- **What.** `variables-and-media.md` and `DATA_ATTRIBUTES` say media works at any nesting depth
+  including inside a sub-comp template, via a flat `querySelectorAll("video, audio")` plus
+  `closest("[data-composition-id]")` rebasing. `hyperframes-cli`'s lint reference says the opposite
+  under "**Blind spot — media inside a sub-composition**": such media "is never seeked/decoded and
+  renders blank/black; the automated checks all pass", and prescribes a grep expecting **no**
+  `<video>` in compositions — which would condemn every clip scene this skill authors.
+- **Why it matters.** Not a §Precedence case in the literal sense — the behavior *is* documented,
+  twice, incompatibly — but the failure profile is identical: this repo has bet its clip
+  architecture on one of two contradictory upstream statements, the losing side blanks every
+  footage scene, and no gate distinguishes them. Registering it records *which* side was verified,
+  so a future reader meeting that grep instruction does not "fix" the architecture.
+- **Probe — manual, half-done already.** The render-verified note in Phase 3 is the evidence; make
+  it checkable by rendering a two-clip-scene composition and confirming each shows its own footage.
+  Re-read both upstream pages at each pin bump and record which one moved.
+
+### `TTS_CONCURRENCY_ENV` — the engine's fan-out is tuned through an env var no reference names
+
+- **Local text.** `workflows/phase-5-audio.md` § synthesis — the `HYPERFRAMES_TTS_CONCURRENCY=2`
+  prefix and its rationale.
+- **Exit.** not yet filed — an env var with a default belongs in the reference
+- **What.** `media-use/audio/scripts/audio.mjs` reads
+  `Math.max(1, Number(process.env.HYPERFRAMES_TTS_CONCURRENCY) || 4)`. Verified: the variable
+  appears in no `media-use` markdown; the audio reference documents only `--request`, `--out`,
+  `--only`.
+- **Why it matters.** Halving concurrency is this repo's mitigation for a measured transient
+  per-line TTS failure rate against a rate-limited provider. If the variable is renamed or removed
+  the prefix becomes a silent no-op, the engine runs at its own default, and the failure rate
+  returns — and because the engine exits 0 on partial failure (`AUDIO_ENGINE_PARTIAL_FAILURE`), the
+  only signal is `verify_vo_sections.py check` reporting more missing sections, which reads as bad
+  luck rather than a broken knob.
+- **Probe — manual.** `grep -n 'HYPERFRAMES_TTS_CONCURRENCY' "$MEDIA_SKILL_DIR/audio/scripts/audio.mjs"`
+  at each lock bump; a miss means the prefix is inert.
+
+### `SHORT_AUDIO_TRUNCATES_RENDER` — a soundtrack shorter than the composition may shorten the film
+
+- **Local text.** `scripts/generate_voiceover.py` (the `apad=whole_dur=` pad and its comment),
+  `workflows/phase-5-audio.md` § assembly ("the pad is not cosmetic").
+- **Exit.** not yet filed — pending the measurement in this row's probe
+- **What.** When the mixed soundtrack is shorter than the root `data-duration`, the trailing frames
+  render with no audio and — per the local text — the render may be cut short. Upstream documents a
+  sub-composition *slot* going blank when its own `data-duration` is short, and that media may omit
+  `data-duration` to use intrinsic length, but says nothing about a clip shorter than an explicitly
+  authored duration, and nothing about render length following audio length.
+- **Why it matters.** The pad is the only thing between a slightly short narration and a truncated
+  deliverable, and the failure lands in `out/final.mp4` after every gate has passed and after the
+  caption fingerprints have been bound to the soundtrack. If the claim is wrong the pad is
+  harmless; if it is right and the pad is ever removed as cosmetic, the film ships short.
+- **Probe — manual, and unusually cheap to settle.** Render a composition whose root
+  `data-duration` is 10s carrying a 6s `<audio data-start="0" data-duration="10">`, then `ffprobe`
+  both stream durations. A render that holds full length makes the pad redundant rather than wrong.
+
+### `SCREENCAST_FRAME_EMISSION` — CDP emits a frame only when the page changes
+
+- **Local text.** `workflows/phase-2-capture.md` (the lead-with-motion rule and the mandatory
+  `stitch_clip.py` normalize), `scripts/stitch_clip.py` (CFR30 re-timing).
+- **Exit.** n/a — a CDP property, not a HyperFrames defect
+- **What.** Chrome DevTools Protocol emits a screencast frame only when something visually changes,
+  so a static view yields a near-empty clip with sparse, irregular PTS. Documented in neither the
+  `chrome-devtools-mcp` README nor its screencast tool source.
+- **Why it matters.** It drives two local rules at once: capture must lead with motion, and every
+  screencast must be normalized to CFR before it becomes a clip. Without the normalize the clip
+  inherits irregular PTS and the renderer's per-frame seek lands wrong — the same class as
+  `CLIP_KEYFRAME_DENSITY`, and equally invisible to every gate.
+- **Charter note.** This is the first row for a non-HyperFrames upstream. The map's charter is
+  widened deliberately rather than by accident: it already covers the `npx hyperframes` CLI, which
+  is not a skill either, and the alternative is that a load-bearing undocumented dependency lives
+  nowhere. One register, one blast radius (ADR-007). A *second*, unstated register is the failure
+  this row exists to avoid.
+- **Probe — manual.** Re-read the MCP's screencast tool at each bump for any change to frame
+  emission or PTS behaviour; the normalize step is the mitigation and stays regardless.
+
+### `GATE_BLIND_SPOTS` — what `lint` and `check` verifiably do not catch
+
+- **Local text.** `patterns/visual-patterns.md` (the `tl.from()` stagger trap, the jitter DON'T,
+  the legibility check), `patterns/transition-catalog.md` (the shine-as-seam and scene-root-timing
+  notes), `workflows/phase-4-production.md` (Step 4.5 shine, Step 4.7 register, the hero-frame
+  check's rationale), `workflows/phase-5-audio.md` (the caption-kill rule),
+  `sub-agents/non-default-runtime-rider.md` (the module-script ban).
+- **Exit.** One narrow ask, not yet filed: **`data-start` on a sub-composition root**. Upstream
+  already says the *host clip* owns placement, so a scene root carrying `data-start` is
+  meaningless in every case — a rule with no false positives. Deliberately NOT asking for a
+  blanket "no timing attributes on a scene root": `THREE_ADAPTER` *requires* `data-duration`
+  there, so that rule would fire on every Three.js scene. Otherwise n/a — these are gaps in an
+  upstream gate, not defects, and several are things a gate arguably should not check.
+- **What.** This repo makes ~30 claims of the form "`check` does not flag it" or "every gate stays
+  green", and they justify DON'Ts and manual review steps. Ten cases verified against the pinned CLI on
+  2026-08-09, `lint` **and** `check` (browser pass), each defect diffed against a control that
+  differs only by the injected defect. All eight agree with the gates:
+  `tl.from()` + stagger (blind) · jitter/shake (blind) · one ease across a 0.05s duration band
+  (blind) · an element-scoped shine wired across a boundary (blind) · timing attributes on a
+  **scene root** (blind) · a caption group with no kill (blind) · a module script in a
+  sub-composition (**caught** — `runtime/error:page_error`, "Cannot use import statement outside a
+  module", exactly as the rider says) · and a control positive proving the harness detects at all.
+- **Why it matters.** This is the one claim class no other guard in the repo can reach. Everything
+  under `test/unit/` proves the repo is consistent *with itself*; a gate-blindness claim is about
+  an external tool's behaviour on a case nobody ran. The bare-`<video>` DON'T asserted "every gate
+  passes green" across seven agreeing files while `media_missing_data_start` was an **error** — no
+  parity test could have caught it, because the files agreed. A wrong claim here does not just
+  misinform: it either invents self-policing work the gate already does, or excuses skipping a
+  check that exists.
+- **Probe — automated, opt-in.** `python3 test/verify_gate_blindness.py --check`. Not in
+  `bash test/run.sh`: it needs the CLI and a browser, same reason as `CHECK_DEPRECATION_SIGNAL`.
+  Re-run at each pin bump — a gate that *gains* a rule turns one of these claims false, and the
+  failure mode is silent because the claim keeps reading plausibly.
+- **A blanket rule here would be wrong**, which is probably why upstream has none. `data-start`
+  on a scene root is always meaningless; `data-duration` there is **required** on a `runtime:
+  three` frame (no duration auto-inference) and present on this repo's own reference hero scene.
+  A local bullet stating the blanket form was corrected on 2026-08-09 — it had been reasoned
+  rather than run.
+- **Adjacent fact, found while verifying and written nowhere else.** Timing attributes on a
+  **direct child of the composition root** without `class="clip"` *are* an error
+  (`timed_element_missing_clip_class`: "will be visible for the entire composition instead of only
+  during its scheduled time range"). Only the **scene-root** case is invisible. The two read alike
+  and behave oppositely.
+
 ### `SUBCOMP_ROOT_ATTRIBUTE_SELECTOR` — the scene templates' root styling survives scoping
 
+> Sweep note (2026-08-09): the pattern all seven skeletons use *does* trip
+> `composition_self_attribute_selector` at **warning** severity. The row's claim is still exactly
+> true as written — lint returns 0 **errors** and `subcomposition_root_styled_by_class` does not
+> fire — and the templates render correctly. Recorded so the warning is not mistaken for drift.
+
+- **Local text.** `templates/scene-*.html` — the root styling shape every skeleton uses.
+- **Exit.** n/a — a clearance, not a defect
 - **What.** A sub-composition may style its own root with a leftmost
   `[data-composition-id="<id>"] { … }` rule, and reach its descendants with
   `[data-composition-id="<id>"] .child`, without carrying `id="root"`. Both match after the render
@@ -424,6 +676,9 @@ automated.
 
 ### `CHECK_DEPRECATION_SIGNAL` — deprecation is machine-detectable
 
+- **Local text.** none — a clearance, not an imperative: it says which gate to call, and
+  `workflows/phase-4-production.md` calls it by name.
+- **Exit.** n/a — a clearance, not a defect
 - **What.** Deprecated gates keep working and announce themselves; `check` does not.
 - **Why it matters.** This is *the* justification for feature-detection over version-sniffing. It
   lets the skill notice a command has been deprecated without knowing which release did it.
@@ -442,6 +697,9 @@ automated.
 
 ### `ANIMATION_MAP_LOCATION` — the verifier ships with the skill, not the CLI
 
+- **Local text.** none — a path fact, resolved by this map. `workflows/phase-4-production.md`
+  Step 4.7 names the symbol and lets the resolver find it.
+- **Exit.** n/a — a path fact, resolved by the registry above; there is no upstream defect to file
 - **What.** `ANIMATION_MAP` lives inside the `hyperframes-animation` **skill** directory, not in
   the CLI package, and has no `hyperframes <subcommand>` equivalent.
 - **Why it matters.** Phase 4 Step 4.7 must resolve a *skill install home* to run it. That is a
@@ -456,6 +714,17 @@ automated.
 
 ### `TRANSCRIBE_MODEL_DEFAULT` — the default model translates
 
+> Sweep note (2026-08-09): the stated probe — "`--model` explicit at every `transcribe` call site
+> in `workflows/`" — cannot see the path this repo actually depends on most. The **engine's
+> internal** transcription takes no `--model`; it derives one from `audio_request.lang`
+> (`lang === "en" ? "small.en" : "small"`). Phase 5 already relies on that ("`lang` is
+> load-bearing"), so the probe must also assert `audio_request.lang` matches the narration
+> language — a wrong `lang` silently selects the translating model on the one route no call-site
+> grep covers.
+
+- **Local text.** `workflows/phase-5-audio.md` — the always-pass-`--model` rule, which is a
+  narrowing constraint on a documented flag rather than a restatement of it.
+- **Exit.** not yet filed — a default that silently translates is worth a flag change upstream
 - **What.** `transcribe`'s default model is `small.en`, which silently *translates* non-English
   audio into English rather than transcribing it.
 - **Why it matters.** A non-English voiceover produces plausible-looking English captions and
@@ -465,6 +734,8 @@ automated.
 
 ### `SKILL_SPLIT_TOPOLOGY` — the registry itself
 
+- **Local text.** none — this row IS the registry the pointer suite verifies.
+- **Exit.** n/a — this row is the registry itself
 - **What.** Every path in the registry above still exists under a resolved `$SKILL_HOMES` entry.
 - **Why it matters.** This is the failure that motivated ADR-007: a relayout invalidates pointers
   with zero local signal.
@@ -513,7 +784,15 @@ automated.
 2. Re-verify every path in this file — the pointer-validity suite does this; it is part of step 3.
 3. `bash test/run.sh` — the stdlib suite, including the question-contract tests.
 4. Re-run the `CHECK_DEPRECATION_SIGNAL` probe (needs headless Chrome; not in `test/run.sh`).
-5. Commit the new `skills-lock.json` **only when all of the above are green.** Hash drift without
+5. **Walk § Behavior probes — every row, not the automated ones.** Six of the eight say
+   *"Probe — manual"*, and each states its own re-read duty; that duty is written where an auditor
+   reads the map, not where a bumper works, so it was reachable by nobody. For each `### SYMBOL`,
+   re-read its named upstream owner and record one of: **still holds** / **now documented upstream**
+   (open the ADR-006 retirement path) / **changed — the local imperative is now wrong**. Put the
+   verdicts in the lock-bump commit body. The third outcome is the dangerous one and the only one
+   nothing else can catch: `SUBCOMP_CLONE_SEMANTICS` says it in its own row — subtracting an offset
+   the runtime already removed re-introduces the frozen-scene failure from the other side.
+6. Commit the new `skills-lock.json` **only when all of the above are green.** Hash drift without
    a green suite is a failure, not a rubber stamp.
 
 **Cadence and ownership.** Lock bumps happen at milestone boundaries **or monthly, whichever

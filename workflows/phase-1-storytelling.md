@@ -434,7 +434,7 @@ and `music_strategy` remain the user's in Step 1.5. A derived curve may only sha
 
 ## Step 1.4b: Scene Analysis
 
-For each beat planned above, answer the twelve questions in `reasoning/scene-analysis.md` and write
+For each beat planned above, answer the thirteen questions in `reasoning/scene-analysis.md` and write
 the resulting **director keys** as ordinary `- key: value` bullets in that frame's metadata block in
 Step 1.6 (`templates/storyboard.md` carries the key list and a filled example). That file owns the questions,
 the closed key set, and every allowed value — read them there. Do not restate them here or in the
@@ -473,6 +473,28 @@ carrying `user_directed: true` are exempt from the budgets but are still counted
 user sees the choice was theirs and not the agent's. Re-run the transition and duration-variance
 rows at the end of Step 1.6, once every frame's `duration` and `transition_in` exist — those two
 rows read fields that do not exist yet at this point.
+
+**Run the structural half rather than eyeballing it.** `keys-audit` reads the storyboard against
+the closed key contract, the catalog vocabulary and the hero-beat row of that same budget table —
+which it *parses*, so it can never disagree with it:
+
+```bash
+# $SKILL_DIR is the installed skill's own path — the same value the `validate_brief.py`
+# invocations later in this phase use; resolve it as `SKILL.md` § Runtime Compatibility
+# describes if it is not already set.
+python3 "$SKILL_DIR/scripts/validate_brief.py" --project-dir . keys-audit
+```
+
+It reports a missing required key, a value outside its closed vocabulary, a capability tag that is
+not in the catalog, a frame with neither `blueprint:` nor `motion:`, the hero-beat count with
+user-directed frames shown but not counted against the limit, and every `runtime_rejected:` denial.
+
+**It reports; it does not gate.** Exit 1 marks findings, not a blocked phase — the storyboard is
+the user's (ADR-001), the same reason `vo-budget` reports and stops. Read the findings, fix what is
+a genuine defect, and take anything you disagree with to the user rather than silently rewriting
+their frame. It scores nothing and it never reports unspent budget: a hero beat not taken is a
+decision the derivation already made, and "1 of 3 used" would read as an instruction to spend two
+more.
 
 ## Step 1.5: Transition and Music Strategy
 

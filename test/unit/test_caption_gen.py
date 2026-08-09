@@ -252,6 +252,68 @@ class CaptionGeneratorTestCase(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "characters/s"):
                 self.module.validate_review_manifest(draft, self.audio, 6.0)
 
+    def assert_draft_validates(self, segments, duration=6.0):
+        """Draft from `segments`, then run the exact validation approve runs."""
+        self.transcript.write_text(json.dumps(segments), encoding="utf-8")
+        with mock.patch.object(
+            self.module, "_probe_audio_duration", return_value=duration
+        ):
+            draft = self.module.create_review_draft(
+                input_path=self.transcript,
+                audio_path=self.audio,
+                manifest_path=self.manifest,
+                srt_path=self.draft_srt,
+                vtt_path=self.draft_vtt,
+                force=True,
+            )
+        draft["reviewed"] = True
+        draft["speech_review"] = "verified"
+        draft["speaker_review"] = "single-obvious"
+        draft["sound_review"] = "none-meaningful"
+        with mock.patch.object(
+            self.module, "_sha256", return_value=draft["audio"]["sha256"]
+        ):
+            self.module.validate_review_manifest(
+                draft, self.audio, duration, require_approval=False
+            )
+        return draft
+
+    def test_a_tight_short_sentence_still_yields_a_validatable_cue(self):
+        """draft → approve must be green by construction.
+
+        "Go." flushes on sentence end at 0.30s and the next word starts at
+        0.31s — the gap cannot cover MIN_DURATION, so the draft must merge
+        rather than ship a cue its own validator refuses and ask the human
+        to hand-repair machine formatting.
+        """
+        draft = self.assert_draft_validates([
+            {"text": "Go.", "start": 0.0, "end": 0.3},
+            {"text": "Now", "start": 0.31, "end": 0.7},
+            {"text": "watch", "start": 0.7, "end": 1.0},
+            {"text": "this.", "start": 1.0, "end": 1.3},
+        ])
+        self.assertIn("Go.", draft["cues"][0]["text"])
+
+    def test_a_short_final_cue_is_repaired_within_the_audio(self):
+        """The last cue has no following gap — it must borrow from the
+        preceding one (or merge) without extending past the final audio."""
+        draft = self.assert_draft_validates([
+            {"text": "Welcome", "start": 0.0, "end": 1.0},
+            {"text": "aboard.", "start": 1.0, "end": 2.0},
+            {"text": "Go.", "start": 5.8, "end": 5.95},
+        ])
+        self.assertLessEqual(draft["cues"][-1]["end"], 6.0 + 0.05)
+
+    def test_an_overwide_token_is_wrapped_not_shipped(self):
+        url = "https://example.com/some/extremely/long/path/segment"
+        self.assertGreater(len(url), self.module.MAX_CHARS)
+        draft = self.assert_draft_validates([
+            {"text": "Visit", "start": 0.0, "end": 0.6},
+            {"text": url, "start": 0.6, "end": 3.0},
+        ])
+        wrapped = [c for c in draft["cues"] if "\n" in c["text"]]
+        self.assertTrue(wrapped, "the over-wide token must wrap onto a second line")
+
     def test_legacy_invocation_still_writes_draft_sidecars(self):
         srt = self.root / "legacy.srt"
         vtt = self.root / "legacy.vtt"

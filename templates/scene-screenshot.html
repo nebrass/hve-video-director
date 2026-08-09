@@ -58,21 +58,28 @@
         display:flex; align-items:center; justify-content:center;
         /* DESIGN.md surface. A barely-there radial gives the canvas depth so the
            framed shot reads as a lit object, not a sticker on flat paper.
-           Dark brands: swap to e.g. radial-gradient(120% 120% at 50% 0%, #15161a, #0a0a0b). */
-        background:radial-gradient(120% 120% at 50% 0%, #ffffff 0%, #eef1f5 100%);
+           Dark brands: swap to e.g. radial-gradient(120% 120% at 32% 14%, #15161a, #0a0a0b).
+           Key light 32% 14% (upper-left): ground origin, shadow x-offsets and the edge graze all
+           follow it. Move the light and move all three together — a centred ground with a
+           straight-down shadow is the signature of no light at all. */
+        background:radial-gradient(120% 120% at 32% 14%, #ffffff 0%, #eef1f5 100%);
         font-family:"Inter", system-ui, sans-serif;
       }
       [data-composition-id="scene-NN-screenshot"] .shot-stage{
         display:flex; flex-direction:column; align-items:center; gap:40px; width:100%;
       }
-      /* The framed browser. Multi-layer shadow + hairline = real elevation (DESIGN.md depth). */
+      /* The framed browser. Multi-layer shadow + hairline = real elevation (DESIGN.md depth).
+         Three layers, three jobs — contact grounds it, form gives it mass, separation lifts it
+         off the ground. All offsets point away from the key light declared above. */
       [data-composition-id="scene-NN-screenshot"] .shot-browser{
         width:72%; max-width:1480px; border-radius:14px; overflow:hidden;
         background:#ffffff;
         box-shadow:
           0 0 0 1px rgba(0,0,0,.06),
-          0 2px 6px rgba(0,0,0,.05),
-          0 40px 90px rgba(0,0,0,.18);
+          3px 2px 6px rgba(0,0,0,.05),
+          9px 40px 90px rgba(0,0,0,.18),
+          20px 90px 180px rgba(0,0,0,.10),
+          inset 0 1px 0 rgba(255,255,255,.55);  /* graze on the edge facing the light */
         visibility:hidden; opacity:0;          /* revealed via autoAlpha */
         will-change:transform, opacity;
       }

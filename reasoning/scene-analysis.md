@@ -7,9 +7,9 @@ output is a closed set of **director keys** written onto the frame.
 Optimization order is fixed (ADR-008): **comprehension → retention → engagement**. Honesty,
 consent, and determinism are constraints, never traded against any of the three.
 
-## The twelve questions
+## The thirteen questions
 
-Answer all twelve for every frame. One line each, no essays — the answers *are* the plan.
+Answer all thirteen for every frame — Q13 only when its condition holds. One line each, no essays — the answers *are* the plan.
 
 | # | Question | Key | Value vocabulary |
 |---|---|---|---|
@@ -25,6 +25,7 @@ Answer all twelve for every frame. One line each, no essays — the answers *are
 | 10 | What **motion vocabulary**? | `blueprint:` / `motion:` | a blueprint id via `BLUEPRINT_INDEX` when one fits; otherwise 2–4 rule names via `RULES_INDEX` |
 | 11 | Which **capabilities** follow? | `capabilities:` | see the derivation rule below |
 | 12 | Which **runtime**, and what lost? | `runtime:` / `runtime_rejected:` | the procedure in `reasoning/capability-catalog.md` |
+| 13 | *(only when light carries meaning)* What does the light **conclude**? | `surface_reading:` | the **Reading** column of `grammar/three-taxonomy.md` § Ingredient defaults |
 
 ### Judgment vs. derivation — the split is not a style choice
 
@@ -37,10 +38,29 @@ Answer all twelve for every frame. One line each, no essays — the answers *are
   grammar file's local convention note, and a frame's set is never empty.
   1. every capability tag **declared by each grammar entry the frame cites** in Q8/Q9/Q10;
   2. **asset and subject realities** — a prebaked export exists → `prebaked-asset`; the subject is
-     a per-frame simulation → `gpu-compute`; Q7 answered yes → the spatial tag it names;
+     a per-frame simulation → `gpu-compute`; Q7 answered yes → the spatial tag it names, per the
+     table below;
   3. **explicit additions**, each of which must carry a stated reason on the frame.
   Tags come from the vocabulary owned by `reasoning/capability-catalog.md`. Never invent one.
   A frame citing a spatial camera move while declaring no spatial capability is a derivation bug.
+
+  **Q7 → the tag it names.** Q7 has no key of its own, so this is the only place its answer
+  becomes a capability. Naming the mapping is what keeps the step mechanical (ADR-005) rather
+  than a re-reading of the question at each frame. Read top-down; the first row that describes
+  the frame decides.
+
+  | What Q7 found the frame needs | Tag |
+  |---|---|
+  | parts that must pass in front of **and behind** one another — true self-occlusion | `topology-3d` |
+  | a viewpoint that **travels**, so perspective changes as it moves | `perspective-camera` |
+  | quantity itself is the message, past what the DOM can instance | `volumetric-count` |
+  | layering in Z — occlusion between planes, parallax, stacked surfaces | `spatial-depth` |
+  | none of the above | *no tag from Q7* |
+
+  `spatial-depth` is the common answer and stays 2.5D: the discriminator against `topology-3d` is
+  **self-occlusion**, stated once in `grammar/three-taxonomy.md`, and this table does not restate
+  the reasoning behind it. A "yes" to Q7 that matches no row means the question was answered about
+  the *look* rather than the need — re-answer it, do not invent a tag.
 - **A cited recipe whose inputs the frame cannot supply is the same class of bug.** Q10 names
   motion; it does not check that the frame can feed it. Two failures found in a real run:
   a data-viz rule cited on a frame carrying no numbers (the builder must either invent a
@@ -51,6 +71,12 @@ Answer all twelve for every frame. One line each, no essays — the answers *are
   cite a different recipe — never make the builder resolve it, because the builder's only
   honest options are to break data honesty or to weaken the recipe.
 - **Q12 follows the catalog's procedure.** Not a preference, not a taste call.
+- **Q13 is judgment, and conditional.** It fires only where Q11 derived `material-realism` and
+  Q12 selected `runtime: three` — both, not either. `material-realism` says light carries meaning;
+  it does not say *what the light does*, and nothing in the other keys computes that. Answer it
+  the way you answered Q1–Q10, reading the frame's `goal:` against the **Use when** column of
+  `grammar/three-taxonomy.md` § Ingredient defaults, which owns the values. Where the condition is
+  false the key is simply absent — most films have no frame that triggers it.
 
 A reviewer reading the keys alone must be able to reconstruct *why* every visual choice exists.
 Reasoning traceability is load-bearing: a change that makes a frame's rationale unrecoverable
@@ -58,7 +84,7 @@ from its keys is an architecture regression (ADR-008).
 
 ## Director keys — the closed contract
 
-Fourteen key names, emitted by the twelve questions plus the ADR-001 override. **The set is
+Fifteen key names, emitted by the thirteen questions plus the ADR-001 override. **The set is
 closed.** Adding a key means adding or replacing a question, which is an architecture change
 reviewed as such — not a convenience. Written as `- key: value` bullets on the frame; upstream's
 storyboard parser preserves unknown bullets under `extra` (`STORYBOARD_FORMAT`, and the
@@ -77,9 +103,10 @@ the official format unchanged.
 | `metaphor:` | yes | the **Concept** column value of a row in `grammar/metaphors.md` — the concept *is* the row identifier, and the unit the metaphor-consistency budget counts. Or `none — real product` |
 | `blueprint:` | conditional | one blueprint id resolved through `BLUEPRINT_INDEX`. At least one of `blueprint:` / `motion:` must be present |
 | `motion:` | conditional | 2–4 rule names, comma-separated, resolved through `RULES_INDEX`. Required when no blueprint fits; allowed alongside one (Adapt / Compose posture) |
-| `capabilities:` | yes, non-empty | comma-separated tags from the catalog vocabulary only |
+| `capabilities:` | yes, non-empty | comma-separated tags from the catalog vocabulary only — never `—`, which is a grammar **row's** "adds nothing beyond the baseline" notation and not a frame value. The baseline may stay implicit while other tags carry the value; a frame whose derivation adds nothing writes `timeline-choreography` |
 | `runtime:` | optional | `three` \| `html-in-canvas` \| `typegpu` \| `lottie` \| `anime` \| `css` \| `waapi`. **Omit for GSAP** — it is the default |
 | `runtime_rejected:` | conditional | `<runtime> — <reason>`. Required whenever a non-default runtime was considered and not chosen |
+| `surface_reading:` | conditional | `travelling-band` \| `fixed-glint` \| `matte-diffuse`. Required when `material-realism` is derived **and** `runtime: three` was selected; absent otherwise. Values owned by `grammar/three-taxonomy.md` § Ingredient defaults |
 | `user_directed:` | optional | `true` (only value) |
 
 ### User override (ADR-001)

@@ -49,6 +49,14 @@ CAPTURE_STATE_SCHEMA_VERSION = 1
 FRAME_TOLERANCE = 1
 BACKENDS = ("auto", "macos", "windows", "x11", "wayland")
 
+# wf-recorder has no duration flag: the communicate() timeout IS the recording
+# window, and it starts at Popen — before the compositor stream is open. The
+# raw capture must come out LONGER than requested (startup latency paid from
+# this margin, not from the media) because normalize_capture trims the exact
+# duration from the front and ffmpeg cannot lengthen a short input — a window
+# equal to the request fails the ±FRAME_TOLERANCE validation on every take.
+WAYLAND_STARTUP_MARGIN_S = 1.5
+
 
 class CaptureError(RuntimeError):
     pass
@@ -268,7 +276,8 @@ def _execute_wayland(command, duration):
         command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
         shell=False)
     try:
-        stdout, stderr = process.communicate(timeout=duration)
+        stdout, stderr = process.communicate(
+            timeout=duration + WAYLAND_STARTUP_MARGIN_S)
     except subprocess.TimeoutExpired:
         process.send_signal(signal.SIGINT)
         try:

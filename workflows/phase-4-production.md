@@ -206,9 +206,10 @@ every sampled timestamp.
   is written to fit the footage-derived window in Phase 5.
 - **Verify the inner `<video>`'s attribute contract; never re-derive it here.** It is
   `workflows/phase-3-design.md` § Clip scene, over `DATA_ATTRIBUTES` — confirm the builder wired it
-  from the frame's bullets, because the runtime frame-syncs only a video declaring `data-start` and
-  a bare one cross-routes across 2+ clip scenes (one plays another's footage, another plays black)
-  while every gate stays green.
+  from the frame's bullets, because the runtime frame-syncs only a video declaring `data-start`.
+  A bare one is caught by `lint` (`media_missing_data_start`, error); what is *not* caught is a
+  wrong `data-media-start` or `data-track-index` — neither has a lint rule — so a fully-attributed
+  video can still play the wrong footage with every gate green.
   One value only Phase 4 can supply: the inner video's `data-duration` is **its own loader's full
   window**, read off the loader you sized above — not the bare clip length. The runtime hides an
   expired track, so a video ending before its loader blanks the frame for the rest of the window,
@@ -471,7 +472,7 @@ optional gate does not block Phase 5.
 
 ### Hero-frame content check (mandatory — gates can't see "wrong content")
 
-`lint` and `check` are mechanical: structure, layout overflow, contrast. **Neither judges whether each scene is showing the *right* content** — a clip wired to the wrong footage or a stale `<img src>` passes both GREEN (this is exactly how the bare-`<video>` clip cross-route shipped unnoticed). Catch it here, cheaply, *before* the full render in Phase 5.
+`lint` and `check` are mechanical: structure, layout overflow, contrast. **Neither judges whether each scene is showing the *right* content** — a clip wired to the wrong footage or a stale `<img src>` passes both GREEN (this is exactly how the clip cross-route shipped unnoticed — the attributes that decide *which* footage plays, `data-media-start` and `data-track-index`, have no lint rule). Catch it here, cheaply, *before* the full render in Phase 5.
 
 Capture a `snapshot` at the **midpoint of each scene** (not a uniform sweep) so every scene contributes one readable hero frame:
 
@@ -577,6 +578,32 @@ hold beat, suspicious on an active scene). Examples:
 - `dead zone` spanning a whole scene → either add ambient motion (cursor pulse, grain shimmer) or accept as a deliberate hold
 
 A per-scene flag is re-dispatchable (Step 4.6). Skip this step for trivial edits; run it on every new composition or after significant animation changes.
+
+**Then read the register, which `ANIMATION_MAP` does not measure.** Pacing and character are
+different questions: a scene can be perfectly paced and still express one emotion nine times.
+
+```bash
+# $SKILL_DIR is THIS skill's install dir — not one of the companion-skill resolvers
+# above. Step 4.5's DOCTRINE_SKILL_DIR and Step 4.7's ANIM_SKILL_DIR resolve
+# `motion-doctrine` and `hyperframes-animation`; copying either here resolves the wrong
+# skill. Use the canonical `$SKILL_HOMES` bootstrap from `SKILL.md` § Runtime
+# Compatibility, or pass this skill's path directly. The project's own scenes/ is read
+# from the current directory.
+python3 "$SKILL_DIR/scripts/motion_register.py"
+```
+
+It reports when most of a scene's tweens share one ease across near-identical durations — the
+`same ease + same duration = same emotion` tell in `patterns/anti-slop.md`, which every mechanical
+gate passes green because none of them is looking for it — verified against the pinned CLI,
+browser pass included (`GATE_BLIND_SPOTS`). This is **not** a second `ANIMATION_MAP`
+and reports no pacing verdict (ADR-003 forbids a parallel validator); it answers a question that
+needs the frame's intent, which is why it lives here.
+
+Report-never-gate, and it takes judgment: a scene built from one repeated element — a list
+revealing in stagger — looks monotonous by this measure and is right. Where it is a real finding,
+the fix is register, not decoration: an arrival, an emphasis and a settle are different events and
+should not share one constant. The *family* stays the brand's (`DESIGN.md` outranks any recipe's
+ease); only the variation within it is at issue. A genuine finding is re-dispatchable per Step 4.6.
 
 ## Step 4.8: Aesthetic Critique (Optional but Recommended)
 

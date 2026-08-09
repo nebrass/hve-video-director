@@ -130,8 +130,34 @@ def _segments_to_words(segments):
     return words
 
 
+def _wrap_caption(text, max_chars):
+    """Wrap text into lines of at most max_chars, breaking inside a token
+    only when the token alone exceeds the limit (a URL, a long identifier)."""
+    lines = []
+    current = ""
+    for token in text.split():
+        while len(token) > max_chars:
+            if current:
+                lines.append(current)
+                current = ""
+            lines.append(token[:max_chars])
+            token = token[max_chars:]
+        if not token:
+            continue
+        if not current:
+            current = token
+        elif len(current) + 1 + len(token) <= max_chars:
+            current += " " + token
+        else:
+            lines.append(current)
+            current = token
+    if current:
+        lines.append(current)
+    return "\n".join(lines)
+
+
 def group_cues(words, max_chars=MAX_CHARS, max_dur=MAX_DURATION,
-               max_gap=MAX_GAP, max_words=MAX_WORDS):
+               max_gap=MAX_GAP, max_words=MAX_WORDS, audio_end=None):
     """Group words into readable caption cues."""
     cues = []
     current = []
@@ -156,13 +182,56 @@ def group_cues(words, max_chars=MAX_CHARS, max_dur=MAX_DURATION,
             flush()
     flush()
 
-    # No zero/negative durations, and no overlap between adjacent cues.
+    # ── Deliver what approve/finalize will accept ────────────────────────
+    # The draft is machine-generated, so every invariant the validator
+    # enforces must hold by construction: the reviewer corrects CONTENT,
+    # never machine formatting against the machine's own gate.
+
+    # No overlap between adjacent cues.
     for a, b in zip(cues, cues[1:]):
         if a["end"] > b["start"]:
             a["end"] = b["start"]
+
+    # A cue shorter than MIN_DURATION extends into the following gap, then
+    # borrows from the preceding one — never past a neighbour or the audio.
+    for i, cue in enumerate(cues):
+        if cue["end"] - cue["start"] >= MIN_DURATION:
+            continue
+        forward_limit = cues[i + 1]["start"] if i + 1 < len(cues) else audio_end
+        if forward_limit is None:
+            forward_limit = cue["start"] + MIN_DURATION
+        cue["end"] = max(cue["end"], min(cue["start"] + MIN_DURATION, forward_limit))
+        if cue["end"] - cue["start"] >= MIN_DURATION:
+            continue
+        backward_limit = cues[i - 1]["end"] if i > 0 else 0.0
+        cue["start"] = min(cue["start"],
+                           max(cue["end"] - MIN_DURATION, backward_limit))
+
+    # A cue its gaps cannot cover merges with a neighbour.
+    merged = []
+    for cue in cues:
+        if merged and merged[-1]["end"] - merged[-1]["start"] < MIN_DURATION:
+            prev = merged[-1]
+            merged[-1] = {"start": prev["start"], "end": cue["end"],
+                          "text": f'{prev["text"]} {cue["text"]}'}
+        else:
+            merged.append(dict(cue))
+    if len(merged) >= 2 and merged[-1]["end"] - merged[-1]["start"] < MIN_DURATION:
+        last = merged.pop()
+        prev = merged[-1]
+        merged[-1] = {"start": prev["start"], "end": last["end"],
+                      "text": f'{prev["text"]} {last["text"]}'}
+    cues = merged
+
+    # Last resort for a single degenerate cue with no neighbour to lean on.
     for cue in cues:
         if cue["end"] <= cue["start"]:
-            cue["end"] = cue["start"] + 0.4
+            cue["end"] = cue["start"] + MIN_DURATION
+
+    # No line wider than the validator's cap.
+    for cue in cues:
+        if any(len(line) > max_chars for line in cue["text"].splitlines()):
+            cue["text"] = _wrap_caption(cue["text"], max_chars)
     return cues
 
 
@@ -419,8 +488,10 @@ def create_review_draft(
     words = load_words(data)
     if not words:
         raise ValueError(f"no word timings found in {input_path}")
-    cues = group_cues(words, max_chars=max_chars)
+    # Probe before grouping: the min-duration repair extends cues into gaps
+    # and must know where the audio ends so it never extends past it.
     duration = _probe_audio_duration(audio_path)
+    cues = group_cues(words, max_chars=max_chars, audio_end=duration)
     if cues and cues[-1]["end"] > duration + 0.05:
         raise ValueError(
             "transcript extends beyond the final mixed audio; regenerate the transcript"

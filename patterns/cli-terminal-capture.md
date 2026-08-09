@@ -348,7 +348,7 @@ After the MP4 is at `public/clips/scene-{NN}-{slug}.mp4`:
    `data-media-start` (= storyboard `clip_in`, `0` if whole) + `data-track-index="0"`
    (pre-wired in the template; substitute the `DUR`/`MSTART` placeholders).
    HyperFrames frame-syncs `currentTime` to the scene window from those
-   attributes; a bare `<video>` is not time-synced and, with 2+ clip scenes,
+   attributes; a video missing `data-start` is not time-synced (and is a `lint` error); one with the wrong `data-media-start` has no rule at all and, with 2+ clip scenes,
    cross-routes (wrong footage / black). Full contract: `workflows/phase-3-design.md`
    § Clip scene.
 

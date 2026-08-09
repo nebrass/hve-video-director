@@ -1,0 +1,33 @@
+{
+  "$comment": [
+    "The authoritative GSAP pin. Ten authored <script> tags carry this version and hash as",
+    "literals — a template is copied verbatim into a generated project, so it cannot read a",
+    "variable. Single-sourcing therefore means naming the authority, not removing the copies:",
+    "test/unit/test_gsap_pin.py holds every copy to this file.",
+    "",
+    "Why it matters: the integrity hash and the version must correspond. If they do not, the",
+    "browser refuses the script, every scene renders with no animation, and nothing in the",
+    "authoring loop says so — `npx hyperframes check` catches it only at the Phase 4/5 gate.",
+    "The same applies to crossorigin: a cross-origin script carrying `integrity` needs",
+    "crossorigin=\"anonymous\" or it never loads at all.",
+    "",
+    "To bump: change `version` here, recompute `integrity` with the command below, propagate",
+    "to every authored site, then run `bash test/run.sh`. CI additionally re-fetches the",
+    "pinned version and recomputes the hash, which is the one check that needs the network."
+  ],
+  "package": "gsap",
+  "version": "3.14.2",
+  "integrity": "sha384-sG0Hv1tP1lZCk9KQmrIbY/XNwi+OY84GQqhMscbnsoBFqAz8KNCil1kvfL3Hbbk2",
+  "crossorigin": "anonymous",
+  "url": "https://cdn.jsdelivr.net/npm/gsap@{version}/dist/gsap.min.js",
+  "recompute": "curl -sL https://cdn.jsdelivr.net/npm/gsap@{version}/dist/gsap.min.js | openssl dgst -sha384 -binary | base64",
+  "authoredSites": [
+    "templates/*.html",
+    "workflows/phase-3-design.md",
+    "workflows/phase-4-production.md"
+  ],
+  "excluded": {
+    "example/index.html": "A record of a render that happened, so it stays on the version it was rendered against. Forcing it to track a bump would edit a record to satisfy a lint.",
+    "CHANGELOG.md": "Append-only history: an entry describes the tree at release time and is not restated when the pin moves."
+  }
+}

@@ -48,10 +48,16 @@ Multi-layered shadows with inset variants for depth on dark surfaces:
 box-shadow:
   inset 0 1px 0 rgba(255,255,255,0.04),
   0 1px 0 rgba(0,0,0,0.6),
-  0 10px 30px rgba(0,0,0,0.4);
+  3px 10px 30px rgba(0,0,0,0.4);
 ```
 
 Borders are barely-there: `1px solid rgba(255,255,255,0.05)`.
+
+**Shadow offsets follow the film's key light, not this page.** The x-offsets above assume the
+house key at 32% 14% (upper-left). Blur, alpha and colour are this brand's and never move; only
+the offset answers to the light, and it flips sign if a film declares its key on the other side.
+A stack with every casting layer at x=0 reads as no light at all — it is a web-card shadow, and
+on video it disappears.
 
 ## 5. Motion
 
@@ -73,7 +79,7 @@ The brand voice is "things work because they're well-built, not because they loo
 ## 6. Video applications
 
 - **Hero scene:** Single Inter 510 headline at 140px on `#08090a`. No mockup, no decoration. Subtitle at 32px in `#d0d6e0` arrives 0.4s later. Both elements settle, then transition.
-- **Feature scene:** Product screenshot in a card with elevated surface `#191a1b` and the inset-highlight shadow stack. Tilt ≤3°. Caption in 32px Inter 510 beside it.
+- **Feature scene:** Product screenshot in a card with elevated surface `#191a1b` and the inset-highlight shadow stack. Tilt ≤3° on Y. Caption in 32px Inter 510 beside it.
 - **Stat scene:** Number at 200px on dark canvas, tabular-figures, counter ease `power2.out` over ~1.8s. Label at 32px below.
 - **CTA scene:** `npm i linear` or equivalent in Berkeley Mono on an elevated surface. Brand mark below at 80px. Hold.
 

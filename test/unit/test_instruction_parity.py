@@ -19,7 +19,14 @@ Neither is visible to a diff of the two files, because the *other* file was
 right. So this suite checks each file against the repository itself, and
 cross-checks only the handful of facts that must agree everywhere.
 
-Adding a fourth instruction file? Put it in `INSTRUCTION_FILES` and the same
+`SKILL.md` is in the set for the same reason: it is the orchestrator prompt —
+resident in every phase — and the drift class it suffered was identical.
+After M6's `search_music.py` retirement was reversed, SKILL.md went on
+claiming the script did not exist while phase-5 invoked it as the default
+music path; this suite never saw it because the one file every session reads
+was the one file it did not cover.
+
+Adding another instruction file? Put it in `INSTRUCTION_FILES` and the same
 checks apply.
 """
 
@@ -34,6 +41,7 @@ INSTRUCTION_FILES = [
     ROOT / "CLAUDE.md",
     ROOT / ".github" / "copilot-instructions.md",
     ROOT / "AGENTS.md",
+    ROOT / "SKILL.md",
 ]
 
 # Directories an instruction file may reference by path. A reference into one of
@@ -60,7 +68,7 @@ KNOWN_SKILLS = frozenset({
     "hyperframes", "hyperframes-core", "hyperframes-animation", "hyperframes-creative",
     "hyperframes-cli", "hyperframes-registry", "hyperframes-keyframes", "media-use",
     "motion-doctrine", "seam-craft", "cut-the-curve", "oversized-cursor",
-    "motion-graphics", "figma",
+    "general-video", "motion-graphics", "figma",
 })
 
 # `check` is the required final gate; these still run but are deprecated aliases.
@@ -203,6 +211,104 @@ class SharedFactsAgree(unittest.TestCase):
         self.assertFalse(
             wrong,
             "a mirror describes a script the repo does not have:\n  " + "\n  ".join(wrong),
+        )
+
+
+def cli_bullet(path):
+    """The one line each mirror uses to enumerate the `npx hyperframes` surface."""
+    for line in read(path).splitlines():
+        if "`npx hyperframes` CLI for" in line:
+            return line
+    return ""
+
+
+def commands_named_in(path):
+    """Commands a mirror presents as current, i.e. minus the deprecated aliases
+    it names only to mark them deprecated."""
+    tokens = set(re.findall(r"`([a-z][a-z-]*)`", cli_bullet(path)))
+    return tokens - set(DEPRECATED_GATES)
+
+
+def compat_cli_table():
+    """(current, deprecated) command names from compat/ecosystem.md § CLI surface.
+
+    That table is the owner of this vocabulary; the mirrors only restate it.
+    Deprecated rows are struck through (`~~name~~`), which is how they stay
+    documented without being offered.
+    """
+    text = read(ROOT / "compat" / "ecosystem.md")
+    section = text.split("## CLI surface", 1)[-1].split("\n## ", 1)[0]
+    current, deprecated = set(), set()
+    for line in section.splitlines():
+        if not line.strip().startswith("|"):
+            continue
+        first = line.strip().strip("|").split("|")[0].strip()
+        struck = re.findall(r"~~`([a-z][a-z-]*)`~~", first)
+        if struck:
+            deprecated.update(struck)
+            continue
+        plain = re.findall(r"^`([a-z][a-z-]*)`$", first)
+        current.update(plain)
+    return current, deprecated
+
+
+class CliSurfaceIsMirroredFaithfully(unittest.TestCase):
+    """The `npx hyperframes` command list is a fact, and it lives in one place.
+
+    `compat/ecosystem.md` § CLI surface owns it. Each mirror restates a subset in
+    prose, and a restatement is exactly where a rename or a retirement goes stale —
+    the M0 drift was this shape. Three ways it can rot, one check each.
+    """
+
+    def _mirrors(self):
+        return [
+            p for p in (ROOT / "CLAUDE.md", ROOT / ".github" / "copilot-instructions.md")
+            if p.exists()
+        ]
+
+    def test_the_bullet_is_findable_in_every_mirror(self):
+        """Guard on the guard: if the bullet is reworded away, the two checks
+        below start comparing empty sets and pass forever."""
+        for path in self._mirrors():
+            self.assertTrue(
+                commands_named_in(path),
+                f"{rel(path)}: no `npx hyperframes` CLI bullet found — the parity "
+                "checks below would silently compare nothing",
+            )
+
+    def test_every_named_command_is_a_real_current_command(self):
+        current, deprecated = compat_cli_table()
+        self.assertTrue(current, "compat § CLI surface parsed to nothing")
+        problems = []
+        for path in self._mirrors():
+            for name in sorted(commands_named_in(path)):
+                if name in deprecated:
+                    problems.append(f"{rel(path)}: offers `{name}`, a deprecated alias")
+                elif name not in current:
+                    problems.append(f"{rel(path)}: names `{name}`, absent from compat § CLI surface")
+        self.assertFalse(
+            problems,
+            "a mirror names a command the CLI surface does not have:\n  " + "\n  ".join(problems),
+        )
+
+    def test_every_command_a_workflow_runs_is_listed(self):
+        """The operational contract: what a session actually executes.
+
+        A command a phase runs but the instructions never mention is a tool an
+        agent has no reason to expect — and the omission is invisible in a diff
+        of the two mirrors, because only one of them is wrong.
+        """
+        invoked = set()
+        for workflow in sorted((ROOT / "workflows").glob("*.md")):
+            invoked.update(re.findall(r"npx hyperframes ([a-z][a-z-]*)", read(workflow)))
+        self.assertTrue(invoked, "no workflow invokes the CLI — parse broke")
+        missing = []
+        for path in self._mirrors():
+            for name in sorted(invoked - commands_named_in(path)):
+                missing.append(f"{rel(path)}: workflows run `{name}` but it is not listed")
+        self.assertFalse(
+            missing,
+            "a mirror omits a command the phases actually run:\n  " + "\n  ".join(missing),
         )
 
 

@@ -61,12 +61,18 @@ Subtle shadow over the gradient backdrop:
 ```css
 backdrop-filter: blur(40px);
 background: rgba(255,255,255,0.7);
-box-shadow: 0 8px 32px rgba(0,0,0,0.08);
+box-shadow: 2px 8px 32px rgba(0,0,0,0.08);
 border: 1px solid rgba(255,255,255,0.4);
 border-radius: 16px;
 ```
 
 Note: HyperFrames doesn't natively use `backdrop-filter` for video render in some Chromium configs — fall back to a static colour-tint that approximates frost when needed (a `rgba(255,255,255,0.7)` over the gradient renders identically in most cases).
+
+**Shadow offsets follow the film's key light, not this page.** The x-offsets above assume the
+house key at 32% 14% (upper-left). Blur, alpha and colour are this brand's and never move; only
+the offset answers to the light, and it flips sign if a film declares its key on the other side.
+A stack with every casting layer at x=0 reads as no light at all — it is a web-card shadow, and
+on video it disappears.
 
 ## 5. Motion (from upstream)
 

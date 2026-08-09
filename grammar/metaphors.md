@@ -24,9 +24,10 @@ cell, which is the picture rather than the name. Concept identifies the row —
 **Requires** lists only what a row adds beyond the baseline capability every scene implies
 (`timeline-choreography`); `—` means it adds nothing. That baseline rule is owned and stated once
 by `reasoning/capability-catalog.md`, which also owns and versions the tag vocabulary — use those
-spellings, never invent one. A frame's capability set is the **union** of the tags of every grammar
-entry it cites; that union is the input to runtime selection, which happens in the catalog, not
-here.
+spellings, never invent one. This cell says what a *row* adds; it does not say what a *frame* carries.
+That rule is the catalog's too — a frame's set starts from the baseline and is never empty — and
+restating it here is what taught a real run to write `—` into a frame's `capabilities:`, where the
+notation has no decoder. Runtime selection happens in the catalog, not here.
 
 **Motion cells name the Tier-A (DOM) expression only.** Elevating a row to true 3D, GPU, or
 html-in-canvas is a separate decision that spends a hero beat — the tags say what elevation would

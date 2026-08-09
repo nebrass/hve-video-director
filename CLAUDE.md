@@ -25,6 +25,19 @@ headless-Chromium render, and this skill's own per-phase approvals, which no age
 real run. `example/.hve/brief-state.json` is the consent record that makes the claim checkable:
 `validate_brief.py --project-dir example status` must report complete, confirmed and unstale.
 
+A tool that audits live projects will find things in it, and that is the record working, not
+failing. `keys-audit` reports four findings today — frames 2 and 7 carry `capabilities: —`, and
+frame 6 carries `motion: —` with no `blueprint:`, all of which `reasoning/scene-analysis.md`
+already forbade in the commit that added the storyboard. A run the pipeline produced and a human
+approved is allowed to contain a defect no gate of the day could see; that is most of what a
+record is *for*. **Findings against `example/` are adjudicated, never repaired.** They are pinned
+by frame and rule in the accepted-findings table of `test/unit/test_keys_audit.py`, so a new one
+fails and forces the decision — and `test/unit/test_example_consent.py` digests every committed artifact, so
+the cheaper answer is not available. Those two land and stay together: pinning a finding without
+hashing the record turns a red light into an incentive to edit the record, and the consent record
+cannot detect that (it fingerprints the brief table, and the storyboard is deliberately outside
+every fingerprint — measured: two words silences two findings while `status` stays green).
+
 ## Architecture
 
 `SKILL.md` is the orchestrator prompt. It loads first, decides the entry mode (`new` / `continue` / `jump`), and dispatches to one of six phase workflows. Each phase has a user-approval checkpoint before advancing.
@@ -89,8 +102,9 @@ Two boundaries are easy to erode by being helpful:
 Dispatch is a behavioral contract, not a preference: build **inline up to ~6 short frames**, and
 beyond that give each worker **2–3 frames** (never one), start all workers in a single wave, and
 allow **one retry per frame and only with a concrete finding**. The measurement behind the ~6
-threshold is upstream's and is stated once, in `workflows/phase-3-design.md` Step 3.4 — cite it,
-never re-derive or re-copy the numbers. **Registry-first** governs what a packet starts from: check
+threshold is upstream's — `DISPATCH_ECONOMICS`, cited by symbol from Step 3.4 and never restated
+here. An earlier version stated the numbers locally "once", which is still a copy: the test is
+whether an upstream re-measurement makes a committed file wrong, and it did. **Registry-first** governs what a packet starts from: check
 `REGISTRY_CATALOG` and install with `npx hyperframes add` before hand-authoring; a tested block
 beats a hand-built scene, and hand-authoring covers only the gap.
 
@@ -139,7 +153,7 @@ official home becomes an extra bullet rather than a guessed value.
 - The `hyperframes` skill for HTML/GSAP authoring rules (Phases 3 + 4)
 - The `media-use` skill for **all** Phase-5 audio generation — `AUDIO_ENGINE` runs TTS, the music bed (BGM) and SFX from one request, and `TRANSCRIBE` / `CAPTIONS_AUTHORING` / `TRANSCRIPT_HANDLING` supply caption data. Word timestamps come back only from its HeyGen voice route; the ElevenLabs and local Kokoro routes still need a transcription pass. Delegation stops at generation: the exact-track confirmation, the caption review state machine, the verified mix recipes, and render approval stay here (ADR-001)
 - There is **no** `gsap` companion skill — it is not installed in any skills home and is not an ecosystem skill. GSAP choreography guidance (timeline registration, the property contract, ease families, stagger) is `GSAP_ADAPTER` + `EASING_AND_STAGGER` in `hyperframes-animation`. `scripts/check_requirements.sh` still probes for a `gsap` skill and reports it as a `recommended` check that degrades gracefully when absent, which is harmless; do not re-add it to prose.
-- `npx hyperframes` CLI for `init`, `add` (pull catalog blocks — registry-first scene planning in Phase 3, seams and furniture in Phase 4), `lint`, `preview`, `check` (required final gate; `inspect`/`validate`/`layout` are deprecated aliases), `render`, `doctor` (render-environment diagnostics, Phase 5), `transcribe` (preferred voiceover-timing verifier in Phase 5; falls back to standalone Whisper if unavailable), and `tts` (used in Phase 5 when the user explicitly confirms a local Kokoro voice)
+- `npx hyperframes` CLI for `init`, `add` (pull catalog blocks — registry-first scene planning in Phase 3, seams and furniture in Phase 4), `lint`, `preview`, `check` (required final gate; `inspect`/`validate`/`layout` are deprecated aliases), `snapshot` (still PNGs at chosen times — Phase 4's by-eye checks, e.g. footage legibility, have no programmatic gate), `render`, `doctor` (render-environment diagnostics, Phase 5), `transcribe` (preferred voiceover-timing verifier in Phase 5; falls back to standalone Whisper if unavailable), and `tts` (used in Phase 5 when the user explicitly confirms a local Kokoro voice)
 - `mcp__chrome-devtools__screencast_*` + `resize_page` for Phase-2 web-clip capture (experimental, feature-detected — needs `--experimentalScreencast=true`; falls back to screenshots), and optional `asciinema`+`agg` for CLI clip recording (otherwise the authored-terminal path)
 - `mcp__chrome-devtools__list_pages` + `select_page` for the explicit authenticated-session path. The user must first connect the MCP to running Chrome with Chrome 144+ `--autoConnect` (preferred) or the dedicated-profile `--browser-url` fallback; attached capture never navigates and follows `patterns/authenticated-browser-capture.md`.
 - `scripts/generate_voiceover.py` → **the voiceover-section assembler, and only that, since M6.** `--assemble-only` places already-synthesized `vo_section_NN.mp3` files at their exact start times, separates them with silence, pads to `VIDEO_DURATION` and warns on overrun; **both** audio paths use it, whoever synthesized the sections. The flag is now optional (assembly is the only mode) and kept accepted so every invocation already written into a workflow keeps working. M6 removed the ElevenLabs acquisition path and its Whisper verification pass; the file is pure stdlib, needs no API key and no network, and timing verification is a separate Phase-5 step against the assembled `voiceover.mp3`. **Do not delete this file** — retiring ElevenLabs did not retire assembly
@@ -147,8 +161,9 @@ official home becomes an extra bullet rather than a guessed value.
 - `scripts/caption_gen.py` → preserves legacy ASR `voiceover.srt`/`.vtt` drafts and implements the Phase-5 `draft` → human review → `approve` → `finalize` → `validate` contract. Approval fingerprints the exact speech/speaker/meaningful-sound cues; final sidecars and deterministic state publish as one rollback-protected set. Pure stdlib with required `ffprobe`.
 - `scripts/capture_screen.py` → fixed-duration, silent native desktop/region capture orchestrator (pure stdlib). Uses macOS `screencapture`, Windows `gdigrab`, X11 `x11grab`, or feature-detected Wayland `wf-recorder`; WSL and unavailable Wayland return explicit recording handoffs. It trims through sibling `stitch_clip.py`, validates duration/frame count within one frame, and uses `<clip>.capture.pending` + fingerprinted `<clip>.capture.json` state so failed retakes preserve prior valid media but cannot count as complete.
 - `scripts/mix_clip_audio.py` → mixes one clip's own audio into the canonical soundtrack (trim → speed → loudnorm → volume → placement, then a sidechain duck under the clip). Pure stdlib, argv-only ffmpeg. Validates its inputs, refuses a placement whose audio would be truncated at the film's end, and replaces the soundtrack atomically only on success — a failed run leaves it byte-identical
+- `scripts/motion_register.py` → reports whether a scene's motion expresses more than one emotion: it flags when most of a scene's tweens share one ease across near-identical durations (resolving an ease held in a `var EASE = "…"` constant, which is the form the failure actually takes). Phase 4 Step 4.7 runs it **after** `ANIMATION_MAP` and it is **not** a second one — pacing is `ANIMATION_MAP`'s and this reports no pacing verdict (ADR-003 bans a parallel validator). Report-never-gate: a scene built from one repeated element looks monotonous by this measure and is right. Pure stdlib, reads only
 - `scripts/stitch_clip.py` → canonical normalizer/stitcher for raw captures (CFR30, H.264 High/yuv420p, even dimensions, no audio, `+faststart`) via the ffmpeg concat filter (pure stdlib)
-- `scripts/validate_brief.py` → parses the exact `project-plan.md` Creative Brief table, consent-migrates legacy plans with empty placeholders, confirms revision-bound story/audio fingerprints, atomically writes `.hve/brief-state.json`, stamps phases, and rejects stale prerequisites (pure stdlib). It also **reads** `storyboard.md` — read-only, and deliberately outside every fingerprint, because the storyboard describes the film while the brief records consent: `storyboard --json` reports the shape and frames, `vo-budget` estimates how long each frame's `voiceover` takes to speak against that frame's `duration` and owns those timing numbers (Phase 1 runs it before storyboard approval; it reports and never gates, because the user owns the narration — ADR-001), and `migrate-storyboard` converts a pre-adoption file only on request and preserves the original alongside it
+- `scripts/validate_brief.py` → parses the exact `project-plan.md` Creative Brief table, consent-migrates legacy plans with empty placeholders, confirms revision-bound story/audio fingerprints, atomically writes `.hve/brief-state.json`, stamps phases, and rejects stale prerequisites (pure stdlib). It also **reads** `storyboard.md` — read-only, and deliberately outside every fingerprint, because the storyboard describes the film while the brief records consent: `storyboard --json` reports the shape and frames, `vo-budget` estimates how long each frame's `voiceover` takes to speak against that frame's `duration` and owns those timing numbers (Phase 1 runs it before storyboard approval; it reports and never gates, because the user owns the narration — ADR-001), `keys-audit` checks the director keys a storyboard carries against the closed key contract, the catalog vocabulary and the hero-beat row of the budget table — which it *parses*, never hard-codes (ADR-008/C6) — and reports `runtime_rejected:` **denials** but never unspent budget, scores nothing, and like `vo-budget` reports rather than gates, and `migrate-storyboard` converts a pre-adoption file only on request and preserves the original alongside it
 - `scripts/check_requirements.sh` → verifies the toolchain (node/python/ffmpeg/chrome-headless-shell/hyperframes CLI + companion skills + env vars). Default, `--json`, and `--plan` are side-effect-free; report modes never use online `npx` probes. `--fix=<id,id>` runs only selected safe user-scoped actions (`chrome-shell`, `hyperframes-skill`, `whisper`), while bare `--fix` retains all-safe behavior. System/sudo/environment actions are printed, never run. Its `SKILL_HOMES` line must stay in lock-step with the canonical list in `SKILL.md` (same parity rule as the Phase 3/5 resolvers).
 
 `templates/` files are copied into generated projects; the `scene-*.html` skeletons double as the starting point a frame packet ships when no registry block covers the archetype. `sub-agents/` holds role deltas for dispatched builders — today just the scene builder. `patterns/` files are referenced for visual techniques — `transition-catalog.md` maps moments to transition families under `SEAM_LAW` (the seam rationale that used to live in a local pattern file is now upstream: the vector law in `motion-doctrine`, render-side compositing and edge artifacts in `seam-craft` via `SEAM_RENDER_MECHANICS`; the repo keeps only the narrowing clipPath/3D bans in `SKILL.md` § DON'Ts), and `cli-terminal-capture.md` documents the `asciinema` + `agg` workflow for the optional real-terminal-clip path (the dependency-free authored-terminal path uses `templates/scene-terminal.html`; the asciinema clip path uses `templates/scene-terminal-clip.html`).
@@ -158,10 +173,13 @@ official home becomes an extra bullet rather than a guessed value.
 The media scripts run inside generated video projects; `validate_brief.py` runs from the installed
 skill against a generated project via `--project-dir`.
 
-**M6 retired the local *narration* fallback only.** `search_music.py` was retired with it and has since been **restored** — Freesound search is the default music path, because a real recording has an author, a stable URL and an auditable licence that a generated bed does not. Meanwhile
-`generate_voiceover.py`'s ElevenLabs half with it. Phase 5's audio path is the `media-use` engine
-(`AUDIO_ENGINE`); with no engine, narration is `npx hyperframes tts` on an explicitly confirmed
-local voice and the music bed is user-provided. **`generate_voiceover.py` itself survives and must
+**M6 retired the local *narration* fallback only.** It removed `generate_voiceover.py`'s ElevenLabs
+half, and it retired `search_music.py` — which has since been **restored**, because Freesound search
+is the default music path: a real recording has an author, a stable URL and an auditable licence
+that a generated bed does not. Phase 5's audio path is the `media-use` engine (`AUDIO_ENGINE`); with
+no engine, narration is `npx hyperframes tts` on an explicitly confirmed local voice, while the
+music bed follows the brief's `music_strategy` and is **not** engine-gated — `freesound` still
+searches, and only `delegated` needs the engine. **`generate_voiceover.py` itself survives and must
 not be deleted**: `--assemble-only` is the section assembler both paths use, and removing the file
 would break the delegated path too.
 
@@ -216,17 +234,24 @@ engine's ElevenLabs route, which is the only path that still consumes it.
 These are enforced verbally in the `## DON'Ts` section of `SKILL.md` — except the seam rules, which `SEAM_VERIFIER` enforces numerically. If you modify workflows or patterns, do not reintroduce them:
 
 - **No jitter** (shaking, vibrating motion).
-- **No 360° scene spins.** Subtle `rotateY` ≤ 8° / `rotateZ` ≤ 4° on mockups only.
+- **No 360° scene spins.** Subtle `rotateY` ≤ 8° / `rotateX` ≤ 4° / `rotateZ` ≤ 4° on mockups only. Always name the axis a limit governs.
 - **Seams belong to `SEAM_LAW`, not to this repo.** The vector law (axis/direction/speed/phase), the ban on a scene authoring its own exit — only the closing scene may animate out — and the fact that a crossfade carries nothing across the cut (a dissolve, not a seam) are `motion-doctrine`'s, stamped by `SEAM_STAMP` and checked by `SEAM_VERIFIER`. **The numeric gate is authoritative where local prose disagrees**; fix the seam ledger, not the assertion. It still never overrides the user's confirmed transition style — it governs execution, not choice (ADR-001).
 - **Additive seam bans this repo keeps** (narrowing only, never overriding the law): no `clipPath`-driven inter-scene wipe (anti-aliased black sliver at the boundary; render-side rules are `SEAM_RENDER_MECHANICS`) and no 3D/perspective transforms as a seam effect — a Z seam is a signed *scale* change.
 - **Never animate `display`, `visibility`, or call `.play()` inside a timeline.** Breaks HyperFrames' deterministic seek; use `opacity` + `pointer-events`.
 - **Never animate `<img>` dimensions directly.** Wrap the `<img>` in a non-timed `<div>` and animate the wrapper's `transform`. Direct dimension tweens trigger layout recompute that breaks deterministic seek.
 - **Never use `tl.from()` for opacity tweens.** GSAP records the end-state at registration; if the CSS rest is `opacity:0` the recorded end is `opacity:0` (the tween goes nowhere), and under stagger later instances re-hide elements earlier ones revealed. Always use `tl.fromTo(target, {opacity:0,...}, {opacity:1,...}, pos)`.
-- **Never ship a bare `<video>` in a clip scene.** The runtime only frame-syncs videos carrying `data-start`; with 2+ clip scenes bare videos cross-route (wrong footage / black) while every gate passes green. The explicit contract is `id` + `data-start="0"` + `data-duration` (loader's crossfade-extended window, not the bare clip length) + `data-media-start` (storyboard `Clip in`) + `data-track-index="0"` — see `workflows/phase-3-design.md` § Clip scene.
+- **Never ship a partly wired `<video>` in a clip scene.** The runtime frame-syncs only videos carrying `data-start`. `lint` catches a *bare* one — `media_missing_data_start` and `media_missing_id` are both **errors** on the pinned CLI, and `check` skips the browser when lint errors. What no rule covers is a *partly* wired video: there is no lint code for `data-media-start` or for a media element's `data-track-index`, so a video with `id` and `data-start` but the wrong offset plays the wrong footage with every gate green. The whole contract is `id` + `data-start="0"` + `data-duration` (loader's crossfade-extended window, not the bare clip length) + `data-media-start` (storyboard `Clip in`) + `data-track-index="0"` — see `workflows/phase-3-design.md` § Clip scene.
 
 ## Common edits
 
-- **Add a voice** → update both the `## ElevenLabs Voice IDs` table in `SKILL.md` and the `## Voices` table in `README.md` (the two tables must stay in sync). Those IDs are the user-facing voice contract that the brief's `voice` field spells out and the `media-use` engine's ElevenLabs route synthesizes; no script in this repo resolves them any more.
+- **Add a voice** → the voice contract is stated in **three** places and all three must agree:
+  the `## ElevenLabs Voice IDs` table in `SKILL.md`, the `## Voices` table in `README.md`, and
+  the picker the user actually answers in `workflows/phase-1-storytelling.md` (plus its worked
+  `elevenlabs:<name>:<id>` example). A voice added to the tables but not the picker can never be
+  chosen; one added to the picker but not the tables records an id nothing documents.
+  `test/unit/test_voice_parity.py` enforces the three-way agreement. Those IDs are the
+  user-facing contract that the brief's `voice` field spells out and the `media-use` engine's
+  ElevenLabs route synthesizes; no script in this repo resolves them any more.
 - **Change the scene-builder contract** → `sub-agents/scene-builder-delta.md` is the role text every
   frame packet ships, and it is a **delta**: it only re-points conventions of `FRAME_WORKER_CORE`
   and adds local law, so anything already stated upstream does not belong in it. Change the packet's
@@ -283,7 +308,7 @@ These are enforced verbally in the `## DON'Ts` section of `SKILL.md` — except 
   (through `compat/ecosystem.md`) owns the official keys, which this repo does not restate. A new
   local key must not collide with an official one — `test/unit/test_storyboard_extra_keys.py` fails
   if it does, because a colliding bullet is reinterpreted as upstream's field instead of preserved
-  under `extra`. Adding a *director* key is an architecture change (the key set is closed); adding a
+  under `extra`. Adding a *director* key is an architecture change (the key set is closed at fifteen); adding a
   capture binding also means updating `workflows/phase-1-storytelling.md`, the Phase-2/3 readers,
   and the legacy mapping table in `templates/storyboard.md` so `migrate-storyboard` keeps round-tripping.
 - **Adjust prerequisite checks** → update `scripts/check_requirements.sh` and its stdlib tests. `SKILL.md` Phase -1 consumes `--json` only for direct/default `new` mode with no `project-plan.md`; explicit `continue`/`jump` skip it.
@@ -303,8 +328,24 @@ These are enforced verbally in the `## DON'Ts` section of `SKILL.md` — except 
   mechanism (`compat/ecosystem.md` § Citing upstream vocabulary; the bare, extension-less form is
   what keeps the citation legal under `test/unit/test_compat_pointers.py`). Budget numbers stay in
   `reasoning/scene-analysis.md` — cite the table, never copy a number.
+- **Write down how upstream *behaves*** (as opposed to where its files live) → the moment you write
+  "the renderer/runtime/engine actually does X, so do Y" — or catch yourself explaining a failure
+  with *every gate passes and the output is still wrong* — stop and answer one question: **name the
+  upstream file that says X.** If you can, cite it by SYMBOL and delete your sentence; a committed
+  restatement of upstream mechanism is ADR-002's one illegal form. If you cannot, you have found
+  undocumented upstream behavior, and ADR-002 § Precedence is what makes your sentence legal — but
+  only as the narrowing imperative a builder must obey, and only once it is a `### SYMBOL` row in
+  `compat/ecosystem.md` § Behavior probes carrying a `- **Local text.**` field naming the file you
+  just edited. `test/unit/test_probe_local_text.py` checks a row's shape; **nothing checks that you
+  wrote one**, which is why this bullet is the mechanism and you are the only one holding the
+  knowledge. Two scars: the `-g 30 -keyint_min 30` GOP pin landed with the renderer's own warning
+  quoted in its PR body and stayed unregistered for five days (now `CLIP_KEYFRAME_DENSITY`); and
+  the bare-`<video>` DON'T asserted "every gate passes green" across seven files when `lint`
+  errors on it — nobody had read the CLI.
 - **Change an ecosystem dependency** (an upstream HyperFrames skill, a file inside one, or the
-  `npx hyperframes` CLI surface) → edit `compat/ecosystem.md` and nothing else. Intra-skill **file
+  `npx hyperframes` CLI surface) → edit `compat/ecosystem.md` and nothing else. Note this bullet is
+  about **paths and flags**; behavior is the bullet above, and reading this one as covering both is
+  how an imperative ends up in a workflow with no probe. Intra-skill **file
   paths** for ecosystem skills live there and nowhere else in the repo; every other file names the
   skill plus the capability SYMBOL and lets that map resolve the path. Skill **names** are stable
   public API — name them freely anywhere. Enforced by `test/unit/test_compat_pointers.py`. To take
@@ -322,11 +363,20 @@ These are enforced verbally in the `## DON'Ts` section of `SKILL.md` — except 
   `search_music.py` and a `gsap` skill after both were gone (M6). Neither was visible in a diff of
   the two files, because the other file was correct.
 - **Bump skill metadata** → frontmatter at top of `SKILL.md` (especially `allowed-tools` if a new MCP tool is needed).
-- **Bump the GSAP version** → the CDN `<script>` tags carry a Subresource Integrity hash (`integrity="sha384-…" crossorigin="anonymous"`), pinned to `gsap@3.14.2`. Changing the version *requires* recomputing the hash, or the script is blocked and every scene renders without animation (caught by `npx hyperframes check` in Phase 4/5). Update **all** occurrences together — `templates/scene-*.html` and the skeletons in `workflows/phase-3-design.md` + `workflows/phase-4-production.md` (grep the tree; a stale hash anywhere ships silent, animation-free scenes):
+- **Bump the GSAP version** → `gsap-pin.json` is the authority. Ten authored `<script>` tags carry
+  the version and its Subresource Integrity hash as *literals* (a template is copied verbatim into
+  a generated project, so it cannot read a variable), which makes single-sourcing a matter of
+  naming the authority rather than removing the copies: `test/unit/test_gsap_pin.py` holds every
+  copy to the pin, and CI re-fetches the pinned version to confirm the hash actually belongs to it.
+  A hash that does not match its version is refused by the browser and **every scene renders with
+  no animation** — silent until `npx hyperframes check` at the Phase 4/5 gate; a missing
+  `crossorigin="anonymous"` fails the same way, because SRI on a cross-origin script requires CORS.
+  Edit `gsap-pin.json`, recompute, propagate to `templates/scene-*.html` and the skeletons in
+  `workflows/phase-3-design.md` + `workflows/phase-4-production.md`, then `bash test/run.sh`.
+  `example/index.html` and `CHANGELOG.md` are records and deliberately do not track the pin:
   ```bash
-  V=3.x.y   # new version
-  H="sha384-$(curl -sL https://cdn.jsdelivr.net/npm/gsap@$V/dist/gsap.min.js | openssl dgst -sha384 -binary | base64)"
-  # then replace src=…/gsap@$V/… and integrity="$H" in every file above (keep them in lock-step)
+  V=3.x.y   # new version — set it in gsap-pin.json too
+  curl -sL https://cdn.jsdelivr.net/npm/gsap@$V/dist/gsap.min.js | openssl dgst -sha384 -binary | base64
   ```
 
 ## Installation paths users invoke

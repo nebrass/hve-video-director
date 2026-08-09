@@ -106,13 +106,99 @@ jobs:
           n=$(grep -rho 'SKILL_HOMES="[^"]*"' SKILL.md workflows/*.md scripts/check_requirements.sh | sort -u | wc -l)
           test "$n" -eq 1 || { echo "SKILL_HOMES diverged across $n variants"; exit 1; }
 
-      # Scoped to the skill's own surface on purpose. `example/` is a record of a
-      # render that happened, so it stays on the version it was rendered against —
-      # forcing it to track a bump would edit a record to satisfy a lint.
-      - name: GSAP version and SRI hash are pinned in lock-step
+      # The internal half of this — every authored tag equals the declared pin —
+      # is test/unit/test_gsap_pin.py, offline and already run above. An earlier
+      # form of this step lived here instead and only counted *distinct* values,
+      # requiring the count to be 1: that proves the tree agrees with itself, so
+      # a version and hash copied wrong together passed it.
+      #
+      # This step does the half that needs the network: fetch the pinned version
+      # and recompute its SRI hash. A mismatch means the browser refuses GSAP and
+      # every scene renders with no animation — silent until the Phase 4/5 gate.
+      #
+      # `example/` is not involved: it is a record of a render that happened and
+      # stays on the version it was rendered against.
+      - name: The pinned GSAP SRI hash belongs to the pinned version
         if: always()
         run: |
-          v=$(grep -rho 'gsap@[0-9][0-9.]*' templates/*.html workflows/*.md | sort -u | wc -l)
-          h=$(grep -rho 'integrity="sha384-[^"]*"' templates/*.html workflows/*.md | sort -u | wc -l)
-          test "$v" -eq 1 || { echo "$v GSAP versions in tree — a stale hash ships animation-free scenes"; exit 1; }
-          test "$h" -eq 1 || { echo "$h SRI hashes in tree — same failure"; exit 1; }
+          v=$(python3 -c 'import json;print(json.load(open("gsap-pin.json"))["version"])')
+          want=$(python3 -c 'import json;print(json.load(open("gsap-pin.json"))["integrity"])')
+          url="https://cdn.jsdelivr.net/npm/gsap@$v/dist/gsap.min.js"
+
+          # A CDN outage must not read as a passing hash — but a 404 is not an outage,
+          # it is a pin naming a version that does not exist, and treating any curl
+          # failure as "unverified" let exactly that exit green. Separate the two.
+          code=$(curl -sSL --retry 5 --retry-delay 3 -w '%{http_code}' -o /tmp/gsap.min.js "$url" || echo 000)
+          if [ "$code" = "404" ] || [ "$code" = "403" ]; then
+            echo "gsap@$v is not published at $url (HTTP $code)."
+            echo "The pin names a version that does not exist; every scene would load without animation."
+            exit 1
+          fi
+          if [ "$code" != "200" ]; then
+            echo "::warning::could not fetch $url (HTTP $code) — SRI correspondence UNVERIFIED this run"
+            exit 0
+          fi
+
+          got="sha384-$(openssl dgst -sha384 -binary /tmp/gsap.min.js | base64)"
+          if [ "$got" != "$want" ]; then
+            echo "SRI mismatch for gsap@$v"
+            echo "  pinned in gsap-pin.json: $want"
+            echo "  computed from the CDN:   $got"
+            echo "Scenes would load without animation. Recompute per gsap-pin.json § recompute."
+            exit 1
+          fi
+          echo "gsap@$v SRI verified against the CDN"
+
+  # The pointer-validity suite and the storyboard extra-keys probes skip on a
+  # machine without the HyperFrames ecosystem — correct on a contributor's
+  # machine, fatal as the only CI: the guards ADR-007 calls "the only thing
+  # that protects the registry" never ran here, so an upstream relayout would
+  # have landed green. This job installs the ecosystem from skills-lock.json's
+  # sources and then REQUIRES those suites to run: HVE_REQUIRE_ECOSYSTEM=1
+  # turns their skip conditions into failures (test_ecosystem_required.py), so
+  # a failed or partial install fails loudly instead of skipping unnoticed.
+  # The bare job above stays exactly as it is — the ecosystem remains optional
+  # at test time everywhere except this job.
+  #
+  # SECURITY — this job runs third-party code, on purpose.
+  # The storyboard round-trip probe imports an upstream ESM module and drives it
+  # under node, from a clone of upstream's default branch. That is the job's
+  # reason to exist (catch a relayout before a user does) and it cannot be had
+  # by reading files alone. install_ecosystem.py allowlists the source and
+  # refuses a skillPath that escapes its checkout, which stops the accidental
+  # redirect; it cannot stop a hostile PR that edits the guard out in the same
+  # commit. What bounds the blast radius is this job holding nothing worth
+  # taking:
+  #   - no secrets are referenced here, and none may be added;
+  #   - the workflow token is read-only (permissions: contents: read, above);
+  #   - the trigger is `pull_request`, so fork runs get no secrets and a
+  #     read-only token. NEVER switch it to `pull_request_target`, which would
+  #     run PR-authored code with the base repo's secrets and a write token.
+  # Each run prints the commit it installed, so what executed is attributable.
+  ecosystem-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # node runs the vendored storyboard parser in the round-trip half of the
+      # STORYBOARD_EXTRA_KEYS probe.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install ffmpeg
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
+
+      # Tracks upstream's default branch on purpose: catching an upstream
+      # relayout before a user does is this job's reason to exist. A skill
+      # whose recorded skillPath vanished upstream fails the install by name.
+      - name: Install the HyperFrames ecosystem from skills-lock.json
+        run: python3 test/install_ecosystem.py --dest .agents/skills
+
+      - name: Run the suite with the ecosystem required
+        run: HVE_REQUIRE_ECOSYSTEM=1 bash test/run.sh

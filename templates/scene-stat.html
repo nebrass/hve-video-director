@@ -40,7 +40,10 @@
       [data-composition-id="scene-NN-stat"]{
         position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
         padding:100px; box-sizing:border-box;
-        background:radial-gradient(120% 120% at 50% 0%, #ffffff 0%, #eef1f5 100%); /* DESIGN.md surface */
+        /* Key light 32% 14% (upper-left): ground origin, shadow x-offsets and the edge graze all
+           follow it. Move the light and move all three together — a centred ground with a
+           straight-down shadow is the signature of no light at all. */
+        background:radial-gradient(120% 120% at 32% 14%, #ffffff 0%, #eef1f5 100%); /* DESIGN.md surface */
         font-family:"Inter", system-ui, sans-serif; color:#171717;
       }
       [data-composition-id="scene-NN-stat"] .stat-row{
@@ -71,7 +74,10 @@
       [data-composition-id="scene-NN-stat"] .stat-shot{visibility:hidden; opacity:0}
       [data-composition-id="scene-NN-stat"] .stat-frame{
         border-radius:12px; overflow:hidden; background:#fff;
-        box-shadow:0 0 0 1px rgba(0,0,0,.06), 0 28px 70px rgba(0,0,0,.18);
+        /* contact / form / separation — three jobs, not two blurs at one alpha */
+        box-shadow:0 0 0 1px rgba(0,0,0,.06), 3px 2px 6px rgba(0,0,0,.30),
+                   7px 28px 70px rgba(0,0,0,.18), 16px 70px 140px rgba(0,0,0,.10),
+                   inset 0 1px 0 rgba(255,255,255,.09); /* graze on the edge facing the light */
       }
       [data-composition-id="scene-NN-stat"] .stat-img{display:block; width:100%; height:auto}
     </style>

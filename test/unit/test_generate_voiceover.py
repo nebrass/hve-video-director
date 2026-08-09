@@ -3,6 +3,7 @@ import io
 import hashlib
 import json
 import os
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -229,6 +230,161 @@ class AssemblerBehaviourTest(unittest.TestCase):
             })
 
         self.assertIn("apad only extends", err.getvalue())
+
+
+class ManifestAnchorWriteIsAtomic(unittest.TestCase):
+    """Recording script_sha256 must not be able to truncate the sealed manifest.
+
+    verify_script_unchanged writes the anchor into the manifest on the first
+    verified assembly after a seal — an ordinary run, not an exceptional one.
+    An in-place write opens a corruption window on every assembly: a crash or
+    full disk mid-write destroys the freshness proof and forces re-synthesis.
+    """
+
+    def test_a_failed_anchor_write_preserves_the_manifest(self):
+        module = load_module()
+        module.sections = [(0.0, "hello")]
+        with tempfile.TemporaryDirectory() as tmp:
+            old_cwd = os.getcwd()
+            os.chdir(tmp)
+            try:
+                seal_sections(Path(tmp), {"00": b"audio"})
+                manifest = Path(tmp) / ".hve" / "vo-sections.json"
+                before = manifest.read_bytes()
+                with mock.patch.object(
+                    module.os, "replace", side_effect=OSError("disk full")
+                ):
+                    with self.assertRaises(OSError):
+                        module.verify_script_unchanged()
+                self.assertEqual(
+                    manifest.read_bytes(), before,
+                    "a failed anchor write must leave the seal byte-identical",
+                )
+                self.assertEqual(
+                    list(manifest.parent.glob(".vo-sections.json.*.tmp")), []
+                )
+            finally:
+                os.chdir(old_cwd)
+
+
+class ConcatListRobustnessTest(unittest.TestCase):
+    """The concat list must survive paths ffmpeg's demuxer parses specially.
+
+    ffmpeg's concat demuxer reads `file '...'` with shell-like quoting: a
+    literal apostrophe inside the quoted path must be written `'\\''`, or the
+    path is truncated at the quote and assembly fails with "No such file" —
+    for a project living under e.g. `~/Bob's Videos/promo`.
+    """
+
+    def assemble_in(self, dirname):
+        """Run one-section assembly inside `dirname`; return (concat, abspath)."""
+        module = load_module()
+        module.sections = [(0.0, "only")]
+        module.VIDEO_DURATION = 5
+        captured = {}
+
+        def fake_run(argv, *args, **kwargs):
+            if "concat" in argv:
+                captured["list"] = Path(argv[argv.index("-i") + 1]).read_text(
+                    encoding="utf-8"
+                )
+            return mock.Mock(returncode=0, stdout="", stderr="")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            workdir = Path(tmp, dirname)
+            workdir.mkdir()
+            (workdir / "vo_section_00.mp3").write_bytes(b"audio")
+            old_cwd = os.getcwd()
+            os.chdir(workdir)
+            try:
+                expected = os.path.abspath("vo_section_00.mp3")
+                with (
+                    mock.patch.object(module.subprocess, "run", side_effect=fake_run),
+                    mock.patch.object(module, "get_audio_duration", return_value=1.0),
+                ):
+                    module.assemble_voiceover([(0.0, "vo_section_00.mp3")])
+            finally:
+                os.chdir(old_cwd)
+        return captured["list"], expected
+
+    def test_apostrophe_in_project_path_is_concat_escaped(self):
+        concat, expected = self.assemble_in("Bob's Videos")
+        [line] = [ln for ln in concat.splitlines() if "vo_section_00" in ln]
+        self.assertEqual(line, "file '" + expected.replace("'", "'\\''") + "'")
+
+    def test_plain_path_stays_plainly_quoted(self):
+        concat, expected = self.assemble_in("plain")
+        [line] = [ln for ln in concat.splitlines() if "vo_section_00" in ln]
+        self.assertEqual(line, f"file '{expected}'")
+
+    def test_concat_failure_surfaces_ffmpeg_stderr(self):
+        """A concat failure must show ffmpeg's own diagnostic, not swallow it.
+
+        `capture_output=True, check=True` turns an assembly failure into a
+        bare CalledProcessError whose str() omits stderr — the one line that
+        names the unopenable file. The assembler must re-raise with it.
+        """
+        module = load_module()
+        module.sections = [(0.0, "only")]
+        module.VIDEO_DURATION = 5
+
+        def fake_run(argv, *args, **kwargs):
+            if "concat" in argv:
+                raise subprocess.CalledProcessError(
+                    1, argv, stderr=b"Impossible to open '/tmp/Bob'"
+                )
+            return mock.Mock(returncode=0, stdout="", stderr="")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            (Path(tmp) / "vo_section_00.mp3").write_bytes(b"audio")
+            old_cwd = os.getcwd()
+            os.chdir(tmp)
+            try:
+                with (
+                    mock.patch.object(module.subprocess, "run", side_effect=fake_run),
+                    mock.patch.object(module, "get_audio_duration", return_value=1.0),
+                ):
+                    with self.assertRaises(RuntimeError) as ctx:
+                        module.assemble_voiceover([(0.0, "vo_section_00.mp3")])
+            finally:
+                os.chdir(old_cwd)
+        self.assertIn("Impossible to open", str(ctx.exception))
+
+
+
+class AnchorWriteIsDurable(unittest.TestCase):
+    """The anchor is published, not just written.
+
+    `verify_script_unchanged` writes the script fingerprint that later assemblies are
+    checked against, so a torn write here is a freshness claim nobody can trust. It
+    already used tmp + fsync + rename; a review noticed it never fsynced the parent
+    directory, which is what makes the *rename* durable — while the sibling writer in
+    `verify_vo_sections.write_text_atomic` did. Two atomic writers in one repo, and the
+    weaker one guarded the claim.
+    """
+
+    def test_both_the_bytes_and_the_rename_are_fsynced(self):
+        G = load_module()
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            manifest = tmp / "anchor.json"
+            manifest.write_text(json.dumps({"sections": {"00": "abc"}}), encoding="utf-8")
+
+            seen = []
+            real = os.fsync
+            with mock.patch.object(G, "MANIFEST", manifest), \
+                 mock.patch.object(G, "sections", [("00", "hello there")]), \
+                 mock.patch.object(os, "fsync", lambda fd: (seen.append(fd), real(fd))[1]):
+                self.assertEqual([], G.verify_script_unchanged())
+
+            self.assertEqual(
+                2, len(seen),
+                "expected two fsyncs — the file's bytes and the parent directory that "
+                f"carries the rename; saw {len(seen)}",
+            )
+            self.assertIn("script_sha256", json.loads(manifest.read_text(encoding="utf-8")))
+            leftovers = [p.name for p in tmp.iterdir() if p.name.startswith(".anchor")]
+            self.assertEqual([], leftovers, f"temp file left behind: {leftovers}")
 
 
 if __name__ == "__main__":

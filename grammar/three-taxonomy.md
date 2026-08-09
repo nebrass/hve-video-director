@@ -75,10 +75,14 @@ Camera-move names resolve in `grammar/camera.md`.
   | `fixed-glint` | a screen or a pane — lit, but flat | the surface is a display showing something, and the content matters more than the object |
   | `matte-diffuse` | a material sample, not a product | texture or colour is the subject and a highlight would distract |
 
-  State it on a `runtime: three` frame alongside the camera move; the packet carries it. The
-  *mechanism* stays the builder's — the reading follows from surface curvature and lobe tightness
-  together, and `THREE_ADAPTER` owns both. Naming it matters because the levers that look like
-  highlight controls are not: intensity, roughness and cone angle change how *bright* and how
+  This is **Q13**, and the answer is the frame's `surface_reading:` key — required whenever
+  `material-realism` is derived and `runtime: three` is selected, absent otherwise
+  (`reasoning/scene-analysis.md`). It is a director key like any other: written on the frame,
+  carried by the packet, and recoverable by a reviewer reading the keys alone, which is what
+  ADR-008 requires of anything that changes what a viewer concludes.
+  The *mechanism* stays the builder's — the reading follows from surface curvature and lobe
+  tightness together, and `THREE_ADAPTER` owns both. Naming it matters because the levers that look
+  like highlight controls are not: intensity, roughness and cone angle change how *bright* and how
   *broad* a highlight is, while whether it reads as a band or a spot is decided by the geometry
   underneath. A frame that asked for `travelling-band` and got an ellipse is a miss the director
   can see and name; without the word, it is nobody's defect.

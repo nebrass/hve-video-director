@@ -59,7 +59,7 @@ The naive workaround — a `tl.to(..., { opacity: 1, duration: 0.01 })` snap rig
    (`opacity: 0`), **re-hiding an element a sibling already revealed.**
 
 Visible symptom: staggered elements flash briefly, then vanish one by one as their own tween
-activates. The failure is silent — no console error, no lint warning, and `check` does not flag it.
+activates. The failure is silent — no console error, no lint warning, and `check` does not flag it (verified against the pinned CLI, browser pass included — `GATE_BLIND_SPOTS`).
 
 ```js
 // ✅ correct — works with stagger
@@ -289,8 +289,8 @@ non-final scene, and no `clipPath` seam. Transition duration comes from the conf
 
 ## DON'Ts (Critical)
 
-- **No jitter or shake** — reads as cheap. `check` will not catch it; self-police.
-- **No full 360° rotations** — disorienting. Subtle `rotateY` ≤ 8° or `rotateZ` ≤ 4° only, and on
+- **No jitter or shake** — reads as cheap. `check` will not catch it (verified, `GATE_BLIND_SPOTS`); self-police.
+- **No full 360° rotations** — disorienting. Subtle `rotateY` ≤ 8°, `rotateX` ≤ 4° or `rotateZ` ≤ 4° only, and on
   mockups only.
 - **No `elastic` or `bounce` eases** — they read as toy-like in a product video. This narrows
   `EASING_AND_STAGGER`, which permits overshoot as a rare explicitly-playful register: in this
@@ -315,7 +315,7 @@ non-final scene, and no `clipPath` seam. Transition duration comes from the conf
 - **Never animate `<img>` dimensions directly** — wrap each animated `<img>` in a non-timed `<div>`
   and tween the wrapper's `transform`. Animating `width`/`height` forces layout recompute that
   breaks deterministic seek.
-- **Never use `gsap.set()` at script-load time on elements that enter the timeline later** — a
+- **Never use `gsap.set()` at script-load time on elements that enter the timeline later** — this is `DETERMINISM_RULES`' rule, not this file's; it is named here only so the DON'T list is complete, and the mechanism and the fix live there. A
   sub-comp clip with `data-start > 0` is not in the DOM at page load, so its elements do not exist
   yet and the call is a silent no-op. Use `tl.set(selector, vars, timePosition)` *inside* the
   timeline, at or after the clip's `data-start`:

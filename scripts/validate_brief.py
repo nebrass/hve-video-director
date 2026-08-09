@@ -1974,6 +1974,387 @@ def command_vo_budget(project_dir: Path, as_json: bool) -> int:
     return 1 if payload["over_count"] else 0
 
 
+# --------------------------------------------------------------------------
+# keys-audit — a structural audit of the director keys a storyboard carries.
+#
+# Read-only, and deliberately outside every fingerprint: the storyboard
+# describes the film, the brief records consent. It REPORTS and never gates —
+# the `vo-budget` precedent, and ADR-001's reason for it: the user owns the
+# choice, so exit 1 marks a finding, not a blocked phase.
+#
+# Three things it will not do, each a rejected proposal rather than an omission:
+#   * no score. Invented numerics are the fabricated-metric class ADR-005 and
+#     the anti-slop law both ban.
+#   * no headroom. It reports DENIALS — what `runtime_rejected:` recorded —
+#     never unspent budget. "You used 1 of 3 hero beats" reads as pressure to
+#     spend two more, and the contrast between flat and hero beats IS the
+#     storytelling (ADR-008).
+#   * no hard-coded budget numbers. They are parsed out of the budget table,
+#     which ADR-008/C6 makes the only place they live.
+# --------------------------------------------------------------------------
+
+# A grammar table writes `—` in a capabilities cell to mean "adds nothing beyond the
+# baseline". It is legal there and illegal on a frame; these are its spellings.
+EMPTY_MARKERS = {"—", "–", "-", "--", "none", "n/a"}
+
+SKILL_ROOT = Path(__file__).resolve().parents[1]
+SCENE_ANALYSIS_PATH = SKILL_ROOT / "reasoning" / "scene-analysis.md"
+CAPABILITY_CATALOG_PATH = SKILL_ROOT / "reasoning" / "capability-catalog.md"
+
+# `| \`key:\` | required | allowed values |`
+KEY_ROW = re.compile(r"^\|\s*`([a-z_]+):`\s*\|\s*([^|]+?)\s*\|\s*(.*?)\s*\|\s*$", re.M)
+# A vocabulary stated as `a` \| `b` \| `c`. The list must be the LEAD of the cell, but the
+# cell may go on in prose afterwards -- `runtime:` does exactly that ("**Omit for GSAP** — it
+# is the default"), and requiring the whole cell to be backticked values left that row with
+# no vocabulary at all. The consequence was not cosmetic: `runtime: Three` was then neither
+# counted toward the hero budget nor reported as an illegal value, so the one budget this
+# audit checks was defeated by a capital letter.
+INLINE_VOCAB = re.compile(r"^(`[a-z0-9-]+`(?:\s*\\?\|\s*`[a-z0-9-]+`)+)")
+# A single-value vocabulary, e.g. `user_directed:` -> `true` (only value).
+SINGLE_VOCAB = re.compile(r"^`([a-z0-9-]+)`\s*\(only value\)")
+CATALOG_TAG_ROW = re.compile(r"^\|\s*`([a-z][a-z0-9-]+)`\s*\|", re.M)
+HERO_ROW = re.compile(
+    r"^\|\s*\*\*Hero beats\*\*\s*\|\s*≤\s*(\d+)\s*frames[^|]*\|\s*(.*?)\s*\|\s*$", re.M
+)
+
+
+def _section(text: str, heading: str, stop: str) -> str:
+    start = text.index(heading)
+    rest = text[start:]
+    cut = rest.index(stop, len(heading)) if stop in rest[len(heading):] else len(rest)
+    return rest[:cut]
+
+
+class SkillSourceError(Exception):
+    """A file this audit reads from the installed skill moved, or says something new.
+
+    Raised rather than propagating IndexError/FileNotFoundError: every other subcommand
+    answers with a structured payload, and a traceback from `keys-audit` reads like a
+    broken project rather than a broken install.
+    """
+
+
+def load_key_contract() -> dict[str, dict[str, Any]]:
+    """The closed key set, read from the file that owns it."""
+    try:
+        text = SCENE_ANALYSIS_PATH.read_text(encoding="utf-8")
+        body = _section(text, "## Director keys — the closed contract", "\n### ")
+    except (OSError, ValueError) as error:
+        raise SkillSourceError(
+            f"cannot read the director-key contract from {SCENE_ANALYSIS_PATH}: {error}"
+        ) from error
+    contract: dict[str, dict[str, Any]] = {}
+    for key, required, allowed in KEY_ROW.findall(body):
+        vocabulary: list[str] | None = None
+        cell = allowed.strip()
+        match = INLINE_VOCAB.match(cell)
+        single = SINGLE_VOCAB.match(cell)
+        if match:
+            vocabulary = re.findall(r"`([a-z0-9-]+)`", match.group(1))
+        elif single:
+            vocabulary = [single.group(1)]
+        contract[key] = {
+            "required": required.startswith("yes"),
+            "conditional": required.startswith("conditional"),
+            "vocabulary": vocabulary,
+        }
+    return contract
+
+
+TEMPLATE_PATH = SKILL_ROOT / "templates" / "storyboard.md"
+TEMPLATE_KEY_SECTIONS = (
+    "## Official keys",
+    "## Local helper keys",   # this repo's own additions, e.g. `window`
+    "## Capture and clip keys",
+)
+
+
+def load_frame_vocabulary() -> set[str]:
+    """Bullet names a frame may carry that are not director keys.
+
+    Official storyboard fields and capture bindings, read from the template's own
+    tables so a new binding needs no edit here. Without this the unknown-bullet
+    check below would report every legitimate `screenshot:` as undeclared.
+    """
+    try:
+        text = TEMPLATE_PATH.read_text(encoding="utf-8")
+    except OSError as error:
+        raise SkillSourceError(
+            f"cannot read the frame vocabulary from {TEMPLATE_PATH}: {error}"
+        ) from error
+    names: set[str] = set()
+    for heading in TEMPLATE_KEY_SECTIONS:
+        if heading not in text:
+            continue
+        body = text.split(heading, 1)[1].split("\n## ", 1)[0]
+        for line in body.splitlines():
+            stripped = line.strip()
+            if not stripped.startswith("|"):
+                continue
+            first = stripped.strip("|").split("|")[0].strip()
+            names |= set(re.findall(r"`([a-z][a-z0-9_]*)`", first))
+    return names
+
+
+def load_catalog_tags() -> set[str]:
+    try:
+        text = CAPABILITY_CATALOG_PATH.read_text(encoding="utf-8")
+    except OSError as error:
+        raise SkillSourceError(
+            f"cannot read the capability catalog at {CAPABILITY_CATALOG_PATH}: {error}"
+        ) from error
+    return set(CATALOG_TAG_ROW.findall(text))
+
+
+def load_hero_budget() -> dict[str, Any]:
+    """The hero-beat limit and the runtimes that spend it, from the budget table."""
+    try:
+        text = SCENE_ANALYSIS_PATH.read_text(encoding="utf-8")
+    except OSError as error:
+        raise SkillSourceError(
+            f"cannot read the budget table at {SCENE_ANALYSIS_PATH}: {error}"
+        ) from error
+    found = HERO_ROW.search(text)
+    if not found:
+        return {"limit": None, "runtimes": []}
+    return {
+        "limit": int(found.group(1)),
+        "runtimes": re.findall(r"`([a-z][a-z0-9-]+)`", found.group(2)),
+    }
+
+
+def audit_frame(
+    frame: dict[str, Any],
+    contract: dict[str, dict[str, Any]],
+    tags: set[str],
+    vocabulary: set[str] | None = None,
+) -> dict[str, Any]:
+    raw_extra = frame.get("extra") or {}
+    findings: list[str] = []
+
+    # `—` is a grammar TABLE's "adds nothing beyond the baseline" notation. On a frame it
+    # is not a value, and it fails in both directions: `capabilities: —` reads as a bad
+    # tag, while `motion: —` is *truthy*, so a frame carrying it and no `blueprint:` slid
+    # past the presence test below. Normalize once, here, so every check downstream sees
+    # the same thing — the alternative is special-casing the dash per key and missing one.
+    extra = {
+        name: ("" if str(value).strip() in EMPTY_MARKERS else value)
+        for name, value in raw_extra.items()
+    }
+    dashed = sorted(n for n in raw_extra if str(raw_extra[n]).strip() in EMPTY_MARKERS)
+    directed = str(extra.get("user_directed", "")).strip().lower() == "true"
+
+    for name in dashed:
+        findings.append(
+            f"`{name}: —` — `—` is a grammar row's \"adds nothing beyond the baseline\" "
+            "notation, not a frame value. A frame bullet is read by a builder whose packet "
+            "carries no grammar file (ADR-004), so the notation arrives with no decoder: "
+            + (
+                "write `timeline-choreography`, the baseline every scene has"
+                if name == "capabilities"
+                else "write the real value, or omit the bullet"
+            )
+        )
+
+    for key, rule in sorted(contract.items()):
+        value = str(extra.get(key, "")).strip()
+        if key in dashed:
+            continue          # the dash finding above already says what to write
+        if rule["required"] and not value:
+            findings.append(f"missing required key `{key}:`")
+            continue
+        if not value:
+            continue
+        # Named `allowed_values`, not `vocabulary`: this loop used to rebind the
+        # function's `vocabulary` parameter, so the undeclared-bullet check below ran
+        # against the last key's value list instead of the frame vocabulary and flagged
+        # every legitimate `screenshot:`.
+        allowed_values = rule["vocabulary"]
+        if allowed_values and value not in allowed_values:
+            findings.append(
+                f"`{key}: {value}` is outside its closed vocabulary "
+                f"({', '.join(allowed_values)})"
+            )
+
+    if not (extra.get("blueprint") or extra.get("motion")):
+        findings.append("neither `blueprint:` nor `motion:` is present")
+
+    declared = [t.strip() for t in str(extra.get("capabilities", "")).split(",") if t.strip()]
+    for tag in declared:
+        if tag in {"—", "-", "--", "none"}:
+            # `—` is the grammar tables' "adds nothing beyond the baseline". On a frame
+            # it is not a value: every scene carries at least `timeline-choreography`,
+            # so a frame's derived set is never empty.
+            findings.append(
+                f"`capabilities: {tag}` — every frame carries at least the baseline "
+                "`timeline-choreography`; `—` means 'adds nothing' in a grammar table, "
+                "not 'no capabilities' on a frame"
+            )
+        elif tag not in tags:
+            findings.append(f"capability `{tag}` is not in the catalog vocabulary")
+
+    # A bullet nobody declared is the real sideways-growth surface: upstream's parser
+    # preserves it under `extra`, a packet carries it, and a builder may act on it, while
+    # every doc-to-doc check stays green because the name was never in a contract table.
+    # This is where a user actually violates the vocabulary -- a misspelled `surface_readng:`
+    # was invisible until now.
+    known = set(contract) | (vocabulary or set())
+    for name in sorted(extra):
+        if name in known:
+            continue
+        findings.append(
+            f"`{name}:` is not a director key or an official storyboard field — upstream's "
+            "parser will preserve it and nothing will read it"
+        )
+
+    rejected = str(extra.get("runtime_rejected", "")).strip()
+    if rejected:
+        # `<runtime> — <reason>`. Accepting any dash anywhere passed `three—no`: the point
+        # of the row is the reason, so require a runtime, a separator, and real words after it.
+        shaped = re.match(r"^\s*([a-z][a-z0-9-]*)\s*(?:—|--)\s*(\S.*)$", rejected)
+        if not shaped:
+            findings.append("`runtime_rejected:` is not in `<runtime> — <reason>` form")
+        elif len(shaped.group(2).split()) < 3:
+            findings.append(
+                f"`runtime_rejected: {rejected[:40]}…` gives no usable reason — the row exists "
+                "so a reviewer can see why the runtime lost"
+            )
+
+    return {
+        "index": frame.get("index"),
+        "title": frame.get("title"),
+        "runtime": str(extra.get("runtime", "")).strip() or None,
+        "user_directed": directed,
+        "findings": findings,
+        "denial": rejected or None,
+    }
+
+
+def keys_audit_payload(path: Path, text: str) -> dict[str, Any]:
+    document = parse_storyboard(text)
+    contract = load_key_contract()
+    tags = load_catalog_tags()
+    hero = load_hero_budget()
+
+    vocabulary = load_frame_vocabulary()
+    frames = [audit_frame(f, contract, tags, vocabulary) for f in document["frames"]]
+
+    # Frames are reported by position. When two headings carry the same number the parser
+    # renumbers, so "Frame 2" in a finding may be a heading that says Frame 1 — say so
+    # rather than sending the author looking for a frame that is not there.
+    warnings = list(document.get("warnings", []))
+    headings = [f.get("number") for f in document["frames"] if f.get("number") is not None]
+    repeated = sorted({n for n in headings if headings.count(n) > 1})
+    if repeated:
+        warnings.append(
+            "duplicate frame heading number(s) "
+            + ", ".join(str(n) for n in repeated)
+            + " — findings below are numbered by position, so they may not match the "
+            "headings in the file"
+        )
+    hero_frames = [f for f in frames if f["runtime"] in hero["runtimes"]]
+    # `user_directed: true` is exempt-but-visible: counted and shown, never a violation.
+    counted = [f for f in hero_frames if not f["user_directed"]]
+
+    return {
+        "complete": bool(frames),
+        "storyboard": str(path),
+        "format": document.get("format"),
+        "frame_count": len(frames),
+        "frames": frames,
+        "finding_count": sum(len(f["findings"]) for f in frames),
+        "hero_budget": {
+            "limit": hero["limit"],
+            "runtimes": hero["runtimes"],
+            "counted": len(counted),
+            "user_directed": len(hero_frames) - len(counted),
+            "over": (
+                hero["limit"] is not None and len(counted) > hero["limit"]
+            ),
+            "frames": [f["index"] for f in hero_frames],
+        },
+        "denials": [
+            {"index": f["index"], "runtime_rejected": f["denial"]}
+            for f in frames if f["denial"]
+        ],
+        "errors": [],
+        "warnings": warnings,
+    }
+
+
+def command_keys_audit(project_dir: Path, as_json: bool) -> int:
+    """Audit the director keys a storyboard carries. Reports; never gates."""
+    try:
+        path, text = read_storyboard(project_dir)
+    except FileNotFoundError as error:
+        emit(error_payload(str(error)), as_json, stream=sys.stdout if as_json else sys.stderr)
+        return 1
+    except BriefFormatError as error:
+        emit(error_payload(str(error)), as_json, stream=sys.stdout if as_json else sys.stderr)
+        return 2
+
+    try:
+        payload = keys_audit_payload(path, text)
+    except SkillSourceError as error:
+        emit(error_payload(str(error)), as_json, stream=sys.stdout if as_json else sys.stderr)
+        return 2
+
+    if payload.get("format") == "legacy":
+        # CLAUDE.md: no generated project is ever stranded. A legacy storyboard has no
+        # director keys by construction, so reporting each one missing would tell the
+        # author to add keys their shape has no home for.
+        payload["message"] = (
+            f"{payload['storyboard']} is in the pre-adoption shape, which carries no "
+            "director keys — there is nothing here to audit. Nothing is gated on the "
+            "shape; convert with `migrate-storyboard` only if the user asks, and it "
+            "preserves the original alongside the converted file."
+        )
+        emit(payload, as_json)
+        return 0
+
+    if not payload["complete"]:
+        payload["message"] = f"No frames found in {payload['storyboard']}."
+        emit(payload, as_json, stream=sys.stdout if as_json else sys.stderr)
+        return 1
+
+    hero = payload["hero_budget"]
+    summary = [f"WARNING: {w}" for w in payload.get("warnings", [])]
+    summary += [
+        f"Director keys: {payload['finding_count']} finding(s) across "
+        f"{payload['frame_count']} frame(s)."
+    ]
+    for frame in payload["frames"]:
+        for finding in frame["findings"]:
+            summary.append(f"  Frame {frame['index']}: {finding}")
+
+    if hero["limit"] is not None:
+        line = (
+            f"Hero beats: {hero['counted']} counted against a limit of {hero['limit']}"
+        )
+        if hero["user_directed"]:
+            line += f" (+{hero['user_directed']} user-directed, exempt but shown)"
+        summary.append(line + ".")
+        if hero["over"]:
+            summary.append(
+                "  Over budget — keep the highest story-leverage frames and degrade "
+                "the rest to their Tier-A camera expression, saying so."
+            )
+
+    # Denials, never headroom: what the derivation ruled out and why.
+    if payload["denials"]:
+        summary.append("Runtimes considered and rejected:")
+        for denial in payload["denials"]:
+            summary.append(f"  Frame {denial['index']}: {denial['runtime_rejected']}")
+
+    summary.append(
+        "This is a report. Nothing here blocks a phase — the storyboard is the "
+        "user's (ADR-001)."
+    )
+    payload["message"] = "\n".join(summary)
+    emit(payload, as_json)
+    return 1 if (payload["finding_count"] or hero["over"]) else 0
+
+
 def command_storyboard(project_dir: Path, as_json: bool) -> int:
     try:
         path, text = read_storyboard(project_dir)
@@ -2396,6 +2777,12 @@ def build_parser() -> argparse.ArgumentParser:
     )
     vo_budget.add_argument("--json", action="store_true", help="Emit one JSON object.")
 
+    keys_audit = subparsers.add_parser(
+        "keys-audit",
+        help="Audit the storyboard's director keys. Reports; never gates.",
+    )
+    keys_audit.add_argument("--json", action="store_true", help="Emit one JSON object.")
+
     migrate_storyboard = subparsers.add_parser(
         "migrate-storyboard",
         help=(
@@ -2443,6 +2830,9 @@ def main(argv: list[str] | None = None) -> int:
         return command_storyboard(project_dir, args.json)
     if args.command == "vo-budget":
         return command_vo_budget(project_dir, args.json)
+
+    if args.command == "keys-audit":
+        return command_keys_audit(project_dir, args.json)
     if args.command == "migrate-storyboard":
         return command_migrate_storyboard(project_dir, args.json)
     if args.command == "confirm-story":

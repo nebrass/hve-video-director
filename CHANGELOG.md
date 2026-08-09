@@ -7,6 +7,175 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+A remediation pass over a seven-agent audit of the skill (41 findings), plus an expert review
+of the nine "premium motion" proposals that came out of it. The audit's P0 and P1 items shipped
+as written. **Most of P2 did not**, and that is the substantive outcome: five of the nine
+proposals contradicted decisions already recorded in the ADRs, and the real quality defects
+turned out to be somewhere else entirely.
+
+The through-line of the whole pass: this repo states most of its invariants in more than one
+place, and every one of those duties had drifted at least once. What was missing was not
+knowledge but enforcement — so nearly every fix below arrives with the guard that would have
+caught it.
+
+### Added
+
+- **`keys-audit`** (`validate_brief.py`) — a structural audit of the director keys a storyboard
+  carries: required keys, closed vocabularies, catalog tags, `blueprint:`/`motion:` presence, the
+  hero-beat count, and every `runtime_rejected:` denial. It turns Step 1.4c, which was pure prose,
+  into something a machine reads. It **reports and never gates** (`vo-budget`'s precedent, ADR-001),
+  invents **no score** (ADR-005), reports **denials and never headroom** — "1 of 3 hero beats used"
+  reads as an instruction to spend two more, and the contrast between flat and hero beats *is* the
+  storytelling (ADR-008) — and **parses** its budget numbers out of the budget table rather than
+  carrying a copy (ADR-008/C6).
+- **`scripts/motion_register.py`** — reports when most of a scene's tweens share one ease across
+  near-identical durations, resolving an ease held in a `var EASE = "…"` constant. That is the
+  `same ease + same duration = same emotion` tell `patterns/anti-slop.md` names, and every
+  mechanical gate passed it green because none was looking for character. Not a second
+  `ANIMATION_MAP` (ADR-003): it reports no pacing verdict at all.
+- **The staging contract** — a frame has to be lit, and it has to keep moving. One declared light
+  direction per scene, which the ground origin, every shadow x-offset and the edge graze obey;
+  three shadow layers with three jobs; a **named `transformOrigin`** on every camera move; one slow
+  element still travelling when the seam fires; and static atmosphere (grain, vignette, resting
+  blur). It ships through the two channels that reach a builder — the role delta and the scene
+  skeletons — and refuses what it would otherwise invite: no pulse, no shimmer, no loop that fills
+  silence.
+- **`gsap-pin.json`** — the authoritative GSAP pin. Ten authored `<script>` tags must carry the
+  version and hash as literals, so single-sourcing means naming the authority, not removing the
+  copies. CI now re-fetches the pinned version and recomputes its SRI hash.
+- **Nine new guard suites**, each for an invariant previously stated at several sites and enforced
+  nowhere: the packet contract (ADR-004 — *the only major invariant in the repo with no test*), the
+  execution-note registry, the voice map across its three sites, `compat/ecosystem.md`'s Used-by
+  claims, the CLI-surface list, ADR citations, tilt caps, the staging contract, and `example/`'s
+  consent record.
+- **A provisioned CI job** that installs the HyperFrames ecosystem and runs the suite with
+  `HVE_REQUIRE_ECOSYSTEM=1`, so the pointer-validity and storyboard probes — which ADR-007 calls
+  the only thing protecting the registry — can no longer skip unnoticed.
+
+### Changed
+
+- **ADR status moved PROPOSED → ACCEPTED.** It had said PROPOSED since 2026-08-01 while M0–M6
+  shipped against these decisions and every file cited them as binding law.
+- **ADR-002 gained a precedence clause** for the recurring case where it and ADR-006 read as
+  contradictory: this skill depends on upstream behavior no upstream file documents. ADR-006 decides
+  where the capability belongs, ADR-002 decides what may be committed meanwhile, ADR-007's compat
+  map is the register, and retirement waits for a real end-to-end run.
+- **`surface_reading:` is the fifteenth director key**, emitted by a new Q13 (conditional: fires
+  only where `material-realism` was derived and `runtime: three` selected). `grammar/three-taxonomy.md`
+  had told frames to carry a surface reading since M1, correctly and unrecorded; it is now a key
+  like any other. **ADR-010 proposed a second "execution note" vocabulary for this and was
+  superseded the same day** — an adversarial review found that a parser split had shipped inside
+  its own commit, that its stated ground for rejecting a fifteenth key was circular and false, that
+  its boundary contradicted ADR-008's traceability clause, and that `keys-audit` could not see a
+  misspelled note at all. The record is kept with the reasons. What survived is the better half:
+  the cap on undeclared frame bullets now has *no* legal exit — add the question, or do not write
+  it on a frame.
+- **`SUBCOMP_CLONE_SEMANTICS`** registered as a behavior probe — a cloned module script throws,
+  native `window` calls hit an injected scoped Proxy, and `hf-seek` delivers the **root** clock to a
+  scene that believes it starts at zero. All three fail only once the film is assembled, with every
+  gate green.
+- **The tilt caps cover all three axes.** `rotateX` was usable, used in a sanctioned example, and
+  capped nowhere; two presets said "Tilt ≤3°" naming no axis at all.
+- **Q7's mapping is named.** The question that decides a frame's spatial tag said "the spatial tag
+  it names" without naming the mapping, leaving the one step that turns a yes into a tag to be
+  re-read per frame — the taste-shaped hole ADR-005 requires derivation not to have.
+- **Phase 5's overlap-repair loop** is scoped to consented repairs: a word cut mid-syllable now
+  goes to the user rather than being silently re-timed (ADR-001).
+
+### Fixed
+
+- `generate_voiceover.py` — a path containing an apostrophe broke concat-list quoting; ffmpeg's
+  stderr was swallowed on failure.
+- `verify_vo_sections.py` — `prepare` overwrote the pending marker instead of union-merging, so a
+  second partial round could lose the record of what the first had cleared.
+- `caption_gen.py` — `draft` now enforces its own delivery invariants: minimum cue duration
+  (extend → borrow → merge) and line wrapping, with the audio duration probed *before* grouping.
+- `capture_screen.py` — a Wayland recorder's startup cost is no longer charged against the clip's
+  own duration.
+- Freshness manifests are written atomically (tmp + fsync + `os.replace`).
+- `SKILL.md` — stale claims that contradicted the phase-5 workflow about which audio paths exist,
+  and a frontmatter/hygiene pass. `SKILL.md` is now covered by the instruction-parity suite, which
+  had never included the one file every session reads.
+
+### Security
+
+- The provisioned CI job **executes** upstream code by design (the storyboard round-trip probe
+  imports an upstream ESM module and drives it under node), and `skills-lock.json` — a file any PR
+  can edit — decided what got cloned, with no validation. The source is now allowlisted and a
+  `skillPath` may not escape its checkout. That stops the accident, not a hostile PR; what bounds
+  the blast radius is the job holding nothing worth taking, so the constraint is now written where
+  someone would break it: no secrets, read-only token, and never `pull_request_target`.
+
+### Verified against upstream, not against ourselves
+
+A sweep read the pinned CLI and the installed engine rather than trusting this repo, and the
+most valuable finding was not a missing registration — it was a **false claim repeated in seven
+files**. The DON'T said a bare `<video>` cross-routes "while every gate passes green".
+`media_missing_data_start` and `media_missing_id` are both `severity: "error"` on the pin, and
+`check` skips the browser when lint errors. The rule survives; its justification did not — and the
+correction makes it sharper, because the sweep also established what genuinely has no rule: there
+is no lint code for `data-media-start` or for a media element's `data-track-index`. The dangerous
+case is not the bare video, which is caught, but the *partly wired* one.
+
+Worth recording why nothing here could have caught it: the seven files agreed with each other
+perfectly. Every guard in this repo checks internal consistency; none can check truth.
+
+Six probes registered from the same sweep, each verified independently —
+`CLIP_PLAYBACK_RATE_SOURCE` (clip speed rides a DOM property no reference names),
+`AUDIO_ENGINE_ASSET_LAYOUT` (the engine writes `assets/voice/`, its own reference says
+`.media/audio/`), `SUBCOMP_MEDIA_SUPPORT` (two upstream pages contradict each other about whether
+clip scenes work at all), `TTS_CONCURRENCY_ENV`, `SHORT_AUDIO_TRUNCATES_RENDER`, and
+`SCREENCAST_FRAME_EMISSION`, which deliberately widens the map's charter to a non-HyperFrames
+upstream rather than starting a second, unstated register.
+
+Three accuracy defects, the worst an **invented upstream gate** — Phase 3 cited a "HyperFrames
+Visual Identity Gate" and a `visual-style.md`, neither of which exists. The real contract is now
+`DESIGN_SPEC`, and its resolution order puts `DESIGN.md` **last**.
+
+Two ADR-002 restatements, both half-acknowledged in the text that committed them: an upstream
+dispatch measurement restated by number (now `DISPATCH_ECONOMICS`; `general-video` was in no
+registry section at all), and a verbatim copy of a determinism rule.
+
+Probes now declare `- **Local text.**` (where the imperative lives) and `- **Exit.**` (the upstream
+contribution, or `not yet filed`). Nine say not yet filed, which is the point: registration costs
+ten minutes and filing costs a day, so the likely failure of the whole mechanism is a
+well-registered probe made permanent by a slower route.
+
+### Claims verified by running the gates
+
+~30 claims in this repo say "`check` does not flag it" or "every gate stays green". They justify
+DON'Ts and manual review steps, only 2 of them named a lint code, and they are the one class no
+guard in `test/unit/` can reach — those all prove the repo is consistent *with itself*, while a
+gate-blindness claim is about an external tool's behaviour on a case nobody ran.
+
+`test/verify_gate_blindness.py` builds the composition each claim describes, runs the real `lint`
+and `check`, and diffs against a control differing only by the injected defect. **Ten of ten agree
+with the gates**, browser pass included — including a control positive proving the harness detects
+at all, and one claim confirmed *positively* (a module script in a sub-composition really does fail
+`check`, with "Cannot use import statement outside a module"). Opt-in; registered as
+`GATE_BLIND_SPOTS` so the pin-bump walk re-runs it, because a gate that *gains* a rule turns one of
+these claims false and the claim keeps reading plausibly.
+
+It also settled a third false claim. `patterns/transition-catalog.md` said a scene file's root
+carries `data-composition-id` + `data-width` + `data-height` "and that is all" — contradicted by
+`THREE_ADAPTER`, which *requires* `data-duration` there, and by this repo's own reference hero
+scene, which carries it. A builder following that bullet on a `runtime: three` frame would have
+removed a required attribute. What survives is the half upstream states: the **host clip** owns
+placement, so `data-start` on a scene root is meaningless — which is also the only lint rule worth
+asking upstream for, since a blanket one would fire on every Three.js scene.
+
+### Rejected, with reasons recorded
+
+Five audit proposals were refused on recorded grounds rather than implemented: a hero
+**under-spend report** (converts a ceiling into a quota and re-reads `visual_ceiling: derived` as
+authorization to spend), a **`depth-staging` capability tag** (duplicate — `spatial-depth` already
+spans both tiers and the discriminator is self-occlusion), an **atmosphere floor of ambient
+motion** (banned by name in four files, and it would have masked the frozen-tail defect rather than
+fixing it), a committed **`templates/scene-three.html`** (ADR-006 routes new scene archetypes to the
+registry), and a **local `three` pin** (this repo authors no `three` version — `THREE_ADAPTER` owns
+it). Elevation prompts and a retention tie-break were refused for the same reason as the first:
+they move a decision from derivation to taste.
+
 ## [0.2.0] - 2026-08-04
 
 Rebases the skill on the **HyperFrames ecosystem** ([#34](https://github.com/nebrass/hve-video-director/pull/34), milestones M0–M6). The finding behind it: roughly 70–85% of the phase prose had drifted into a hand-maintained shadow copy of the upstream manual, while the ecosystem had shipped real owners for nearly all of it. This release deletes the shadow copy and keeps the layer that has no upstream equivalent — the consent doctrine, revision fingerprints, capture determinism, and reviewed captions.
