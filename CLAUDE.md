@@ -329,11 +329,20 @@ These are enforced verbally in the `## DON'Ts` section of `SKILL.md` — except 
   `search_music.py` and a `gsap` skill after both were gone (M6). Neither was visible in a diff of
   the two files, because the other file was correct.
 - **Bump skill metadata** → frontmatter at top of `SKILL.md` (especially `allowed-tools` if a new MCP tool is needed).
-- **Bump the GSAP version** → the CDN `<script>` tags carry a Subresource Integrity hash (`integrity="sha384-…" crossorigin="anonymous"`), pinned to `gsap@3.14.2`. Changing the version *requires* recomputing the hash, or the script is blocked and every scene renders without animation (caught by `npx hyperframes check` in Phase 4/5). Update **all** occurrences together — `templates/scene-*.html` and the skeletons in `workflows/phase-3-design.md` + `workflows/phase-4-production.md` (grep the tree; a stale hash anywhere ships silent, animation-free scenes):
+- **Bump the GSAP version** → `gsap-pin.json` is the authority. Ten authored `<script>` tags carry
+  the version and its Subresource Integrity hash as *literals* (a template is copied verbatim into
+  a generated project, so it cannot read a variable), which makes single-sourcing a matter of
+  naming the authority rather than removing the copies: `test/unit/test_gsap_pin.py` holds every
+  copy to the pin, and CI re-fetches the pinned version to confirm the hash actually belongs to it.
+  A hash that does not match its version is refused by the browser and **every scene renders with
+  no animation** — silent until `npx hyperframes check` at the Phase 4/5 gate; a missing
+  `crossorigin="anonymous"` fails the same way, because SRI on a cross-origin script requires CORS.
+  Edit `gsap-pin.json`, recompute, propagate to `templates/scene-*.html` and the skeletons in
+  `workflows/phase-3-design.md` + `workflows/phase-4-production.md`, then `bash test/run.sh`.
+  `example/index.html` and `CHANGELOG.md` are records and deliberately do not track the pin:
   ```bash
-  V=3.x.y   # new version
-  H="sha384-$(curl -sL https://cdn.jsdelivr.net/npm/gsap@$V/dist/gsap.min.js | openssl dgst -sha384 -binary | base64)"
-  # then replace src=…/gsap@$V/… and integrity="$H" in every file above (keep them in lock-step)
+  V=3.x.y   # new version — set it in gsap-pin.json too
+  curl -sL https://cdn.jsdelivr.net/npm/gsap@$V/dist/gsap.min.js | openssl dgst -sha384 -binary | base64
   ```
 
 ## Installation paths users invoke
