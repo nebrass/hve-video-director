@@ -19,7 +19,14 @@ Neither is visible to a diff of the two files, because the *other* file was
 right. So this suite checks each file against the repository itself, and
 cross-checks only the handful of facts that must agree everywhere.
 
-Adding a fourth instruction file? Put it in `INSTRUCTION_FILES` and the same
+`SKILL.md` is in the set for the same reason: it is the orchestrator prompt —
+resident in every phase — and the drift class it suffered was identical.
+After M6's `search_music.py` retirement was reversed, SKILL.md went on
+claiming the script did not exist while phase-5 invoked it as the default
+music path; this suite never saw it because the one file every session reads
+was the one file it did not cover.
+
+Adding another instruction file? Put it in `INSTRUCTION_FILES` and the same
 checks apply.
 """
 
@@ -34,6 +41,7 @@ INSTRUCTION_FILES = [
     ROOT / "CLAUDE.md",
     ROOT / ".github" / "copilot-instructions.md",
     ROOT / "AGENTS.md",
+    ROOT / "SKILL.md",
 ]
 
 # Directories an instruction file may reference by path. A reference into one of

@@ -64,10 +64,13 @@ ENGINE="$MEDIA_SKILL_DIR/<AUDIO_ENGINE skill-relative path from compat/ecosystem
 
 **When the delegated path is unavailable.** An empty `$MEDIA_SKILL_DIR` (skill not installed), or a
 provider the user declines to authenticate, still has a music path: `scripts/search_music.py`
-searches Freesound directly and needs no engine. Narration has no local acquisition fallback —
-`scripts/generate_voiceover.py` keeps only `--assemble-only`, the section assembler both paths use
-— so without the engine narration comes from the user (a supplied voiceover file) while music
-still searches normally. The confirmation gates are unchanged either way. Say which path you took; never switch
+searches Freesound directly and needs no engine. Narration follows the confirmed voice — a
+`kokoro:` voice synthesizes locally with `npx hyperframes tts` per section (Step 5.1); an
+`elevenlabs:` voice has no local synthesizer, so its takes come from the user (a supplied
+voiceover file) — never substitute Kokoro for a confirmed ElevenLabs voice. This repo's own
+scripts keep no acquisition path either way: `scripts/generate_voiceover.py` keeps only
+`--assemble-only`, the section assembler both paths use. The confirmation gates are unchanged
+either way. Say which path you took; never switch
 silently. `generate_voiceover.py` has a second role that is **not** deprecated: `--assemble-only` is
 the canonical timeline assembler for either path — it places each section at its exact start time,
 pads to `VIDEO_DURATION`, and warns on overrun.
