@@ -865,6 +865,63 @@ def template_frame_keys():
     return names
 
 
+class TheFencedSkeletonIsGuardedToo(unittest.TestCase):
+    """The most-copied surface in the template, and nothing was looking at it.
+
+    `key_mentions()` skips fenced blocks — correctly, because the skeleton legitimately
+    shows official fields and capture bindings the director-key contract does not
+    declare. The consequence was that the fence became the one place an undeclared key
+    could sit unnoticed: an adversarial pass added an invented `parallax_bed:` inside it
+    and the whole suite stayed green. It is also the path of least resistance, which is
+    what makes it the one to guard.
+
+    So check it against the union of every vocabulary a frame may legally carry.
+    """
+
+    def _skeleton(self):
+        """The fenced block itself, not "up to the next `## `".
+
+        The skeleton *contains* a `## Frame {N} — {title}` heading — it is showing what a
+        storyboard looks like — so splitting on the next `## ` truncates it after sixteen
+        lines and the bullets never get read. Found by mutating this test: an invented
+        bullet added below that heading was missed.
+        """
+        text = read(TEMPLATE)
+        body = text.split("## File skeleton", 1)
+        self.assertEqual(2, len(body), f"{rel(TEMPLATE)}: no `## File skeleton` section")
+        lines, block, inside = body[1].splitlines(), [], False
+        for line in lines:
+            if line.strip().startswith("```"):
+                if inside:
+                    break
+                inside = True
+                continue
+            if inside:
+                block.append(line)
+        self.assertTrue(block, f"{rel(TEMPLATE)}: `## File skeleton` has no fenced block")
+        return "\n".join(block)
+
+    def test_the_skeleton_writes_no_undeclared_bullet(self):
+        allowed = (
+            {key for key, _required, _line in contract_rows()}
+            | template_frame_keys()
+            | {OVERRIDE_KEY}
+        )
+        strays = []
+        for number, line in enumerate(self._skeleton().splitlines(), 1):
+            bullet = KEY_BULLET.match(line)
+            if not bullet:
+                continue
+            name = f"{bullet.group(1)}:"
+            if name not in allowed:
+                strays.append(f"{rel(TEMPLATE)} § File skeleton:{number}: `{name}`")
+        self.assertEqual(
+            [], strays,
+            "the fenced skeleton — the block authors copy — writes a bullet no vocabulary "
+            "declares:\n  " + "\n  ".join(strays),
+        )
+
+
 class NothingWritesAnUndeclaredFrameKey(unittest.TestCase):
     """The reasoning layer may not invent a frame bullet on its way past.
 

@@ -323,6 +323,8 @@ automated.
 
 ### `AUDIO_ENGINE_PARTIAL_FAILURE` — a failed line is silent, and its stale audio survives
 
+- **Local text.** `scripts/verify_vo_sections.py` (the clear-before-synthesis contract and the
+  sealed manifest), `workflows/phase-5-audio.md` (the prepare → check → seal steps that use it).
 - **What.** `AUDIO_ENGINE` treats a failed TTS line as a **non-fatal anomaly**: it prints the
   anomaly, omits the line from `voices[]`, and **exits 0**. It does not delete a destination file
   before writing, so the previous run's audio stays at the expected path. Its success predicate is
@@ -347,6 +349,9 @@ automated.
 
 ### `STORYBOARD_EXTRA_KEYS` — unknown bullets survive parsing
 
+- **Local text.** none — this probe guards an upstream *guarantee* this repo relies on, not a
+  local imperative. `templates/storyboard.md` and `reasoning/scene-analysis.md` depend on it;
+  neither restates upstream mechanism.
 - **What.** `STORYBOARD_FORMAT` states that per-frame `- key: value` bullets outside the known
   set are "kept verbatim under the frame's `extra`", and unknown frontmatter keys under
   `globals.extra`. The parser is documented as **lenient**: it never throws and records anything
@@ -399,6 +404,9 @@ automated.
 
 ### `SUBCOMP_CLONE_SEMANTICS` — three consequences of cloning that no upstream file owns
 
+- **Local text.** `sub-agents/non-default-runtime-rider.md` (the module ban, the root-clock
+  offset, the `__threeReady` classic-script form) and `sub-agents/scene-builder-delta.md`
+  § Running inside a host document (the two rules that bite whatever the runtime).
 - **What.** `SUB_COMPOSITIONS` states the runtime clones `<template>` **contents** into the host
   document. The `three` adapter (`THREE_ADAPTER`) is written for a **standalone** composition: it
   uses `<script type="module">` and reads `window.__hfThreeTime || 0` from time zero. Both are
@@ -437,8 +445,31 @@ automated.
   the frozen-scene failure from the other side. Not automatable from this repo: the evidence is an
   assembled multi-scene render, which is what a real run produces and a unit test cannot.
 
+### `CLIP_KEYFRAME_DENSITY` — a sparse-GOP clip renders black, and every gate passes
+
+- **Local text.** `patterns/cli-terminal-capture.md` (§ the normalize step and the troubleshooting
+  table), `scripts/stitch_clip.py` (the CFR30 + `-g 30 -keyint_min 30` contract),
+  `scripts/capture_screen.py` (which normalizes through it).
+- **What.** The renderer seeks per frame. A clip encoded with sparse keyframes — which x264 produces
+  by default on static content like terminal output, where whole seconds are identical — cannot be
+  seeked accurately, so the clip renders **black or frozen for most of its window**. The renderer
+  says so at render time: `Video "<id>" has sparse keyframes (max interval: 8.33s). This causes seek
+  failures and frame freezing.`
+- **Why it matters.** `lint`, `check` and the seam gate all pass: the markup is right, the timing is
+  right, and the defect lives inside the media. Only the render and the hero-frame check see it. The
+  local response is to pin the GOP to the frame rate when normalizing, which is a *narrowing*
+  constraint on ffmpeg, not a restatement of anything upstream owns.
+- **Undocumented upstream.** Searched at this pin: "sparse keyframes", "keyint" and "GOP" appear in
+  no HyperFrames skill. The behavior is real, load-bearing and stated only here — which is exactly
+  what ADR-002 § Precedence describes, and it went unregistered until an adversarial review of the
+  probe machinery went looking for an instance and found one.
+- **Probe — manual, and cheap.** The renderer's own warning is the detector; it fires in the render
+  log. Re-read at each pin bump only to ask whether the renderer has started normalizing GOP itself,
+  in which case the local `-g` becomes redundant rather than wrong.
+
 ### `SUBCOMP_ROOT_ATTRIBUTE_SELECTOR` — the scene templates' root styling survives scoping
 
+- **Local text.** `templates/scene-*.html` — the root styling shape every skeleton uses.
 - **What.** A sub-composition may style its own root with a leftmost
   `[data-composition-id="<id>"] { … }` rule, and reach its descendants with
   `[data-composition-id="<id>"] .child`, without carrying `id="root"`. Both match after the render
@@ -464,6 +495,8 @@ automated.
 
 ### `CHECK_DEPRECATION_SIGNAL` — deprecation is machine-detectable
 
+- **Local text.** none — a clearance, not an imperative: it says which gate to call, and
+  `workflows/phase-4-production.md` calls it by name.
 - **What.** Deprecated gates keep working and announce themselves; `check` does not.
 - **Why it matters.** This is *the* justification for feature-detection over version-sniffing. It
   lets the skill notice a command has been deprecated without knowing which release did it.
@@ -482,6 +515,8 @@ automated.
 
 ### `ANIMATION_MAP_LOCATION` — the verifier ships with the skill, not the CLI
 
+- **Local text.** none — a path fact, resolved by this map. `workflows/phase-4-production.md`
+  Step 4.7 names the symbol and lets the resolver find it.
 - **What.** `ANIMATION_MAP` lives inside the `hyperframes-animation` **skill** directory, not in
   the CLI package, and has no `hyperframes <subcommand>` equivalent.
 - **Why it matters.** Phase 4 Step 4.7 must resolve a *skill install home* to run it. That is a
@@ -496,6 +531,8 @@ automated.
 
 ### `TRANSCRIBE_MODEL_DEFAULT` — the default model translates
 
+- **Local text.** `workflows/phase-5-audio.md` — the always-pass-`--model` rule, which is a
+  narrowing constraint on a documented flag rather than a restatement of it.
 - **What.** `transcribe`'s default model is `small.en`, which silently *translates* non-English
   audio into English rather than transcribing it.
 - **Why it matters.** A non-English voiceover produces plausible-looking English captions and
@@ -505,6 +542,7 @@ automated.
 
 ### `SKILL_SPLIT_TOPOLOGY` — the registry itself
 
+- **Local text.** none — this row IS the registry the pointer suite verifies.
 - **What.** Every path in the registry above still exists under a resolved `$SKILL_HOMES` entry.
 - **Why it matters.** This is the failure that motivated ADR-007: a relayout invalidates pointers
   with zero local signal.
@@ -553,7 +591,15 @@ automated.
 2. Re-verify every path in this file — the pointer-validity suite does this; it is part of step 3.
 3. `bash test/run.sh` — the stdlib suite, including the question-contract tests.
 4. Re-run the `CHECK_DEPRECATION_SIGNAL` probe (needs headless Chrome; not in `test/run.sh`).
-5. Commit the new `skills-lock.json` **only when all of the above are green.** Hash drift without
+5. **Walk § Behavior probes — every row, not the automated ones.** Six of the eight say
+   *"Probe — manual"*, and each states its own re-read duty; that duty is written where an auditor
+   reads the map, not where a bumper works, so it was reachable by nobody. For each `### SYMBOL`,
+   re-read its named upstream owner and record one of: **still holds** / **now documented upstream**
+   (open the ADR-006 retirement path) / **changed — the local imperative is now wrong**. Put the
+   verdicts in the lock-bump commit body. The third outcome is the dangerous one and the only one
+   nothing else can catch: `SUBCOMP_CLONE_SEMANTICS` says it in its own row — subtracting an offset
+   the runtime already removed re-introduces the frozen-scene failure from the other side.
+6. Commit the new `skills-lock.json` **only when all of the above are green.** Hash drift without
    a green suite is a failure, not a rubber stamp.
 
 **Cadence and ownership.** Lock bumps happen at milestone boundaries **or monthly, whichever

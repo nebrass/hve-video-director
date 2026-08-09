@@ -13,6 +13,7 @@ Unlike the pointer suite this needs no installed ecosystem: it reads only this r
 """
 
 import re
+import subprocess
 import unittest
 from pathlib import Path
 
@@ -61,10 +62,29 @@ def registry_rows():
 
 
 def repo_citations():
-    """Every non-compat file's text, so a symbol can be looked for across the repo."""
+    """Every non-compat file's text, so a symbol can be looked for across the repo.
+
+    Enumerated by git rather than rglob, which is not a tidiness preference. rglob read
+    975 files here, 893 of them gitignored — including `agent/` (501 files, an installed
+    copy of the upstream skills that DEFINE these symbols) and `graphify-out/` (352 files,
+    a knowledge-graph dump of this repo). A row satisfied by either is self-fulfilling in
+    exactly the way SKIP_DIRS exists to prevent, and the hand-written blocklist had already
+    drifted: it listed `.agents` and not `agent`. Git's ignore rules maintain themselves.
+    """
+    try:
+        done = subprocess.run(
+            ["git", "-C", str(REPO), "ls-files",
+             "--cached", "--others", "--exclude-standard", "-z"],
+            capture_output=True, text=True, check=True,
+        )
+    except (subprocess.CalledProcessError, OSError) as error:
+        raise unittest.SkipTest(f"not a git worktree, so the file list is unavailable: {error}")
     texts = []
-    for path in REPO.rglob("*"):
-        if not path.is_file() or path.suffix not in {".md", ".py", ".sh", ".html", ".json"}:
+    for name in dict.fromkeys(done.stdout.split("\0")):
+        if not name:
+            continue
+        path = REPO / name
+        if path.suffix not in {".md", ".py", ".sh", ".html", ".json"} or not path.is_file():
             continue
         if path == ECOSYSTEM:
             continue
@@ -72,7 +92,7 @@ def repo_citations():
         if any(part in SKIP_DIRS for part in relative.parts) or relative.name in SKIP_FILES:
             continue
         try:
-            texts.append((path.relative_to(REPO), path.read_text(encoding="utf-8")))
+            texts.append((relative, path.read_text(encoding="utf-8")))
         except (UnicodeDecodeError, OSError):
             continue
     return texts
@@ -89,12 +109,19 @@ class RegistryClaimTests(unittest.TestCase):
         make every other assertion below vacuously true."""
         self.assertGreater(len(self.rows), 20, "capability registry parsed to almost nothing")
 
+    # A token match proves the symbol is named, not that the naming is a citation --
+    # prose rejecting a symbol would satisfy its own row. Left that way deliberately:
+    # 22% of citation lines here carry a negation word ("never push the camera under a
+    # fixed overlay (MG_ASSET_FUSION)"), so a negation filter fails 7 of 67 real rows and
+    # requiring two citations fails 16. The cheap precision was in the scan, not the match.
     def test_every_used_by_claim_resolves_to_a_real_citer(self):
         unresolved = []
         for symbol, used_by in self.rows:
             if any(marker in used_by.lower() for marker in NOT_WIRED_MARKERS):
                 continue
-            if any(symbol in text for _, text in self.texts):
+            # Word-boundary, so BGM is not satisfied by BGM_PATH in a shell snippet.
+            token = re.compile(r"(?<![A-Za-z0-9_])" + re.escape(symbol) + r"(?![A-Za-z0-9_])")
+            if any(token.search(text) for _, text in self.texts):
                 continue
             unresolved.append(f"{symbol} claims 'Used by: {used_by[:60]}' but nothing cites it")
         self.assertEqual(

@@ -123,6 +123,7 @@ a guessed default.
 | `transition_speed` | `quick` (0.4s), `medium` (0.7s) or `slow` (1.2s) — from the confirmed `transition_speed`. The root composition owns the seam; this records what it should build |
 | `scene` | one-line contact-sheet caption — what a reviewer sees on the Studio board |
 | `voiceover` | the exact line to speak, one line, in quotes |
+| `window` | **local reading aid, not upstream's and not a source of truth** — the frame's start → end on the film's clock, so a reviewer can place a frame without adding durations in their head. `duration` is authoritative; where the two disagree the disagreement is worth reporting, because it usually means a hand-edit landed in one place only |
 | `poster` | seconds to seek for the tile poster, past the intro animation |
 
 `format`, `duration`, `message`, `arc` and `audience` are the official frontmatter keys.

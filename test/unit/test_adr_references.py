@@ -19,8 +19,12 @@ Two ways that rots, both silent:
 `docs/` is a frozen M1 snapshot everywhere except `adr.md`, which is amended in place --
 so the ADR file is the one thing in there this suite may treat as current.
 
-Scanned via `git ls-files`: the repo is what is tracked. Ignored tool output (graphify-out/,
-installed ecosystem skills) is not this repo's prose and must not be able to fail its checks.
+Scanned via `git ls-files --cached --others --exclude-standard`: the repo is what git would
+let you commit — tracked files plus untracked ones that are not ignored. A file citing a record
+has to resolve before it is staged, not after; tracked-only made a brand-new workflow file
+invisible until someone remembered to `git add`. Ignored tool output (graphify-out/, installed
+ecosystem skills) is not this repo's prose and must not be able to fail its checks, and
+--exclude-standard honours the same .gitignore rules `git status` does, including nested ones.
 """
 
 import re
@@ -42,12 +46,14 @@ def scanned_files():
     # this would otherwise be the only test in the tree that cannot run outside git.
     try:
         done = subprocess.run(
-            ["git", "-C", str(ROOT), "ls-files", "-z"],
+            ["git", "-C", str(ROOT), "ls-files",
+             "--cached", "--others", "--exclude-standard", "-z"],
             capture_output=True, text=True, check=True,
         )
     except (subprocess.CalledProcessError, OSError) as error:
         raise unittest.SkipTest(f"not a git worktree, so the file list is unavailable: {error}")
-    listed = done.stdout.split("\0")
+    # dict.fromkeys dedupes: --cached emits one entry per stage during a merge conflict.
+    listed = dict.fromkeys(done.stdout.split("\0"))
     for name in listed:
         if not name:
             continue
