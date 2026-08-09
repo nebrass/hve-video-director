@@ -109,6 +109,16 @@ def _make_silence(duration_s: float) -> str:
     return path
 
 
+def _concat_quote(path: str) -> str:
+    """Quote a path for an ffmpeg concat list entry.
+
+    The concat demuxer parses `file '...'` with shell-like quoting, so a
+    literal apostrophe inside the quoted path must be written `'\\''` or the
+    path is truncated at the quote (e.g. under `~/Bob's Videos/`).
+    """
+    return path.replace("'", "'\\''")
+
+
 def assemble_voiceover(section_files: list, output_path: str = "voiceover.mp3"):
     """Combine section audio files with silence gaps into final voiceover.
 
@@ -140,9 +150,9 @@ def assemble_voiceover(section_files: list, output_path: str = "voiceover.mp3"):
                 if i == 0 and start_time > 0:
                     sp = _make_silence(start_time)
                     silence_paths.append(sp)
-                    f.write(f"file '{sp}'\n")
+                    f.write(f"file '{_concat_quote(sp)}'\n")
 
-                f.write(f"file '{audio_abs}'\n")
+                f.write(f"file '{_concat_quote(audio_abs)}'\n")
 
                 # Gap between this section and the next
                 if i < len(section_files) - 1:
@@ -151,7 +161,7 @@ def assemble_voiceover(section_files: list, output_path: str = "voiceover.mp3"):
                     if gap > 0:
                         sp = _make_silence(gap)
                         silence_paths.append(sp)
-                        f.write(f"file '{sp}'\n")
+                        f.write(f"file '{_concat_quote(sp)}'\n")
                     elif gap < 0:
                         print(f"  WARNING: section {i} audio overruns its "
                               f"{next_start - start_time:.1f}s slot by {-gap:.1f}s "
@@ -159,11 +169,20 @@ def assemble_voiceover(section_files: list, output_path: str = "voiceover.mp3"):
                               "and desyncs from its scene. Shorten this section's text.",
                               file=sys.stderr)
 
-        subprocess.run([
-            "ffmpeg", "-y", "-f", "concat", "-safe", "0",
-            "-i", concat_list, "-c:a", "libmp3lame", "-q:a", "2",
-            output_path,
-        ], capture_output=True, check=True)
+        try:
+            subprocess.run([
+                "ffmpeg", "-y", "-f", "concat", "-safe", "0",
+                "-i", concat_list, "-c:a", "libmp3lame", "-q:a", "2",
+                output_path,
+            ], capture_output=True, check=True)
+        except subprocess.CalledProcessError as e:
+            stderr = e.stderr or b""
+            if isinstance(stderr, bytes):
+                stderr = stderr.decode("utf-8", "replace")
+            raise RuntimeError(
+                f"ffmpeg concat failed assembling {output_path}: "
+                f"{stderr.strip()[-400:]}"
+            )
     finally:
         for p in [concat_list, *silence_paths]:
             if p:

@@ -3,6 +3,7 @@ import io
 import hashlib
 import json
 import os
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -229,6 +230,90 @@ class AssemblerBehaviourTest(unittest.TestCase):
             })
 
         self.assertIn("apad only extends", err.getvalue())
+
+
+class ConcatListRobustnessTest(unittest.TestCase):
+    """The concat list must survive paths ffmpeg's demuxer parses specially.
+
+    ffmpeg's concat demuxer reads `file '...'` with shell-like quoting: a
+    literal apostrophe inside the quoted path must be written `'\\''`, or the
+    path is truncated at the quote and assembly fails with "No such file" —
+    for a project living under e.g. `~/Bob's Videos/promo`.
+    """
+
+    def assemble_in(self, dirname):
+        """Run one-section assembly inside `dirname`; return (concat, abspath)."""
+        module = load_module()
+        module.sections = [(0.0, "only")]
+        module.VIDEO_DURATION = 5
+        captured = {}
+
+        def fake_run(argv, *args, **kwargs):
+            if "concat" in argv:
+                captured["list"] = Path(argv[argv.index("-i") + 1]).read_text(
+                    encoding="utf-8"
+                )
+            return mock.Mock(returncode=0, stdout="", stderr="")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            workdir = Path(tmp, dirname)
+            workdir.mkdir()
+            (workdir / "vo_section_00.mp3").write_bytes(b"audio")
+            old_cwd = os.getcwd()
+            os.chdir(workdir)
+            try:
+                expected = os.path.abspath("vo_section_00.mp3")
+                with (
+                    mock.patch.object(module.subprocess, "run", side_effect=fake_run),
+                    mock.patch.object(module, "get_audio_duration", return_value=1.0),
+                ):
+                    module.assemble_voiceover([(0.0, "vo_section_00.mp3")])
+            finally:
+                os.chdir(old_cwd)
+        return captured["list"], expected
+
+    def test_apostrophe_in_project_path_is_concat_escaped(self):
+        concat, expected = self.assemble_in("Bob's Videos")
+        [line] = [ln for ln in concat.splitlines() if "vo_section_00" in ln]
+        self.assertEqual(line, "file '" + expected.replace("'", "'\\''") + "'")
+
+    def test_plain_path_stays_plainly_quoted(self):
+        concat, expected = self.assemble_in("plain")
+        [line] = [ln for ln in concat.splitlines() if "vo_section_00" in ln]
+        self.assertEqual(line, f"file '{expected}'")
+
+    def test_concat_failure_surfaces_ffmpeg_stderr(self):
+        """A concat failure must show ffmpeg's own diagnostic, not swallow it.
+
+        `capture_output=True, check=True` turns an assembly failure into a
+        bare CalledProcessError whose str() omits stderr — the one line that
+        names the unopenable file. The assembler must re-raise with it.
+        """
+        module = load_module()
+        module.sections = [(0.0, "only")]
+        module.VIDEO_DURATION = 5
+
+        def fake_run(argv, *args, **kwargs):
+            if "concat" in argv:
+                raise subprocess.CalledProcessError(
+                    1, argv, stderr=b"Impossible to open '/tmp/Bob'"
+                )
+            return mock.Mock(returncode=0, stdout="", stderr="")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            (Path(tmp) / "vo_section_00.mp3").write_bytes(b"audio")
+            old_cwd = os.getcwd()
+            os.chdir(tmp)
+            try:
+                with (
+                    mock.patch.object(module.subprocess, "run", side_effect=fake_run),
+                    mock.patch.object(module, "get_audio_duration", return_value=1.0),
+                ):
+                    with self.assertRaises(RuntimeError) as ctx:
+                        module.assemble_voiceover([(0.0, "vo_section_00.mp3")])
+            finally:
+                os.chdir(old_cwd)
+        self.assertIn("Impossible to open", str(ctx.exception))
 
 
 if __name__ == "__main__":
