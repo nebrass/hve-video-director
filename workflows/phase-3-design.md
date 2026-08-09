@@ -439,9 +439,10 @@ and shipping the derivation alongside them is what makes builder context unbound
 
 ## Step 3.4: Dispatch — inline for a short film, fan out only past it
 
-Fan-out pays only at scale. The measurement is upstream's and is not re-derived here: for a
-five-scene film, building inline runs about 9 minutes against about 21 minutes packetized out to
-workers. Packet assembly (Step 3.3) happens either way — it is what turns the director keys into
+Fan-out pays only at scale, and the measurement behind that is `DISPATCH_ECONOMICS` — read it
+there. It is not restated here, and the numbers are deliberately absent: if upstream re-measures,
+a copy in this file becomes wrong silently, which is exactly the failure ADR-002 exists to stop.
+Packet assembly (Step 3.3) happens either way — it is what turns the director keys into
 build input. Only the dispatch differs.
 
 | Frames to build | How |

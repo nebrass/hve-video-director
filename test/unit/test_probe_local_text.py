@@ -39,6 +39,7 @@ COMPAT = ROOT / "compat" / "ecosystem.md"
 
 PROBE_HEADING = re.compile(r"^### `([A-Z][A-Z0-9_]+)`", re.M)
 LOCAL_TEXT = re.compile(r"^- \*\*Local text\.\*\*\s*(.+?)(?=\n- \*\*|\n\n|\Z)", re.M | re.S)
+EXIT = re.compile(r"^- \*\*Exit\.\*\*\s*(.+?)(?=\n- \*\*|\n\n|\Z)", re.M | re.S)
 REPO_PATH = re.compile(r"`((?:scripts|workflows|patterns|templates|sub-agents|reasoning|grammar)/[A-Za-z0-9_*./-]+)`")
 
 
@@ -112,6 +113,40 @@ class ProbeLocalTextTests(unittest.TestCase):
             if value.lower().startswith("none") and len(value) < 25:
                 bare.append(f"{symbol}: `{value}`")
         self.assertEqual([], bare, "a probe says `none` without a reason:\n  " + "\n  ".join(bare))
+
+    def test_every_probe_declares_its_exit(self):
+        """ADR-002 § Precedence step 1: the upstream contribution is the exit, and it is
+        "not optional — it is what stops the local text becoming permanent".
+
+        Registering costs ten minutes; filing upstream costs a day. So the likely partial
+        failure of the whole mechanism is a *well-registered* probe whose contribution is
+        never opened — local text made permanent by a slower route, which is precisely
+        what step 1 forbids. Nothing recorded that state before this field: a probe could
+        sit for years looking correctly filed.
+
+        `not yet filed` is a legitimate value, and most rows carry it. The point is that
+        the answer is written down and countable, not that it is always yes.
+        """
+        missing = sorted(s for s, body in self.probes.items() if not EXIT.search(body))
+        self.assertEqual(
+            [], missing,
+            "probe(s) with no `- **Exit.**` field. Name the upstream issue/PR, or write "
+            f"`not yet filed` or `n/a` and say why: {missing}",
+        )
+
+    def test_an_exit_that_claims_nothing_to_file_says_why(self):
+        """`n/a` distinguishes a clearance (upstream says do this) from an imperative
+        (we narrow it). Only the second is what ADR-002 § Precedence is about, and only
+        the second can become permanent."""
+        bare = []
+        for symbol, body in sorted(self.probes.items()):
+            field = EXIT.search(body)
+            if not field:
+                continue
+            value = " ".join(field.group(1).split())
+            if value.lower().startswith(("n/a", "none")) and len(value) < 20:
+                bare.append(f"{symbol}: `{value}`")
+        self.assertEqual([], bare, "an Exit says n/a without a reason:\n  " + "\n  ".join(bare))
 
     def test_the_pin_bump_procedure_walks_the_probes(self):
         """The procedural half, and the one that actually closes ADR-002's loop.

@@ -102,8 +102,9 @@ Two boundaries are easy to erode by being helpful:
 Dispatch is a behavioral contract, not a preference: build **inline up to ~6 short frames**, and
 beyond that give each worker **2–3 frames** (never one), start all workers in a single wave, and
 allow **one retry per frame and only with a concrete finding**. The measurement behind the ~6
-threshold is upstream's and is stated once, in `workflows/phase-3-design.md` Step 3.4 — cite it,
-never re-derive or re-copy the numbers. **Registry-first** governs what a packet starts from: check
+threshold is upstream's — `DISPATCH_ECONOMICS`, cited by symbol from Step 3.4 and never restated
+here. An earlier version stated the numbers locally "once", which is still a copy: the test is
+whether an upstream re-measurement makes a committed file wrong, and it did. **Registry-first** governs what a packet starts from: check
 `REGISTRY_CATALOG` and install with `npx hyperframes add` before hand-authoring; a tested block
 beats a hand-built scene, and hand-authoring covers only the gap.
 

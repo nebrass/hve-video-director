@@ -123,6 +123,11 @@ python3 scripts/stitch_clip.py a.mp4 b.mp4::0::4 --width 1920 --height 1080 -o p
 
 - **macOS:** built-in `screencapture -v -V<seconds>` with optional `-R<x,y,w,h>`. It never passes
   microphone (`-g`) or system-audio (`-A`) flags. Screen Recording permission is required.
+- **MCP screencast:** `--experimentalScreencast=true` is necessary but not sufficient — the MCP
+  server's own PATH must also carry `ffmpeg` (it shells out to it), and that is a *different*
+  machine's PATH from the one running this skill whenever the MCP is remote. A missing ffmpeg there
+  fails the capture, not the feature detection, so it reads as a broken page rather than a missing
+  dependency.
 - **Windows:** ffmpeg `gdigrab` desktop capture, including regions.
 - **Linux/X11:** ffmpeg `x11grab` using `DISPLAY`, including regions. Full-desktop capture
   feature-detects `xdpyinfo`/`xrandr`; if neither can report the desktop size, pass `--region`.

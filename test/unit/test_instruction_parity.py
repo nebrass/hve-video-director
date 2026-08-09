@@ -68,7 +68,7 @@ KNOWN_SKILLS = frozenset({
     "hyperframes", "hyperframes-core", "hyperframes-animation", "hyperframes-creative",
     "hyperframes-cli", "hyperframes-registry", "hyperframes-keyframes", "media-use",
     "motion-doctrine", "seam-craft", "cut-the-curve", "oversized-cursor",
-    "motion-graphics", "figma",
+    "general-video", "motion-graphics", "figma",
 })
 
 # `check` is the required final gate; these still run but are deprecated aliases.

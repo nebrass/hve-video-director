@@ -62,7 +62,7 @@ KNOWN_SKILLS = frozenset(
         "seam-craft",
         "cut-the-curve",
         "oversized-cursor",
-        "motion-graphics",
+        "general-video", "motion-graphics",
         "figma",
     }
 )

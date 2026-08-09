@@ -315,7 +315,7 @@ non-final scene, and no `clipPath` seam. Transition duration comes from the conf
 - **Never animate `<img>` dimensions directly** — wrap each animated `<img>` in a non-timed `<div>`
   and tween the wrapper's `transform`. Animating `width`/`height` forces layout recompute that
   breaks deterministic seek.
-- **Never use `gsap.set()` at script-load time on elements that enter the timeline later** — a
+- **Never use `gsap.set()` at script-load time on elements that enter the timeline later** — this is `DETERMINISM_RULES`' rule, not this file's; it is named here only so the DON'T list is complete, and the mechanism and the fix live there. A
   sub-comp clip with `data-start > 0` is not in the DOM at page load, so its elements do not exist
   yet and the call is a silent no-op. Use `tl.set(selector, vars, timePosition)` *inside* the
   timeline, at or after the clip's `data-start`:
