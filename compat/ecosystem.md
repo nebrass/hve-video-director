@@ -397,6 +397,42 @@ automated.
   `templates/storyboard.md` are exercised only as a representative sample, so a collision against
   one of those is caught by the execution half and not by the documented-contract half.
 
+### `SUBCOMP_CLONE_SEMANTICS` — three consequences of cloning that no upstream file owns
+
+- **What.** `SUB_COMPOSITIONS` states the runtime clones `<template>` **contents** into the host
+  document. The `three` adapter (`THREE_ADAPTER`) is written for a **standalone** composition: it
+  uses `<script type="module">` and reads `window.__hfThreeTime || 0` from time zero. Both are
+  correct on their own. Neither documents what happens at their intersection, which is where every
+  scene this skill builds actually lives — a sub-composition whose script is cloned out of its
+  `<template>` and re-executed inside the host document. Three consequences follow:
+  1. **A module script cannot survive the clone.** A bare `import` in re-executed script text
+     throws; the scene must consume an already-published global from a **classic** script.
+  2. **`window`, `document` and `gsap` arrive as injected scoped Proxies** (that is how the runtime
+     publishes one timeline under both the authored and the mount id). Property reads are fine;
+     *calling a native method on the window Proxy* throws `Illegal invocation`, so native calls go
+     through `globalThis`. A module script bypasses the wrapper — so this surfaces the moment
+     consequence 1 forces the conversion to classic.
+  3. **`hf-seek` and `__hfThreeTime` carry the ROOT clock.** A scene mounted at 36s receives
+     36…44, not 0…8. The mount's `data-start` has to be subtracted, and read from the DOM rather
+     than hard-coded, because the compiler rewrites the mount's attributes and relabels the root.
+- **Why it matters.** All three fail **only once the film is assembled** — the scene is perfect in
+  isolation — and all three pass every gate. The clock one is the worst: unsubtracted, every root
+  time past the scene's duration clamps to its last frame, so the scene renders **frozen** for its
+  whole beat while lint, runtime, motion and contrast all report green, because a static plate is a
+  perfectly valid frame.
+- **Where it is written, and why here.** The imperatives are in `sub-agents/scene-builder-delta.md`
+  because a frame packet carries that role text and no other file — a builder cannot be pointed at
+  this map. Under ADR-002 § Precedence that is legal precisely because no upstream file is the
+  author of record: the local text is the narrowing imperative, this row is the registration, and
+  an upstream contribution is the exit. Retirement follows ADR-006's rule — a real end-to-end run
+  on the fixed upstream, never a changelog line.
+- **Probe — manual.** Re-read `SUB_COMPOSITIONS` and `THREE_ADAPTER` at each pin bump and ask
+  whether either now documents the intersection, auto-subtracts the mount offset, or drops the
+  Proxy wrapper. Any "yes" makes the corresponding imperative wrong rather than merely redundant —
+  the offset rule especially, since subtracting an offset the runtime already removed re-introduces
+  the frozen-scene failure from the other side. Not automatable from this repo: the evidence is an
+  assembled multi-scene render, which is what a real run produces and a unit test cannot.
+
 ### `SUBCOMP_ROOT_ATTRIBUTE_SELECTOR` — the scene templates' root styling survives scoping
 
 - **What.** A sub-composition may style its own root with a leftmost

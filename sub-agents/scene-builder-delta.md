@@ -97,8 +97,10 @@ assembled — your scene will look perfect on its own:
   ids. Reading properties through them is fine, but *calling a native method on the window Proxy
   throws* `Illegal invocation`. Use `globalThis` for native window calls such as
   `addEventListener`, and keep `window` for property access. A module script bypasses that wrapper,
-  so this appears the moment you convert to classic — which the rule above requires you to do. GSAP stays the timeline owner: every
-other runtime hangs off the one paused timeline and renders from its seek, never from its own loop.
+  so this appears the moment you convert to classic — which the rule above requires you to do.
+
+Whatever the runtime, **GSAP stays the timeline owner**: every other runtime hangs off the one
+paused timeline and renders from its seek, never from its own loop.
 
 ## Real captures are sacred
 

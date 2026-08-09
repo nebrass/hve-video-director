@@ -1,6 +1,13 @@
 # Architectural Decision Records — Visual Storytelling Director
 
-**Status of all ADRs:** PROPOSED (accepted together with the 2026-08-01 design spec).
+**Status of all ADRs:** ACCEPTED.
+**Revision note (2026-08-09):** status moved PROPOSED → ACCEPTED. It had said PROPOSED since
+2026-08-01 while M0–M6 shipped against these decisions, `example/` was produced by a run that
+obeyed them, and `CLAUDE.md`, `SKILL.md` and every workflow cite them as binding law. A record
+that calls itself a proposal while the tree treats it as settled misleads exactly the reader it
+exists to inform — the one deciding whether a rule may be broken. Nothing here was re-argued to
+make the change; the status caught up with the practice. ADR-009, added 2026-08-08 from a real
+Phase-5 run, is accepted on the same footing.
 **Revision note (2026-08-01):** updated after the Principal Engineer review
 (`review-principal.md`): ADR-002 and ADR-005 replaced, ADR-001 and ADR-007 amended,
 ADR-008 added.
@@ -104,6 +111,43 @@ copy.
 (even naming `hf-seek` violates it); precision beats slogan. Vendoring upstream files —
 proven drift; the SRI ritual is the cautionary tale. Fork-and-pin forever — loses the
 improvement stream that motivates HyperFrames-first.
+
+**Precedence — when ADR-002 and ADR-006 pull opposite ways** *(added 2026-08-09)*
+
+There is one recurring case where the two read as contradictory: this skill **depends on an
+upstream behavior that no upstream file documents**. ADR-006's mechanism test says the
+knowledge belongs upstream; ADR-002 says a committed local restatement of mechanism is the one
+illegal form. Taken literally together they forbid writing it down and forbid not writing it
+down, and the builder still has to get it right today.
+
+They are not in conflict, because they answer different questions. Resolve in this order:
+
+1. **ADR-006 decides where the capability belongs.** Undocumented behavior that another
+   workflow would hit belongs upstream: open the contribution. That is the exit, and it is not
+   optional — it is what stops the local text becoming permanent.
+2. **ADR-002 decides what may be committed here meanwhile.** Only the *narrowing imperative* a
+   builder must obey. Not an explanation of upstream's internals, not a mechanism another
+   party owns, not a copy of anything an official file already says.
+3. **ADR-007's compat map is the sanctioned register.** ADR-002's own test exempts the compat
+   map by name; a dependency that lives outside it is invisible. Register the behavior as a
+   **probe** in `compat/ecosystem.md` § Behavior probes, stating what breaks, why the gates
+   stay green through it, and how it is detected.
+4. **Retirement follows ADR-006's rule, not the changelog.** When upstream fixes the behavior,
+   the local text is removed only after a real end-to-end run has passed on the fix — the scar
+   M6's `search_music.py` deletion left, and ADR-009's precedent.
+
+Nothing above licenses restating a mechanism an upstream file *does* own. The clause applies
+only where no upstream file is the author of record, which is a question with a checkable
+answer: name the file that says it.
+
+**Worked example.** `SUBCOMP_CLONE_SEMANTICS`. `SUB_COMPOSITIONS` documents that the runtime
+clones `<template>` contents into the host document. The `three` adapter documents a standalone
+composition reading `__hfThreeTime` from time zero. Each is correct alone, and neither owns
+what happens at their intersection: a cloned module script throws, native `window` calls hit an
+injected scoped Proxy, and `hf-seek` delivers the **root** clock to a scene that believes it
+starts at zero. All three fail only once the film is assembled, with every gate green. The
+imperatives live in `sub-agents/scene-builder-delta.md` because a frame packet carries no other
+file; the dependency is registered as a probe; the contribution is the exit.
 
 ---
 
@@ -249,7 +293,10 @@ A feature belongs **upstream** iff any of:
 6. **Reuse test** — another workflow/genre could use it unchanged (design systems, capture
    protocols once stable, new scene archetypes → registry).
 7. **Restatement test** — implementing it locally would restate any official file. Hard stop:
-   contribute or point, never copy.
+   contribute or point, never copy. *Undocumented behavior is the exception, and it has its
+   own procedure:* when no upstream file is the author of record, this test cannot fire, and
+   ADR-002 § Precedence governs — narrowing imperative only, registered as a compat probe,
+   contribution as the exit.
 8. **Churn test** — it must track HyperFrames internals (paths, flags, formats). It may exist
    locally **only inside the compat layer** (ADR-007), never in phase prose.
 
