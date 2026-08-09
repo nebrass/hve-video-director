@@ -17,7 +17,10 @@
       [data-composition-id="scene-NN-terminal"]{position:absolute;inset:0;display:flex;
         align-items:center;justify-content:center;background:#0a0a0a /* brand canvas */}
       [data-composition-id="scene-NN-terminal"] .term{width:80%;border-radius:12px;overflow:hidden;
-        box-shadow:0 40px 120px rgba(0,0,0,.5);background:#161616;
+        /* Key light 32% 14%: contact / form / separation, then a graze on the lit edge. */
+        box-shadow:4px 3px 10px rgba(0,0,0,.6), 10px 40px 120px rgba(0,0,0,.5),
+                   22px 90px 200px rgba(0,0,0,.24), inset 0 1px 0 rgba(255,255,255,.08);
+        background:#161616;
         font-family:"Geist Mono","JetBrains Mono",monospace;visibility:hidden;opacity:0}
       [data-composition-id="scene-NN-terminal"] .term-bar{display:flex;align-items:center;gap:8px;padding:12px 16px;background:#222}
       [data-composition-id="scene-NN-terminal"] .dot{width:12px;height:12px;border-radius:50%}

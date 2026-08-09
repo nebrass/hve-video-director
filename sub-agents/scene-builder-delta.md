@@ -102,6 +102,49 @@ assembled — your scene will look perfect on its own:
 Whatever the runtime, **GSAP stays the timeline owner**: every other runtime hangs off the one
 paused timeline and renders from its seek, never from its own loop.
 
+## Staging — the frame has to be lit, and it has to keep moving
+
+Everything below is **execution**, not direction: it never changes what the frame says, only
+whether it reads as a photographed thing or as shapes on a background. The split is the one you
+already apply to recipes — *direction is structural, values are the brand's*. Take offsets, origins
+and layer counts from here; take every colour, blur radius, alpha and ease from `DESIGN.md`.
+
+**Declare one light direction for the scene, and make everything obey it.** Pick a position — say
+32% 22%, upper-left — and then:
+
+- the ground/background gradient's origin sits *there*, not at `50% 50%`;
+- every raised surface's shadow carries a **non-zero x-offset** whose sign points away from it;
+- the edge **facing** the light gets a graze: `inset 0 1px 0 rgba(255,255,255,0.08–0.10)`.
+
+A centred gradient plus a straight-down shadow is the signature of no light at all: the frame has a
+drop shadow instead of a direction. Nothing here overrides the brand — a shadow's blur, alpha and
+colour stay exactly what `DESIGN.md` says; only its *offset* answers to the light.
+
+**Give a raised surface three shadow layers, each with a different job**: contact (tight, dark,
+grounds the object), form (mid, describes its mass), separation (wide, very low alpha, lifts it off
+the background). Two vertical layers at similar alpha read as one blur.
+
+**Name a `transformOrigin` on every camera move.** A scale about the default `50% 50%` enlarges the
+picture without changing what is in front of what — it is the least cinematic zoom there is. Point
+it at the thing the eye should land on, and if the frame really is centre-weighted, write
+`50% 50%` deliberately so the next reader knows it was chosen.
+
+**Something must still be moving when the scene ends.** You author no exit — the seam owns it — but
+that is not licence to land everything early and hold. A frame frozen for its last second is a
+still image being pushed through the cut, and the seam gate cannot see it: it measures the wrapper,
+which is moving, not your content, which is not. Carry one slow element across the whole duration —
+a ground drifting a few percent, a vignette deepening, a world wrapper travelling 12–20px on
+`power1.inOut`. One tween, invisible as an event, and the beat stops feeling like a slide.
+
+**Static atmosphere is not motion and costs nothing at render.** A grain plate at 3–5% on
+`mix-blend-mode: overlay`, a vignette plate, and a resting `filter: blur(2–4px)` on a background
+plane where the scene has more than one depth. Prefer the `grain-overlay` registry block. Never put
+a `filter` on a `preserve-3d` wrapper — it collapses `translateZ`.
+
+None of this authorises decoration. A pulse, a shimmer, a drifting particle field, or any loop that
+fills silence stays banned: a scene with nothing left to do is a planning problem, and the fix is
+the frame's content.
+
 ## Real captures are sacred
 
 A bound capture — the `screenshot:` or `clip:` file your packet names by exact path — is the

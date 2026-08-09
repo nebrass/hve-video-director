@@ -32,7 +32,10 @@
       [data-composition-id="scene-NN-clip"]{position:absolute;inset:0;display:flex;
         align-items:center;justify-content:center;background:#0a0a0a /* brand canvas */}
       [data-composition-id="scene-NN-clip"] .clip-frame{position:relative;width:78%;
-        border-radius:14px;overflow:hidden;box-shadow:0 40px 120px rgba(0,0,0,.45);
+        border-radius:14px;overflow:hidden;
+        /* Key light 32% 14%: contact / form / separation, then a graze on the lit edge. */
+        box-shadow:4px 3px 10px rgba(0,0,0,.55), 10px 40px 120px rgba(0,0,0,.45),
+                   22px 90px 200px rgba(0,0,0,.22), inset 0 1px 0 rgba(255,255,255,.08);
         outline:1px solid rgba(255,255,255,.06);visibility:hidden;opacity:0}
       [data-composition-id="scene-NN-clip"] .clip-vid{display:block;width:100%;height:auto}
       /* device-frame chrome, brand color-grade, vignette, restyled cursor go here */
