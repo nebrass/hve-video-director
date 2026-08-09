@@ -106,6 +106,41 @@ caught it.
   the blast radius is the job holding nothing worth taking, so the constraint is now written where
   someone would break it: no secrets, read-only token, and never `pull_request_target`.
 
+### Verified against upstream, not against ourselves
+
+A sweep read the pinned CLI and the installed engine rather than trusting this repo, and the
+most valuable finding was not a missing registration — it was a **false claim repeated in seven
+files**. The DON'T said a bare `<video>` cross-routes "while every gate passes green".
+`media_missing_data_start` and `media_missing_id` are both `severity: "error"` on the pin, and
+`check` skips the browser when lint errors. The rule survives; its justification did not — and the
+correction makes it sharper, because the sweep also established what genuinely has no rule: there
+is no lint code for `data-media-start` or for a media element's `data-track-index`. The dangerous
+case is not the bare video, which is caught, but the *partly wired* one.
+
+Worth recording why nothing here could have caught it: the seven files agreed with each other
+perfectly. Every guard in this repo checks internal consistency; none can check truth.
+
+Six probes registered from the same sweep, each verified independently —
+`CLIP_PLAYBACK_RATE_SOURCE` (clip speed rides a DOM property no reference names),
+`AUDIO_ENGINE_ASSET_LAYOUT` (the engine writes `assets/voice/`, its own reference says
+`.media/audio/`), `SUBCOMP_MEDIA_SUPPORT` (two upstream pages contradict each other about whether
+clip scenes work at all), `TTS_CONCURRENCY_ENV`, `SHORT_AUDIO_TRUNCATES_RENDER`, and
+`SCREENCAST_FRAME_EMISSION`, which deliberately widens the map's charter to a non-HyperFrames
+upstream rather than starting a second, unstated register.
+
+Three accuracy defects, the worst an **invented upstream gate** — Phase 3 cited a "HyperFrames
+Visual Identity Gate" and a `visual-style.md`, neither of which exists. The real contract is now
+`DESIGN_SPEC`, and its resolution order puts `DESIGN.md` **last**.
+
+Two ADR-002 restatements, both half-acknowledged in the text that committed them: an upstream
+dispatch measurement restated by number (now `DISPATCH_ECONOMICS`; `general-video` was in no
+registry section at all), and a verbatim copy of a determinism rule.
+
+Probes now declare `- **Local text.**` (where the imperative lives) and `- **Exit.**` (the upstream
+contribution, or `not yet filed`). Nine say not yet filed, which is the point: registration costs
+ten minutes and filing costs a day, so the likely failure of the whole mechanism is a
+well-registered probe made permanent by a slower route.
+
 ### Rejected, with reasons recorded
 
 Five audit proposals were refused on recorded grounds rather than implemented: a hero
