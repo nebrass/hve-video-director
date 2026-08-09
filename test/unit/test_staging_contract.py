@@ -61,7 +61,13 @@ def strip_comments(css):
 
 
 def elevation_layers(block):
-    """Layers that actually cast: not inset, and with a non-zero blur."""
+    """Layers that actually cast a shadow.
+
+    Excluded, and each for a different reason: `inset` is a graze, not a cast; blur 0 is a
+    hairline ring; and x=0 *with* y=0 is a centred glow — an accent that casts nowhere by
+    design. Treating a glow as elevation made this fire on correct work, which an
+    adversarial pass demonstrated with `0 0 40px rgba(10,114,239,.35)`.
+    """
     layers = []
     for piece in block.split(","):
         if "inset" in piece:
@@ -70,7 +76,7 @@ def elevation_layers(block):
         if not found:
             continue
         x, y, blur = (float(v) for v in found.groups())
-        if blur == 0:  # a hairline ring, not elevation
+        if blur == 0 or (x == 0 and y == 0):
             continue
         layers.append((x, y, blur))
     return layers

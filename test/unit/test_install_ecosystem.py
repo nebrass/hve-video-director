@@ -83,8 +83,14 @@ class SourceAllowlistTests(unittest.TestCase):
         """The allowlist has to actually admit the ecosystem, or CI is broken."""
         lock = json.loads((REPO / "skills-lock.json").read_text(encoding="utf-8"))
         sources = {meta.get("source") for meta in lock["skills"].values()}
-        proc = self._install(lock_for(sorted(sources)[0]))
-        self.assertEqual(0, proc.returncode, proc.stderr)
+        self.assertTrue(sources, "the lock names no sources")
+        # Every source, not just the first: checking `sorted(sources)[0]` meant a second
+        # source added to the lock was never admitted by this test, and its name said
+        # otherwise.
+        for source in sorted(sources):
+            with self.subTest(source=source):
+                proc = self._install(lock_for(source))
+                self.assertEqual(0, proc.returncode, proc.stderr)
 
     def test_an_unknown_source_is_refused_before_anything_is_fetched(self):
         proc = self._install(lock_for("attacker/evil"))

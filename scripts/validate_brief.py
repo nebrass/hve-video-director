@@ -2154,6 +2154,20 @@ def keys_audit_payload(path: Path, text: str) -> dict[str, Any]:
     hero = load_hero_budget()
 
     frames = [audit_frame(f, contract, tags) for f in document["frames"]]
+
+    # Frames are reported by position. When two headings carry the same number the parser
+    # renumbers, so "Frame 2" in a finding may be a heading that says Frame 1 — say so
+    # rather than sending the author looking for a frame that is not there.
+    warnings = list(document.get("warnings", []))
+    headings = [f.get("number") for f in document["frames"] if f.get("number") is not None]
+    repeated = sorted({n for n in headings if headings.count(n) > 1})
+    if repeated:
+        warnings.append(
+            "duplicate frame heading number(s) "
+            + ", ".join(str(n) for n in repeated)
+            + " — findings below are numbered by position, so they may not match the "
+            "headings in the file"
+        )
     hero_frames = [f for f in frames if f["runtime"] in hero["runtimes"]]
     # `user_directed: true` is exempt-but-visible: counted and shown, never a violation.
     counted = [f for f in hero_frames if not f["user_directed"]]
@@ -2180,7 +2194,7 @@ def keys_audit_payload(path: Path, text: str) -> dict[str, Any]:
             for f in frames if f["denial"]
         ],
         "errors": [],
-        "warnings": document.get("warnings", []),
+        "warnings": warnings,
     }
 
 
@@ -2220,7 +2234,8 @@ def command_keys_audit(project_dir: Path, as_json: bool) -> int:
         return 1
 
     hero = payload["hero_budget"]
-    summary = [
+    summary = [f"WARNING: {w}" for w in payload.get("warnings", [])]
+    summary += [
         f"Director keys: {payload['finding_count']} finding(s) across "
         f"{payload['frame_count']} frame(s)."
     ]

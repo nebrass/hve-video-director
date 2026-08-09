@@ -150,6 +150,11 @@ None of this authorises decoration. A pulse, a shimmer, a drifting particle fiel
 fills silence stays banned: a scene with nothing left to do is a planning problem, and the fix is
 the frame's content.
 
+**Mockup tilt is capped on every axis**: `rotateY` ≤ 8°, `rotateX` ≤ 4°, `rotateZ` ≤ 4°, and no
+360° scene spin. Yaw takes the widest angle because it turns a card the way a product is presented;
+pitch foreshortens type vertically and costs legibility where a screenshot's own words are; roll
+reads as a mistake before it reads as style. A brand may narrow any of these — nothing widens them.
+
 **Different kinds of event get different curves.** The brand picks the *family* — `DESIGN.md` wins
 over any recipe's ease, and this never overrides it. Inside that family, an arrival, an emphasis
 and a settle are three different events and must not share one constant: a scene that assigns one
