@@ -145,6 +145,12 @@ None of this authorises decoration. A pulse, a shimmer, a drifting particle fiel
 fills silence stays banned: a scene with nothing left to do is a planning problem, and the fix is
 the frame's content.
 
+**Different kinds of event get different curves.** The brand picks the *family* — `DESIGN.md` wins
+over any recipe's ease, and this never overrides it. Inside that family, an arrival, an emphasis
+and a settle are three different events and must not share one constant: a scene that assigns one
+`EASE` variable to nine entrances at nine near-identical durations has one emotion, which is no
+emotion. Vary the register with the event, not with the element.
+
 ## Real captures are sacred
 
 A bound capture — the `screenshot:` or `clip:` file your packet names by exact path — is the

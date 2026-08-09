@@ -578,6 +578,25 @@ hold beat, suspicious on an active scene). Examples:
 
 A per-scene flag is re-dispatchable (Step 4.6). Skip this step for trivial edits; run it on every new composition or after significant animation changes.
 
+**Then read the register, which `ANIMATION_MAP` does not measure.** Pacing and character are
+different questions: a scene can be perfectly paced and still express one emotion nine times.
+
+```bash
+python3 "$SKILL_DIR/scripts/motion_register.py"
+```
+
+It reports when most of a scene's tweens share one ease across near-identical durations — the
+`same ease + same duration = same emotion` tell in `patterns/anti-slop.md`, which every mechanical
+gate passes green because none of them is looking for it. This is **not** a second `ANIMATION_MAP`
+and reports no pacing verdict (ADR-003 forbids a parallel validator); it answers a question that
+needs the frame's intent, which is why it lives here.
+
+Report-never-gate, and it takes judgment: a scene built from one repeated element — a list
+revealing in stagger — looks monotonous by this measure and is right. Where it is a real finding,
+the fix is register, not decoration: an arrival, an emphasis and a settle are different events and
+should not share one constant. The *family* stays the brand's (`DESIGN.md` outranks any recipe's
+ease); only the variation within it is at issue. A genuine finding is re-dispatchable per Step 4.6.
+
 ## Step 4.8: Aesthetic Critique (Optional but Recommended)
 
 The mechanical gates cannot judge whether the composition is *good*. This step adds an aesthetic one before Phase 5 commits the design with voiceover.
