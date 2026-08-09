@@ -90,6 +90,7 @@ pointer-validity suite on every `bash test/run.sh` where the ecosystem is instal
 
 | Symbol | Owning skill | Skill-relative path | What it is | Used by |
 |---|---|---|---|---|
+| `DESIGN_SPEC` | `hyperframes-creative` | `references/design-spec.md` | The design-spec contract and its resolution order for a project's design file | Phase 3 Step 3.1, which writes `DESIGN.md`. Registered after a sweep found Phase 3 citing a "HyperFrames Visual Identity Gate" and a `visual-style.md` that exist nowhere upstream — the invented name is why this row exists |
 | `VISUAL_STYLES` | `hyperframes-creative` | `references/visual-styles.md` | The 8 named mood-based visual identities | Phase 1 `identity_strategy: hyperframes-style`; Phase 3 (Path B); `design-systems/README.md` |
 | `PALETTES` | `hyperframes-creative` | `palettes/<name>.md`, 9 files: `bold-energetic`, `clean-corporate`, `dark-premium`, `jewel-rich`, `monochrome`, `nature-earth`, `neon-electric`, `pastel-soft`, `warm-editorial` | Ready colour systems, paired with a visual style | Phase 3 `DESIGN.md` |
 | `HOUSE_STYLE` | `hyperframes-creative` | `references/house-style.md` | Sensible defaults for motion, colour, type when there is no strong opinion | Phase 3 fallback |
@@ -467,7 +468,126 @@ automated.
   log. Re-read at each pin bump only to ask whether the renderer has started normalizing GOP itself,
   in which case the local `-g` becomes redundant rather than wrong.
 
+### `CLIP_PLAYBACK_RATE_SOURCE` — clip speed rides a DOM property no reference names
+
+- **Local text.** `workflows/phase-3-design.md` § Clip scene (the `defaultPlaybackRate` /
+  `playbackRate` write and the 0.1–5.0 rejection), `templates/scene-clip.html` and
+  `templates/scene-terminal-clip.html` header comments, the `speed` row of `templates/storyboard.md`.
+- **What.** The runtime reads `data-playback-rate` first and falls back to the DOM property
+  `el.defaultPlaybackRate`, then clamps to `[0.1, 5]` and returns **1** for anything outside.
+  Neither the attribute, the property read, nor the clamp appears in `DATA_ATTRIBUTES` or
+  `TRACKS_AND_CLIPS`. The `0.1–5` figure that *is* documented belongs to the Studio player's
+  preview knob, which its own page explicitly calls "**not** a composition `data-*` attribute" — so
+  the doc that looks like the source for this says the opposite of what we use it for. The runtime
+  also prefers `data-playback-start` over `data-media-start`; that alias is undocumented too.
+- **Why it matters.** Every speed-ramped or trimmed clip depends on it. If the property fallback
+  goes, every such clip renders at 1×: footage runs long, desyncs from its scene window and from
+  Phase 5's `mix_clip_audio.py` placement, and lint, check and the seam gate stay green because the
+  markup and timing are untouched. Out-of-range fails *soft* to 1 rather than erroring, so a bad
+  `speed:` bullet is invisible.
+- **Probe — manual.** At each pin bump grep the CLI dist for `readElementPlaybackRate` /
+  `normalizePlaybackRate`, confirm the `defaultPlaybackRate` fallback and the bounds, and re-read
+  `DATA_ATTRIBUTES` to see whether `data-playback-rate` has been promoted into the documented table.
+  If it has, author the attribute and retire the property write — after a real end-to-end run.
+
+### `AUDIO_ENGINE_ASSET_LAYOUT` — the engine's own docs disagree with its source about where it writes
+
+- **Local text.** `workflows/phase-5-audio.md` (the `assets/voice/NN.wav` transcode, the
+  `assets/bgm/` copy, the `assets/sfx/` cue path), `scripts/verify_vo_sections.py` (which clears
+  `assets/voice/NN.wav` as the engine layer).
+- **What.** With `--hyperframes <dir>` the engine writes each line to `assets/voice/<id>.wav`.
+  `media-use`'s `references/audio.md` says it writes "under `.media/audio/{voice,bgm,sfx}`" — a
+  different tree. Verified at this pin: the source writes `assets/voice/`, and **no** upstream
+  markdown mentions that path at all. The `--hyperframes <dir>` flag is likewise documented only in
+  the script's own header.
+- **Why it matters.** Three local steps address those paths by hand — the per-section transcode,
+  the byte-copy of the confirmed music bed (whose `sha256` provenance depends on copying the exact
+  file), and `verify_vo_sections.py`'s clear-before-synthesis contract, whose whole guarantee is
+  that a failed line becomes an *absence at a known path*. A layout change makes `prepare` clear
+  nothing, so the stale-take failure ADR-009 exists to prevent returns with `seal` still passing.
+- **Probe — automatable, manual today.** After any `--only tts` run, assert every
+  `audio_meta.voices[].path` starts with `assets/voice/` and that the file exists there. Cheap to
+  fold into `verify_vo_sections.py check`, which already reads `audio_meta.json` advisorily.
+
+### `SUBCOMP_MEDIA_SUPPORT` — upstream says both that clip scenes work and that they never work
+
+- **Local text.** `workflows/phase-3-design.md` § Clip scene, `templates/scene-clip.html`,
+  `templates/scene-terminal-clip.html`, `patterns/cli-terminal-capture.md` § Wiring into a scene —
+  the entire clip-scene archetype, which puts `<video>` inside a sub-composition `<template>`.
+- **What.** `variables-and-media.md` and `DATA_ATTRIBUTES` say media works at any nesting depth
+  including inside a sub-comp template, via a flat `querySelectorAll("video, audio")` plus
+  `closest("[data-composition-id]")` rebasing. `hyperframes-cli`'s lint reference says the opposite
+  under "**Blind spot — media inside a sub-composition**": such media "is never seeked/decoded and
+  renders blank/black; the automated checks all pass", and prescribes a grep expecting **no**
+  `<video>` in compositions — which would condemn every clip scene this skill authors.
+- **Why it matters.** Not a §Precedence case in the literal sense — the behavior *is* documented,
+  twice, incompatibly — but the failure profile is identical: this repo has bet its clip
+  architecture on one of two contradictory upstream statements, the losing side blanks every
+  footage scene, and no gate distinguishes them. Registering it records *which* side was verified,
+  so a future reader meeting that grep instruction does not "fix" the architecture.
+- **Probe — manual, half-done already.** The render-verified note in Phase 3 is the evidence; make
+  it checkable by rendering a two-clip-scene composition and confirming each shows its own footage.
+  Re-read both upstream pages at each pin bump and record which one moved.
+
+### `TTS_CONCURRENCY_ENV` — the engine's fan-out is tuned through an env var no reference names
+
+- **Local text.** `workflows/phase-5-audio.md` § synthesis — the `HYPERFRAMES_TTS_CONCURRENCY=2`
+  prefix and its rationale.
+- **What.** `media-use/audio/scripts/audio.mjs` reads
+  `Math.max(1, Number(process.env.HYPERFRAMES_TTS_CONCURRENCY) || 4)`. Verified: the variable
+  appears in no `media-use` markdown; the audio reference documents only `--request`, `--out`,
+  `--only`.
+- **Why it matters.** Halving concurrency is this repo's mitigation for a measured transient
+  per-line TTS failure rate against a rate-limited provider. If the variable is renamed or removed
+  the prefix becomes a silent no-op, the engine runs at its own default, and the failure rate
+  returns — and because the engine exits 0 on partial failure (`AUDIO_ENGINE_PARTIAL_FAILURE`), the
+  only signal is `verify_vo_sections.py check` reporting more missing sections, which reads as bad
+  luck rather than a broken knob.
+- **Probe — manual.** `grep -n 'HYPERFRAMES_TTS_CONCURRENCY' "$MEDIA_SKILL_DIR/audio/scripts/audio.mjs"`
+  at each lock bump; a miss means the prefix is inert.
+
+### `SHORT_AUDIO_TRUNCATES_RENDER` — a soundtrack shorter than the composition may shorten the film
+
+- **Local text.** `scripts/generate_voiceover.py` (the `apad=whole_dur=` pad and its comment),
+  `workflows/phase-5-audio.md` § assembly ("the pad is not cosmetic").
+- **What.** When the mixed soundtrack is shorter than the root `data-duration`, the trailing frames
+  render with no audio and — per the local text — the render may be cut short. Upstream documents a
+  sub-composition *slot* going blank when its own `data-duration` is short, and that media may omit
+  `data-duration` to use intrinsic length, but says nothing about a clip shorter than an explicitly
+  authored duration, and nothing about render length following audio length.
+- **Why it matters.** The pad is the only thing between a slightly short narration and a truncated
+  deliverable, and the failure lands in `out/final.mp4` after every gate has passed and after the
+  caption fingerprints have been bound to the soundtrack. If the claim is wrong the pad is
+  harmless; if it is right and the pad is ever removed as cosmetic, the film ships short.
+- **Probe — manual, and unusually cheap to settle.** Render a composition whose root
+  `data-duration` is 10s carrying a 6s `<audio data-start="0" data-duration="10">`, then `ffprobe`
+  both stream durations. A render that holds full length makes the pad redundant rather than wrong.
+
+### `SCREENCAST_FRAME_EMISSION` — CDP emits a frame only when the page changes
+
+- **Local text.** `workflows/phase-2-capture.md` (the lead-with-motion rule and the mandatory
+  `stitch_clip.py` normalize), `scripts/stitch_clip.py` (CFR30 re-timing).
+- **What.** Chrome DevTools Protocol emits a screencast frame only when something visually changes,
+  so a static view yields a near-empty clip with sparse, irregular PTS. Documented in neither the
+  `chrome-devtools-mcp` README nor its screencast tool source.
+- **Why it matters.** It drives two local rules at once: capture must lead with motion, and every
+  screencast must be normalized to CFR before it becomes a clip. Without the normalize the clip
+  inherits irregular PTS and the renderer's per-frame seek lands wrong — the same class as
+  `CLIP_KEYFRAME_DENSITY`, and equally invisible to every gate.
+- **Charter note.** This is the first row for a non-HyperFrames upstream. The map's charter is
+  widened deliberately rather than by accident: it already covers the `npx hyperframes` CLI, which
+  is not a skill either, and the alternative is that a load-bearing undocumented dependency lives
+  nowhere. One register, one blast radius (ADR-007). A *second*, unstated register is the failure
+  this row exists to avoid.
+- **Probe — manual.** Re-read the MCP's screencast tool at each bump for any change to frame
+  emission or PTS behaviour; the normalize step is the mitigation and stays regardless.
+
 ### `SUBCOMP_ROOT_ATTRIBUTE_SELECTOR` — the scene templates' root styling survives scoping
+
+> Sweep note (2026-08-09): the pattern all seven skeletons use *does* trip
+> `composition_self_attribute_selector` at **warning** severity. The row's claim is still exactly
+> true as written — lint returns 0 **errors** and `subcomposition_root_styled_by_class` does not
+> fire — and the templates render correctly. Recorded so the warning is not mistaken for drift.
 
 - **Local text.** `templates/scene-*.html` — the root styling shape every skeleton uses.
 - **What.** A sub-composition may style its own root with a leftmost

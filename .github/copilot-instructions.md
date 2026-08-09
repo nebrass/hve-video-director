@@ -115,6 +115,7 @@ Anti-slop content rules (see `patterns/anti-slop.md`) also matter: no default Ta
 
 ## Common edits
 
+- **Write down how upstream *behaves*** → name the upstream file that says it. If you can, cite it and delete your sentence (ADR-002 forbids a committed restatement). If you cannot, the behavior is undocumented: keep only the narrowing imperative a builder must obey, and register it as a `### SYMBOL` row in `compat/ecosystem.md` § Behavior probes with a `- **Local text.**` field naming the file you edited. `test/unit/test_probe_local_text.py` checks the row's shape; nothing checks that you wrote one.
 - **Add a voice** → three sites must agree: the `## ElevenLabs Voice IDs` table in `SKILL.md`, the `## Voices` table in `README.md`, and the picker (plus its worked `elevenlabs:<name>:<id>` example) in `workflows/phase-1-storytelling.md`. A voice in the tables but not the picker can never be chosen. Enforced by `test/unit/test_voice_parity.py`.
 - **Change phase logic** → edit the relevant `workflows/phase-N-*.md`; update the prerequisite list in `SKILL.md` if a new required file is introduced.
 - **Change the Creative Brief schema** → update the template, validator, example plan, workflow

@@ -126,7 +126,7 @@ language:
 - **Shape language** — border radius, shadow elevation, border treatment
 - **Visual style** — glassmorphism, flat, material, neumorphism, brutalist, editorial
 
-Write `DESIGN.md` at the project root. We use this as the design contract — it satisfies the HyperFrames Visual Identity Gate (which otherwise accepts a `visual-style.md`, a named style preset, or a 3-question fallback):
+Write `DESIGN.md` at the project root; it is this pipeline's design contract. `DESIGN_SPEC` owns the resolution order upstream applies when several design files exist, and is worth reading once — note that `DESIGN.md` is **last** in it, so a project carrying one of the earlier names would be resolved to that instead. This skill writes only `DESIGN.md`. (An earlier version of this step cited a "Visual Identity Gate" and a `visual-style.md`; neither exists upstream, which is what the `DESIGN_SPEC` row now pins.)
 
 ```markdown
 ## Design Contract
@@ -449,7 +449,7 @@ build input. Only the dispatch differs.
 | up to ~6 short frames | **Build them yourself, in sequence**, reading each frame's packet as you start its scene. Faster than fanning out, and every rule below still binds. |
 | more than ~6 | **Fan out**: give each worker **2–3 frames**, never one, and start **all** workers in a single wave. |
 
-**Send the role once per worker, not once per packet.** Packet item 4 is the same ~31 KB for every
+**Send the role once per worker, not once per packet.** Packet item 4 is the same ~29 KB for every
 frame, so a worker holding three packets receives three identical copies of it — on an eight-frame
 film that is eight copies where three would do, and item 4 is the largest single share of all
 packet bytes. Give a worker the role once, then its 2–3 frame packets; each packet still *is* the

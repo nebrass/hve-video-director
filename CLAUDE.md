@@ -327,8 +327,24 @@ These are enforced verbally in the `## DON'Ts` section of `SKILL.md` — except 
   mechanism (`compat/ecosystem.md` § Citing upstream vocabulary; the bare, extension-less form is
   what keeps the citation legal under `test/unit/test_compat_pointers.py`). Budget numbers stay in
   `reasoning/scene-analysis.md` — cite the table, never copy a number.
+- **Write down how upstream *behaves*** (as opposed to where its files live) → the moment you write
+  "the renderer/runtime/engine actually does X, so do Y" — or catch yourself explaining a failure
+  with *every gate passes and the output is still wrong* — stop and answer one question: **name the
+  upstream file that says X.** If you can, cite it by SYMBOL and delete your sentence; a committed
+  restatement of upstream mechanism is ADR-002's one illegal form. If you cannot, you have found
+  undocumented upstream behavior, and ADR-002 § Precedence is what makes your sentence legal — but
+  only as the narrowing imperative a builder must obey, and only once it is a `### SYMBOL` row in
+  `compat/ecosystem.md` § Behavior probes carrying a `- **Local text.**` field naming the file you
+  just edited. `test/unit/test_probe_local_text.py` checks a row's shape; **nothing checks that you
+  wrote one**, which is why this bullet is the mechanism and you are the only one holding the
+  knowledge. Two scars: the `-g 30 -keyint_min 30` GOP pin landed with the renderer's own warning
+  quoted in its PR body and stayed unregistered for five days (now `CLIP_KEYFRAME_DENSITY`); and
+  the bare-`<video>` DON'T asserted "every gate passes green" across seven files when `lint`
+  errors on it — nobody had read the CLI.
 - **Change an ecosystem dependency** (an upstream HyperFrames skill, a file inside one, or the
-  `npx hyperframes` CLI surface) → edit `compat/ecosystem.md` and nothing else. Intra-skill **file
+  `npx hyperframes` CLI surface) → edit `compat/ecosystem.md` and nothing else. Note this bullet is
+  about **paths and flags**; behavior is the bullet above, and reading this one as covering both is
+  how an imperative ends up in a workflow with no probe. Intra-skill **file
   paths** for ecosystem skills live there and nowhere else in the repo; every other file names the
   skill plus the capability SYMBOL and lets that map resolve the path. Skill **names** are stable
   public API — name them freely anywhere. Enforced by `test/unit/test_compat_pointers.py`. To take
