@@ -2125,8 +2125,17 @@ def audit_frame(
             findings.append(f"capability `{tag}` is not in the catalog vocabulary")
 
     rejected = str(extra.get("runtime_rejected", "")).strip()
-    if rejected and "—" not in rejected and "--" not in rejected:
-        findings.append("`runtime_rejected:` is not in `<runtime> — <reason>` form")
+    if rejected:
+        # `<runtime> — <reason>`. Accepting any dash anywhere passed `three—no`: the point
+        # of the row is the reason, so require a runtime, a separator, and real words after it.
+        shaped = re.match(r"^\s*([a-z][a-z0-9-]*)\s*(?:—|--)\s*(\S.*)$", rejected)
+        if not shaped:
+            findings.append("`runtime_rejected:` is not in `<runtime> — <reason>` form")
+        elif len(shaped.group(2).split()) < 3:
+            findings.append(
+                f"`runtime_rejected: {rejected[:40]}…` gives no usable reason — the row exists "
+                "so a reviewer can see why the runtime lost"
+            )
 
     return {
         "index": frame.get("index"),

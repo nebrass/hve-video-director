@@ -610,10 +610,13 @@ constraints, all of them load-bearing:
    when it has one. A colliding name is reinterpreted as upstream's field by the storyboard parser
    (`STORYBOARD_EXTRA_KEYS`) and silently loses its meaning.
 
-**Consequences.** The surface reading is legal, and stops looking like a defect. The staging
-contract — declared key light direction, shadow layering, named `transformOrigin`, resting depth —
-has a lawful channel that does not touch derivation, does not grow the key set, and does not add a
-sixth packet item (notes ride on the frame block, packet item 1). The category is testable: the
+**Consequences.** The surface reading is legal, and stops looking like a defect. Note what this
+record does *not* cover, because an earlier draft claimed it did: the **staging contract** (declared
+light direction, shadow layering, `transformOrigin`, resting depth) is film-wide craft that applies
+to every frame, so it ships in the builder role as an additive local constraint — ADR-002 form 3,
+legal on its own and needing nothing from this record. Notes are for *per-frame* refinement, and
+they ride on the frame block (packet item 1) precisely so they can vary frame to frame; a rule that
+is the same on every frame belongs in the role, where it is paid once. The category is testable: the
 registry is a single list, so a note that reaches a builder without being registered fails, as does
 a name that collides with the closed fourteen. Constraint 3 is what keeps ADR-008's budgets
 meaningful — nothing can grow the film's attention cost by calling itself execution.
@@ -621,8 +624,22 @@ meaningful — nothing can grow the film's attention cost by calling itself exec
 The cost is honest: this is a second vocabulary, and vocabularies drift. The mitigation is that it
 is small, registered in one file, and machine-checked — the same treatment the fourteen already get.
 
-**What this does not license.** Not a route around the closed key set: anything that answers "what
-should the viewer understand" is a communication choice and needs a question, not a note. Not a
+**Where the boundary actually falls** *(sharpened 2026-08-09, after review).* An earlier draft drew
+it at "communication choice", and the sole registered note fails that test: its own owner says a
+surface reading *"is a communication choice, not an implementation detail"*, and its vocabulary
+table is headed "The viewer concludes". Drawn there, this record would have forbidden the one thing
+it was written to legalise. The distinction is not what a thing communicates — a note may certainly
+change what a viewer concludes — but where it sits in the pipeline. A **director key** is a
+conclusion of the twelve questions: emitted by a question, drawn from a closed set, counted against
+a budget, and an input to capability derivation. An **execution note** is a refinement *downstream*
+of a key derivation has already settled: `surface_reading:` refines a frame whose `material-realism`
+and `runtime: three` were derived before the note existed, and it adds no tag and changes no
+verdict. Three mechanical tests: does a question emit it, does a budget count it, does derivation
+read it? Three noes make a note; any yes makes it a key, and adding a key means adding or replacing
+a question.
+
+**What this does not license.** Not a route around the closed key set: if a question should emit it,
+the answer is a question, not a note. Not a
 back door for derivation-by-taste (constraints 1 and 2). Not a budget exemption (constraint 3). Not
 a sixth packet item — that is a separate architecture change with its own review (ADR-004,
 `test/unit/test_packet_contract.py`). And not a reopening of the rejected program: an under-spend

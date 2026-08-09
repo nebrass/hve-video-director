@@ -38,11 +38,14 @@ class ExampleConsentRecordTests(unittest.TestCase):
         # Not a skip. If `example/` or its consent record is gone, the doctrine in
         # CLAUDE.md and README that calls it a verifiable record is what needs the
         # edit -- and this failing here is what forces that into the same commit.
-        assert EXAMPLE.is_dir(), "example/ is missing; the reference-build doctrine now overclaims"
-        assert (EXAMPLE / ".hve" / "brief-state.json").is_file(), (
-            "example/.hve/brief-state.json is missing -- it is the consent record that "
-            "makes the human-in-the-loop claim checkable"
-        )
+        # Plain `assert` would vanish under `python -O`, taking the guard with it.
+        if not EXAMPLE.is_dir():
+            raise AssertionError("example/ is missing; the reference-build doctrine now overclaims")
+        if not (EXAMPLE / ".hve" / "brief-state.json").is_file():
+            raise AssertionError(
+                "example/.hve/brief-state.json is missing -- it is the consent record that "
+                "makes the human-in-the-loop claim checkable"
+            )
         cls.proc = subprocess.run(
             [sys.executable, str(VALIDATOR), "--project-dir", str(EXAMPLE), "status", "--json"],
             capture_output=True, text=True,

@@ -159,10 +159,13 @@ official home becomes an extra bullet rather than a guessed value.
 The media scripts run inside generated video projects; `validate_brief.py` runs from the installed
 skill against a generated project via `--project-dir`.
 
-**M6 retired the local *narration* fallback only.** `search_music.py` was retired with it and has since been **restored** — Freesound search is the default music path, because a real recording has an author, a stable URL and an auditable licence that a generated bed does not. Meanwhile
-`generate_voiceover.py`'s ElevenLabs half with it. Phase 5's audio path is the `media-use` engine
-(`AUDIO_ENGINE`); with no engine, narration is `npx hyperframes tts` on an explicitly confirmed
-local voice and the music bed is user-provided. **`generate_voiceover.py` itself survives and must
+**M6 retired the local *narration* fallback only.** It removed `generate_voiceover.py`'s ElevenLabs
+half, and it retired `search_music.py` — which has since been **restored**, because Freesound search
+is the default music path: a real recording has an author, a stable URL and an auditable licence
+that a generated bed does not. Phase 5's audio path is the `media-use` engine (`AUDIO_ENGINE`); with
+no engine, narration is `npx hyperframes tts` on an explicitly confirmed local voice, while the
+music bed follows the brief's `music_strategy` and is **not** engine-gated — `freesound` still
+searches, and only `delegated` needs the engine. **`generate_voiceover.py` itself survives and must
 not be deleted**: `--assemble-only` is the section assembler both paths use, and removing the file
 would break the delegated path too.
 
