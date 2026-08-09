@@ -97,7 +97,8 @@ capture or stitching scripts:
   concat demuxer, so heterogeneous sparse-VFR inputs normalize onto one canvas.
 
 Copy both into the project's `scripts/` directory like the voiceover script (locate the skill dir
-the way `workflows/phase-5-audio.md` § "Generate with ElevenLabs" resolves `$SKILL_DIR`), then run:
+the way `workflows/phase-5-audio.md` § "Step 5.0: Resolve the tools this phase runs" resolves
+`$SKILL_DIR`), then run:
 
 ```bash
 mkdir -p scripts

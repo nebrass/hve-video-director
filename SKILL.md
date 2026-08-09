@@ -5,16 +5,16 @@ description: >
   Discovery (design thinking + context) → Storytelling (narrative + storyboard) →
   Capture (Chrome DevTools screenshots/screencasts, native desktop or region screen
   recording where supported, asciinema terminal recording) → Design (HyperFrames scene templates) →
-  Production (HyperFrames composition) → Audio &amp; Render (media-use audio engine for voiceover,
+  Production (HyperFrames composition) → Audio & Render (media-use audio engine for voiceover,
   music and SFX; reviewed captions; hyperframes render).
   Three content modes: promo (marketing), showcase (portfolio/demo), or tutorial (walkthrough/how-to). Triggers: "create video",
   "promo video", "showcase video", "tutorial video", "walkthrough video", "how-to video", "product video", "demo video",
   "launch video", "desktop app demo", "screen recording video", "record a screen region".
 user-invocable: true
 argument-hint: "[project-dir] [--mode new|continue|jump] [--phase 0|1|2|3|4|5]"
-allowed-tools: Bash(npm:*), Bash(npx:*), Bash(ffmpeg:*), Bash(python:*), Bash(python3:*), Bash(pip:*), Bash(whisper:*), Bash(curl:*), Bash(git:*), Bash(asciinema:*), Bash(agg:*), Bash(timeout:*), Bash(ffprobe:*), Bash(script:*), Read, Write, Edit, Glob, Grep, AskUserQuestion, Skill, mcp__chrome-devtools__navigate_page, mcp__chrome-devtools__take_screenshot, mcp__chrome-devtools__take_snapshot, mcp__chrome-devtools__click, mcp__chrome-devtools__wait_for, mcp__chrome-devtools__evaluate_script, mcp__chrome-devtools__emulate, mcp__chrome-devtools__list_pages, mcp__chrome-devtools__new_page, mcp__chrome-devtools__select_page, mcp__chrome-devtools__screencast_start, mcp__chrome-devtools__screencast_stop, mcp__chrome-devtools__resize_page
-version: "0.1.0"
-updated: "2026-07-26"
+allowed-tools: Bash(npm:*), Bash(npx:*), Bash(node:*), Bash(bash:*), Bash(ffmpeg:*), Bash(python:*), Bash(python3:*), Bash(pip:*), Bash(pip3:*), Bash(whisper:*), Bash(curl:*), Bash(git:*), Bash(asciinema:*), Bash(agg:*), Bash(timeout:*), Bash(ffprobe:*), Bash(script:*), Read, Write, Edit, Glob, Grep, AskUserQuestion, Skill, mcp__chrome-devtools__navigate_page, mcp__chrome-devtools__take_screenshot, mcp__chrome-devtools__take_snapshot, mcp__chrome-devtools__click, mcp__chrome-devtools__wait_for, mcp__chrome-devtools__evaluate_script, mcp__chrome-devtools__emulate, mcp__chrome-devtools__list_pages, mcp__chrome-devtools__new_page, mcp__chrome-devtools__select_page, mcp__chrome-devtools__screencast_start, mcp__chrome-devtools__screencast_stop, mcp__chrome-devtools__resize_page
+version: "0.2.0"
+updated: "2026-08-09"
 ---
 
 # hve-video-director — AI Video Production Pipeline
@@ -503,7 +503,7 @@ Phase 0: DISCOVERY ──── Phase 1: STORYTELLING ──── Phase 2: CAPT
   ├ Product context Q&A   ├ Emotional arc            ├ Screenshots + clips
   └ Goal/audience         └ Script outline           └ Bound capture artifacts
 
-Phase 3: DESIGN ──── Phase 4: PRODUCTION ──── Phase 5: AUDIO &amp; RENDER
+Phase 3: DESIGN ──── Phase 4: PRODUCTION ──── Phase 5: AUDIO & RENDER
   │                    │                        │
   ├ DESIGN.md          ├ HyperFrames root html  ├ media-use audio engine
   ├ Registry blocks    ├ Sub-comp wiring        ├ Reviewed captions
@@ -546,7 +546,7 @@ regenerated packet plus one concrete finding: **one retry per frame**, never "ma
 
 See [workflows/phase-4-production.md](workflows/phase-4-production.md)
 
-### Phase 5: Audio &amp; Render
+### Phase 5: Audio & Render
 **Audio generation is delegated to the `media-use` skill.** Its AUDIO_ENGINE produces narration,
 the music bed (BGM) and SFX from one request and returns the assets plus per-line metadata. The
 word timings in that metadata are **relative to each line's own audio**, so they are never the
