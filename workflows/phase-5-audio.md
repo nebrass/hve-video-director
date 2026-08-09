@@ -294,7 +294,7 @@ Orchestrator enforcement before render (tutorial mode) — do not advance until 
 3. Each caption group has a hard `tl.set(... {opacity:0, visibility:"hidden"}, group.end)` kill (the
    `CAPTIONS_AUTHORING` `[caption-lint]` self-check warns otherwise).
 
-There is no programmatic gate; a build-time rule would be upstream `hyperframes` lint work (§14).
+There is no programmatic gate — verified, `GATE_BLIND_SPOTS`; a build-time rule would be upstream `hyperframes` lint work (§14).
 
 `transcript.json` (or `voiceover.json`) stays the speech-timing source for every mode, but do not
 finalize delivery captions here: music and clip audio are not mixed yet, so any audio fingerprint

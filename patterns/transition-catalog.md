@@ -104,7 +104,9 @@ scene root as a clip:
   `index.html`. Timing attributes on a scene root declare a window nothing renders by
   (`DATA_ATTRIBUTES` explains why an element that is not a direct child of the composition root is
   never registered as a clip), so the scene reads as if it owned its own window while only the
-  loader's window is real — every gate stays green, and the two numbers drift apart the first time
+  loader's window is real — every gate stays green (verified, `GATE_BLIND_SPOTS`; note the
+  adjacent case behaves oppositely — timing attributes on a *direct child of the composition
+  root* without `class="clip"` are a lint **error**), and the two numbers drift apart the first time
   one of them changes.
 
 The single exception is the `<video>` inside a clip scene, which **does** carry its own

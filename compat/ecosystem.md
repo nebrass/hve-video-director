@@ -598,6 +598,41 @@ automated.
 - **Probe — manual.** Re-read the MCP's screencast tool at each bump for any change to frame
   emission or PTS behaviour; the normalize step is the mitigation and stays regardless.
 
+### `GATE_BLIND_SPOTS` — what `lint` and `check` verifiably do not catch
+
+- **Local text.** `patterns/visual-patterns.md` (the `tl.from()` stagger trap, the jitter DON'T,
+  the legibility check), `patterns/transition-catalog.md` (the shine-as-seam and scene-root-timing
+  notes), `workflows/phase-4-production.md` (Step 4.5 shine, Step 4.7 register, the hero-frame
+  check's rationale), `workflows/phase-5-audio.md` (the caption-kill rule),
+  `sub-agents/non-default-runtime-rider.md` (the module-script ban).
+- **Exit.** n/a — these are gaps in an upstream gate, not defects; several are things a gate
+  arguably should not check. Where one *should*, `hyperframes feedback` is the route (ADR-003).
+- **What.** This repo makes ~30 claims of the form "`check` does not flag it" or "every gate stays
+  green", and they justify DON'Ts and manual review steps. Verified against the pinned CLI on
+  2026-08-09, `lint` **and** `check` (browser pass), each defect diffed against a control that
+  differs only by the injected defect. All eight agree with the gates:
+  `tl.from()` + stagger (blind) · jitter/shake (blind) · one ease across a 0.05s duration band
+  (blind) · an element-scoped shine wired across a boundary (blind) · timing attributes on a
+  **scene root** (blind) · a caption group with no kill (blind) · a module script in a
+  sub-composition (**caught** — `runtime/error:page_error`, "Cannot use import statement outside a
+  module", exactly as the rider says) · and a control positive proving the harness detects at all.
+- **Why it matters.** This is the one claim class no other guard in the repo can reach. Everything
+  under `test/unit/` proves the repo is consistent *with itself*; a gate-blindness claim is about
+  an external tool's behaviour on a case nobody ran. The bare-`<video>` DON'T asserted "every gate
+  passes green" across seven agreeing files while `media_missing_data_start` was an **error** — no
+  parity test could have caught it, because the files agreed. A wrong claim here does not just
+  misinform: it either invents self-policing work the gate already does, or excuses skipping a
+  check that exists.
+- **Probe — automated, opt-in.** `python3 test/verify_gate_blindness.py --check`. Not in
+  `bash test/run.sh`: it needs the CLI and a browser, same reason as `CHECK_DEPRECATION_SIGNAL`.
+  Re-run at each pin bump — a gate that *gains* a rule turns one of these claims false, and the
+  failure mode is silent because the claim keeps reading plausibly.
+- **Adjacent fact, found while verifying and written nowhere else.** Timing attributes on a
+  **direct child of the composition root** without `class="clip"` *are* an error
+  (`timed_element_missing_clip_class`: "will be visible for the entire composition instead of only
+  during its scheduled time range"). Only the **scene-root** case is invisible. The two read alike
+  and behave oppositely.
+
 ### `SUBCOMP_ROOT_ATTRIBUTE_SELECTOR` — the scene templates' root styling survives scoping
 
 > Sweep note (2026-08-09): the pattern all seven skeletons use *does* trip

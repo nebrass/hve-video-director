@@ -590,7 +590,8 @@ python3 "$SKILL_DIR/scripts/motion_register.py"
 
 It reports when most of a scene's tweens share one ease across near-identical durations — the
 `same ease + same duration = same emotion` tell in `patterns/anti-slop.md`, which every mechanical
-gate passes green because none of them is looking for it. This is **not** a second `ANIMATION_MAP`
+gate passes green because none of them is looking for it — verified against the pinned CLI,
+browser pass included (`GATE_BLIND_SPOTS`). This is **not** a second `ANIMATION_MAP`
 and reports no pacing verdict (ADR-003 forbids a parallel validator); it answers a question that
 needs the frame's intent, which is why it lives here.
 

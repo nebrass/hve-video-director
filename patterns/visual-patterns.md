@@ -59,7 +59,7 @@ The naive workaround — a `tl.to(..., { opacity: 1, duration: 0.01 })` snap rig
    (`opacity: 0`), **re-hiding an element a sibling already revealed.**
 
 Visible symptom: staggered elements flash briefly, then vanish one by one as their own tween
-activates. The failure is silent — no console error, no lint warning, and `check` does not flag it.
+activates. The failure is silent — no console error, no lint warning, and `check` does not flag it (verified against the pinned CLI, browser pass included — `GATE_BLIND_SPOTS`).
 
 ```js
 // ✅ correct — works with stagger
@@ -289,7 +289,7 @@ non-final scene, and no `clipPath` seam. Transition duration comes from the conf
 
 ## DON'Ts (Critical)
 
-- **No jitter or shake** — reads as cheap. `check` will not catch it; self-police.
+- **No jitter or shake** — reads as cheap. `check` will not catch it (verified, `GATE_BLIND_SPOTS`); self-police.
 - **No full 360° rotations** — disorienting. Subtle `rotateY` ≤ 8°, `rotateX` ≤ 4° or `rotateZ` ≤ 4° only, and on
   mockups only.
 - **No `elastic` or `bounce` eases** — they read as toy-like in a product video. This narrows
