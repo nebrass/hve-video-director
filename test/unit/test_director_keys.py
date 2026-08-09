@@ -846,7 +846,11 @@ FRAME_KEY_TOKEN = re.compile(r"`([a-z][a-z0-9_]*):(?:\s[^`]*)?`")
 # Where a frame's OTHER vocabularies are defined. A frame block carries official
 # fields and capture bindings as well as director keys; read them from the
 # template's own tables so a new binding needs no edit here.
-TEMPLATE_KEY_SECTIONS = ("## Official keys", "## Capture and clip keys")
+TEMPLATE_KEY_SECTIONS = (
+    "## Official keys",
+    "## Local helper keys",   # this repo's own additions, e.g. `window`
+    "## Capture and clip keys",
+)
 
 
 def template_frame_keys():
@@ -863,6 +867,35 @@ def template_frame_keys():
             first = ROW_SPLIT.split(stripped.strip("|"))[0].strip()
             names |= {f"{n}:" for n in re.findall(r"`([a-z][a-z0-9_]*)`", first)}
     return names
+
+
+class TemplateVocabularySectionsAgree(unittest.TestCase):
+    """`keys-audit` and this suite must read the same sections of the template.
+
+    Both derive "what bullet names a frame may legally carry" from the template's own
+    tables, and they hold the list separately — a two-site duty, created the moment
+    `window` moved into its own section. Diverging is silent and asymmetric: if the
+    script's list loses a section, `keys-audit` reports every bullet from it as
+    undeclared on a real user's storyboard while this suite stays green.
+    """
+
+    def test_validate_brief_reads_the_same_sections(self):
+        source = read(ROOT / "scripts" / "validate_brief.py")
+        start = source.index("TEMPLATE_KEY_SECTIONS")
+        literal = source[start:source.index(")", start) + 1]
+        script_sections = tuple(re.findall(r'"(## [^"]+)"', literal))
+        self.assertEqual(
+            TEMPLATE_KEY_SECTIONS, script_sections,
+            "scripts/validate_brief.py and this suite disagree about which template "
+            "sections define a frame's legal bullet names. The script's list is the one "
+            "a user feels: a section missing there makes keys-audit report legitimate "
+            "bullets as undeclared.",
+        )
+
+    def test_every_named_section_exists_in_the_template(self):
+        template = read(TEMPLATE)
+        missing = [s for s in TEMPLATE_KEY_SECTIONS if s not in template]
+        self.assertEqual([], missing, f"template has no section(s): {missing}")
 
 
 class TheFencedSkeletonIsGuardedToo(unittest.TestCase):

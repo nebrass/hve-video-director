@@ -2062,7 +2062,11 @@ def load_key_contract() -> dict[str, dict[str, Any]]:
 
 
 TEMPLATE_PATH = SKILL_ROOT / "templates" / "storyboard.md"
-TEMPLATE_KEY_SECTIONS = ("## Official keys", "## Capture and clip keys")
+TEMPLATE_KEY_SECTIONS = (
+    "## Official keys",
+    "## Local helper keys",   # this repo's own additions, e.g. `window`
+    "## Capture and clip keys",
+)
 
 
 def load_frame_vocabulary() -> set[str]:

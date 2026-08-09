@@ -351,5 +351,41 @@ class ConcatListRobustnessTest(unittest.TestCase):
         self.assertIn("Impossible to open", str(ctx.exception))
 
 
+
+class AnchorWriteIsDurable(unittest.TestCase):
+    """The anchor is published, not just written.
+
+    `verify_script_unchanged` writes the script fingerprint that later assemblies are
+    checked against, so a torn write here is a freshness claim nobody can trust. It
+    already used tmp + fsync + rename; a review noticed it never fsynced the parent
+    directory, which is what makes the *rename* durable — while the sibling writer in
+    `verify_vo_sections.write_text_atomic` did. Two atomic writers in one repo, and the
+    weaker one guarded the claim.
+    """
+
+    def test_both_the_bytes_and_the_rename_are_fsynced(self):
+        G = load_module()
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            manifest = tmp / "anchor.json"
+            manifest.write_text(json.dumps({"sections": {"00": "abc"}}), encoding="utf-8")
+
+            seen = []
+            real = os.fsync
+            with mock.patch.object(G, "MANIFEST", manifest), \
+                 mock.patch.object(G, "sections", [("00", "hello there")]), \
+                 mock.patch.object(os, "fsync", lambda fd: (seen.append(fd), real(fd))[1]):
+                self.assertEqual([], G.verify_script_unchanged())
+
+            self.assertEqual(
+                2, len(seen),
+                "expected two fsyncs — the file's bytes and the parent directory that "
+                f"carries the rename; saw {len(seen)}",
+            )
+            self.assertIn("script_sha256", json.loads(manifest.read_text(encoding="utf-8")))
+            leftovers = [p.name for p in tmp.iterdir() if p.name.startswith(".anchor")]
+            self.assertEqual([], leftovers, f"temp file left behind: {leftovers}")
+
+
 if __name__ == "__main__":
     unittest.main()

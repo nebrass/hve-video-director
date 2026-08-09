@@ -180,10 +180,12 @@ def assemble_voiceover(section_files: list, output_path: str = "voiceover.mp3"):
             stderr = e.stderr or b""
             if isinstance(stderr, bytes):
                 stderr = stderr.decode("utf-8", "replace")
+            # `from e` keeps the command and returncode reachable while the message
+            # surfaces ffmpeg's own words, which is what a caller actually needs first.
             raise RuntimeError(
                 f"ffmpeg concat failed assembling {output_path}: "
                 f"{stderr.strip()[-400:]}"
-            )
+            ) from e
     finally:
         for p in [concat_list, *silence_paths]:
             if p:
@@ -299,6 +301,15 @@ def verify_script_unchanged():
                 handle.flush()
                 os.fsync(handle.fileno())
             os.replace(tmp, MANIFEST)
+            # Durability of the rename itself, not just of the bytes. The sibling
+            # writer in verify_vo_sections.py already does this; publishing the
+            # anchor any less safely would make the weaker of two atomic writers
+            # in the same repo the one guarding the freshness claim.
+            dir_fd = os.open(MANIFEST.parent, os.O_RDONLY)
+            try:
+                os.fsync(dir_fd)
+            finally:
+                os.close(dir_fd)
         except OSError:
             try:
                 tmp.unlink()

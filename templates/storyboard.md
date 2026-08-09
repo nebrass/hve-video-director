@@ -123,7 +123,6 @@ a guessed default.
 | `transition_speed` | `quick` (0.4s), `medium` (0.7s) or `slow` (1.2s) — from the confirmed `transition_speed`. The root composition owns the seam; this records what it should build |
 | `scene` | one-line contact-sheet caption — what a reviewer sees on the Studio board |
 | `voiceover` | the exact line to speak, one line, in quotes |
-| `window` | **local reading aid, not upstream's and not a source of truth** — the frame's start → end on the film's clock, so a reviewer can place a frame without adding durations in their head. `duration` is authoritative; where the two disagree the disagreement is worth reporting, because it usually means a hand-edit landed in one place only |
 | `poster` | seconds to seek for the tile poster, past the intro animation |
 
 `format`, `duration`, `message`, `arc` and `audience` are the official frontmatter keys.
@@ -140,6 +139,17 @@ a guessed default.
 capture-coverage gate. `emotional_journey` is the film's tone curve (Phase 1 Step 1.4a, read back
 from the Phase-0 answer in `context.md`); every frame's `tone` traces it, and Phase 5 reads it for
 the music brief. It is *not* `arc`, which is the narrative arc.
+
+## Local helper keys
+
+Not upstream's, and not part of the official contract — this repo's own additions to a frame
+block. They ride in the parser's `extra` like the director keys do. Kept out of § Official keys
+deliberately: a reader who cannot tell which half upstream owns cannot tell what a format change
+would break.
+
+| Key | Meaning |
+|---|---|
+| `window` | **a reading aid, never a source of truth** — the frame's start → end on the film's clock, so a reviewer can place a frame without adding durations in their head. `duration` is authoritative; where the two disagree the disagreement is worth reporting, because it usually means a hand-edit landed in one place only |
 
 ## Capture and clip keys
 

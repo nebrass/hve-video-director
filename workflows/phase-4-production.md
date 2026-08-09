@@ -583,8 +583,12 @@ A per-scene flag is re-dispatchable (Step 4.6). Skip this step for trivial edits
 different questions: a scene can be perfectly paced and still express one emotion nine times.
 
 ```bash
-# $SKILL_DIR: resolve it exactly as Step 4.5 resolves DOCTRINE_SKILL_DIR, or pass the
-# skill's path directly — this step reads scenes/ from the project's own directory.
+# $SKILL_DIR is THIS skill's install dir — not one of the companion-skill resolvers
+# above. Step 4.5's DOCTRINE_SKILL_DIR and Step 4.7's ANIM_SKILL_DIR resolve
+# `motion-doctrine` and `hyperframes-animation`; copying either here resolves the wrong
+# skill. Use the canonical `$SKILL_HOMES` bootstrap from `SKILL.md` § Runtime
+# Compatibility, or pass this skill's path directly. The project's own scenes/ is read
+# from the current directory.
 python3 "$SKILL_DIR/scripts/motion_register.py"
 ```
 
