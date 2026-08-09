@@ -146,9 +146,36 @@ class CaptureScreenTestCase(unittest.TestCase):
                 ["wf-recorder", "--file", "raw.mkv"], "wayland", 2)
 
         process.send_signal.assert_called_once_with(signal.SIGINT)
-        self.assertEqual(process.communicate.call_args_list[0], mock.call(timeout=2))
+        self.assertEqual(
+            process.communicate.call_args_list[0],
+            mock.call(timeout=2 + self.capture_screen.WAYLAND_STARTUP_MARGIN_S))
         self.assertEqual(process.communicate.call_args_list[1], mock.call(timeout=10))
         self.assertIs(popen.call_args.kwargs["shell"], False)
+
+    def test_wayland_recording_window_covers_compositor_startup(self):
+        """The raw capture must be LONGER than requested, never shorter.
+
+        wf-recorder has no duration flag; the communicate() timeout is the
+        recording window, and it starts at Popen — before the compositor
+        stream opens. A window equal to the requested duration yields a raw
+        clip that is duration − startup long; the downstream trim cannot
+        lengthen it, and the ±1-frame validation then refuses every Wayland
+        capture. Startup latency must come out of a margin, not the media.
+        """
+        process = mock.Mock()
+        process.communicate.side_effect = [
+            subprocess.TimeoutExpired(["wf-recorder"], 2),
+            ("", ""),
+        ]
+        process.returncode = 0
+        with mock.patch.object(self.capture_screen.subprocess, "Popen",
+                               return_value=process):
+            self.capture_screen.execute_capture(
+                ["wf-recorder", "--file", "raw.mkv"], "wayland", 2)
+        window = process.communicate.call_args_list[0].kwargs["timeout"]
+        self.assertGreaterEqual(window - 2, 1.0,
+                                "the recording window must exceed the request "
+                                "by a real startup margin")
 
     def test_wayland_terminate_success_is_bounded_and_actionable(self):
         process = mock.Mock()
@@ -170,7 +197,8 @@ class CaptureScreenTestCase(unittest.TestCase):
         process.kill.assert_not_called()
         self.assertEqual(
             process.communicate.call_args_list,
-            [mock.call(timeout=2), mock.call(timeout=10), mock.call(timeout=10)])
+            [mock.call(timeout=2 + self.capture_screen.WAYLAND_STARTUP_MARGIN_S),
+             mock.call(timeout=10), mock.call(timeout=10)])
 
     def test_wayland_kill_fallback_is_bounded_and_actionable(self):
         process = mock.Mock()
@@ -193,8 +221,8 @@ class CaptureScreenTestCase(unittest.TestCase):
         process.kill.assert_called_once_with()
         self.assertEqual(
             process.communicate.call_args_list,
-            [mock.call(timeout=2), mock.call(timeout=10),
-             mock.call(timeout=10), mock.call(timeout=10)])
+            [mock.call(timeout=2 + self.capture_screen.WAYLAND_STARTUP_MARGIN_S),
+             mock.call(timeout=10), mock.call(timeout=10), mock.call(timeout=10)])
 
     def test_wsl_is_explicit_nonzero_handoff(self):
         with self.assertRaisesRegex(
