@@ -48,11 +48,17 @@ Notion uses *whisper-weight* borders and barely-there shadows. Multi-layer shado
 ```css
 box-shadow:
   0 1px 0 rgba(0,0,0,0.02),
-  0 2px 6px rgba(0,0,0,0.04);
+  1px 2px 6px rgba(0,0,0,0.04);
 border: 1px solid rgba(0,0,0,0.1);
 ```
 
 Border-radius: 4–8px for cards. **Pill badges at 9999px** with tinted blue backgrounds for status indicators.
+
+**Shadow offsets follow the film's key light, not this page.** The x-offsets above assume the
+house key at 32% 14% (upper-left). Blur, alpha and colour are this brand's and never move; only
+the offset answers to the light, and it flips sign if a film declares its key on the other side.
+A stack with every casting layer at x=0 reads as no light at all — it is a web-card shadow, and
+on video it disappears.
 
 ## 5. Motion
 

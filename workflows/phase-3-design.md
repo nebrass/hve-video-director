@@ -271,7 +271,7 @@ a **non-timed wrapper**; all motion is on the wrapper, never on the image.
         align-items:center;gap:40px;width:100%}
       [data-composition-id="scene-00-establishing"] .shot-browser{width:72%;max-width:1480px;
         border-radius:14px;overflow:hidden;background:#fff;visibility:hidden;opacity:0;     /* revealed via autoAlpha */
-        box-shadow:0 0 0 1px rgba(0,0,0,.06),0 2px 6px rgba(0,0,0,.05),0 40px 90px rgba(0,0,0,.18)}
+        box-shadow:0 0 0 1px rgba(0,0,0,.06),3px 2px 6px rgba(0,0,0,.05),9px 40px 90px rgba(0,0,0,.18),inset 0 1px 0 rgba(255,255,255,.5)}
       [data-composition-id="scene-00-establishing"] .shot-bar{display:flex;align-items:center;gap:9px;
         padding:14px 18px;background:#f3f4f6;border-bottom:1px solid rgba(0,0,0,.06)}
       [data-composition-id="scene-00-establishing"] .dot{width:13px;height:13px;border-radius:50%}
@@ -416,8 +416,8 @@ resolve a citation itself has been handed the wrong packet.
 |---|---|---|
 | 1 | that ONE frame's storyboard block, **verbatim**, including every director key | the `storyboard --json` payload read at the top of this phase — official fields plus the preserved `extra` bullets, in the frame's own order |
 | 2 | the project's design spec | `DESIGN.md` from Step 3.1, inlined whole |
-| 3 | the **bodies** of the upstream recipes the frame cites | read from the installed skill *at this moment* and pasted in: the `blueprint:` id resolved through `BLUEPRINT_INDEX`, each `motion:` name through `RULES_INDEX`, plus the adapter contract when `runtime:` names a non-default runtime (the Contract column of `reasoning/capability-catalog.md` says which one) |
-| 4 | the scene-builder role | `FRAME_WORKER_CORE`, read from the installed skill, followed by this skill's `sub-agents/scene-builder-delta.md` — core first, delta second, read as one role |
+| 3 | the **bodies** of the upstream recipes the frame cites | read from the installed skill *at this moment* and pasted in: the `blueprint:` id resolved through `BLUEPRINT_INDEX`, each `motion:` name through `RULES_INDEX`, plus the adapter contract when `runtime:` names a non-default runtime (the Contract column of `reasoning/capability-catalog.md` says which one), followed by this skill's `sub-agents/non-default-runtime-rider.md` — labelled as a local narrowing constraint, so a reader can tell which half upstream owns |
+| 4 | the scene-builder role | `FRAME_WORKER_CORE`, read from the installed skill, followed by this skill's `sub-agents/scene-builder-delta.md` — core first, delta second, read as one role. **Once per worker, not once per packet** — see Step 3.4 |
 | 5 | canvas size, the captions flag, and the exact paths of any bound capture artifacts | the Phase-1 canvas dimensions; the frame's `captions:` bullet; the frame's `screenshot:` / `clip:` bullets, as project-relative paths |
 
 Plus the starting point Step 3.2 chose for that archetype — the copy-ready `templates/scene-*.html`
@@ -445,6 +445,15 @@ build input. Only the dispatch differs.
 |---|---|
 | up to ~6 short frames | **Build them yourself, in sequence**, reading each frame's packet as you start its scene. Faster than fanning out, and every rule below still binds. |
 | more than ~6 | **Fan out**: give each worker **2–3 frames**, never one, and start **all** workers in a single wave. |
+
+**Send the role once per worker, not once per packet.** Packet item 4 is the same ~31 KB for every
+frame, so a worker holding three packets receives three identical copies of it — on an eight-frame
+film that is eight copies where three would do, and item 4 is the largest single share of all
+packet bytes. Give a worker the role once, then its 2–3 frame packets; each packet still *is* the
+five items, and item 4 is satisfied by the role that worker already holds. Nothing else dedupes:
+items 1, 3 and 5 differ per frame by definition, and item 2 is the same `DESIGN.md` but is small.
+Building inline pays it once for the whole phase, which is why this only matters past the
+fan-out threshold.
 
 When you fan out, hold the contract exactly:
 

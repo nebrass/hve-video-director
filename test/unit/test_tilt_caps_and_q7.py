@@ -29,6 +29,10 @@ ROOT = Path(__file__).resolve().parents[2]
 # of a render that happened; neither tracks a later decision.
 CAP_SITES = [
     ROOT / "SKILL.md",          # the § DON'Ts section both mirrors call authoritative
+    # The only one a BUILDER reads. The other five are orchestrator-facing: grammar/ is
+    # barred from packets by ADR-004, so without this the caps reached nobody who writes
+    # a transform. It was also the sixth unguarded site, added an hour after the test.
+    ROOT / "sub-agents" / "scene-builder-delta.md",
     ROOT / "grammar" / "camera.md",
     ROOT / "patterns" / "visual-patterns.md",
     ROOT / "CLAUDE.md",

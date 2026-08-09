@@ -62,104 +62,77 @@ index and no recipes directory in your dispatch. A cited name whose body is miss
 packet is a **build error you report**, never a motion you reconstruct from the spelling of its
 name. Never invent a motion name, and never rename one.
 
-## `runtime:` — the non-default runtimes
+## Running inside a host document — two rules for every scene
 
-An absent `runtime:` means GSAP; build normally. When it names `three`, `html-in-canvas`, or any
-other non-default runtime, your packet carries that runtime's **adapter excerpt** — follow it
-exactly, including its registration and its seek contract.
+Your scene is cloned out of its `<template>` and re-executed inside the host document. Two
+consequences apply whatever the runtime, and both fail *only* once the film is assembled — your
+scene will look perfect on its own:
 
-One exception overrides the excerpt, because the excerpt is written for a standalone composition
-and you are building a sub-composition: **never ship `<script type="module">`.** Your script is
-cloned out of its `<template>` and re-executed in the host document, where a bare `import` throws
-and fails the `check` gate — and you cannot see it, because it only appears once the film is
-assembled. The root imports the module and publishes it; you consume it from a **classic** script:
+- **Never ship `<script type="module">`.** A bare `import` in re-executed script text throws and
+  fails the `check` gate.
+- **Your script runs under injected scoped Proxies** for `window`, `document` and `gsap` — that is
+  how the runtime publishes your timeline under both the authored and mount ids. Reading properties
+  through them is fine, but *calling a native method on the window Proxy throws* `Illegal
+  invocation`. Use `globalThis` for native window calls such as `addEventListener`, and keep
+  `window` for property access.
 
-    (window.__threeReady = window.__threeReady || []).push(function (THREE) { /* build here */ });
-
-Split what defers from what does not: the paused GSAP timeline still registers **synchronously** at
-the top level — the runtime's timeline gate depends on it — and only the runtime-specific build goes
-inside the callback. If your packet names a non-default runtime and does not tell you which global
-publishes it, stop and report that rather than importing one yourself.
-
-Two more consequences of running inside a host document, both of which fail *only* once the film is
-assembled — your scene will look perfect on its own:
-
-- **`hf-seek` carries the ROOT clock, not your local time**, and so does `window.__hfThreeTime`.
-  A scene mounted at 36s receives 36…44, not 0…8. Subtract your mount's `data-start` before using
-  it. Skip this and every root time past your duration clamps to your last frame: the scene renders
-  **frozen** for its whole beat — camera still, nothing travelling — while lint, runtime, motion and
-  contrast all pass, because a static WebGL plate is a perfectly valid frame. Read the offset from
-  the DOM rather than hard-coding it, so re-timing the scene in `index.html` needs no edit here, and
-  expect the **compiled** shape to differ from what you authored (the compiler rewrites the mount's
-  attributes and relabels your root) — walk ancestors for the mount carrying your composition id,
-  and fall back to 0 so the scene still works standalone.
-- **A classic sub-composition script runs under injected scoped Proxies** for `window`, `document`
-  and `gsap` — that is how the runtime publishes your timeline under both the authored and mount
-  ids. Reading properties through them is fine, but *calling a native method on the window Proxy
-  throws* `Illegal invocation`. Use `globalThis` for native window calls such as
-  `addEventListener`, and keep `window` for property access. A module script bypasses that wrapper,
-  so this appears the moment you convert to classic — which the rule above requires you to do.
-
-Whatever the runtime, **GSAP stays the timeline owner**: every other runtime hangs off the one
-paused timeline and renders from its seek, never from its own loop.
+An absent `runtime:` means GSAP; build normally. When `runtime:` names `three`, `html-in-canvas` or
+another non-default runtime, your packet carries that runtime's adapter excerpt **and its rider** —
+follow both; they cover what else changes inside a host document.
 
 ## Staging — the frame has to be lit, and it has to keep moving
 
-Everything below is **execution**, not direction: it never changes what the frame says, only
-whether it reads as a photographed thing or as shapes on a background. The split is the one you
-already apply to recipes — *direction is structural, values are the brand's*. Take offsets, origins
-and layer counts from here; take every colour, blur radius, alpha and ease from `DESIGN.md`.
+Execution, not direction: none of this changes what the frame says, only whether it reads as a
+photographed thing or as shapes on a background.
 
-**Declare one light direction for the scene, and make everything obey it.** Pick a position — say
-32% 22%, upper-left — and then:
+**Declare one light direction and make everything obey it.** Pick a position — say 32% 14%,
+upper-left — and then:
 
 - the ground/background gradient's origin sits *there*, not at `50% 50%`;
-- every raised surface's shadow carries a **non-zero x-offset** whose sign points away from it;
+- at least one **casting** layer of every raised surface's shadow carries a non-zero x-offset whose
+  sign points away from the light — a hairline ring (`0 0 0 1px`) and the graze below cast nothing
+  and are exempt;
 - the edge **facing** the light gets a graze: `inset 0 1px 0 rgba(255,255,255,0.08–0.10)`.
 
 A centred gradient plus a straight-down shadow is the signature of no light at all: the frame has a
-drop shadow instead of a direction. Nothing here overrides the brand — a shadow's blur, alpha and
-colour stay exactly what `DESIGN.md` says; only its *offset* answers to the light.
+drop shadow instead of a direction. Only the *offset* answers to the light — blur, alpha and colour
+stay exactly what `DESIGN.md` says, including where `DESIGN.md`'s own example writes its offsets as
+zero.
 
 **Give a raised surface three shadow layers, each with a different job**: contact (tight, dark,
-grounds the object), form (mid, describes its mass), separation (wide, very low alpha, lifts it off
-the background). Two vertical layers at similar alpha read as one blur.
+grounds it), form (mid, its mass), separation (wide, very low alpha, lifts it off the background).
+Two vertical layers at similar alpha read as one blur.
 
-**Point a scale at something — but only when the scale is yours.** A scale about the default
-`50% 50%` enlarges the picture without changing what is in front of what, so when *you* author the
-tween — a push-in on a `.clip-frame`, a `.shot-browser`, a card — name a `transformOrigin` aimed at
-the thing the eye should land on, and write `50% 50%` deliberately when the frame really is
-centre-weighted. **When a cited recipe owns the camera, its constraints win**: several require
-`transform-origin: 50% 50%` on the camera wrapper because their off-centre targeting is a
-counter-translate that the centred origin is derived from. Follow the recipe body in your packet
-and do not "improve" its origin — that is the structural-constraint rule above, not an exception
-to it.
+**Point a scale at something — when the scale is yours.** A scale about the default `50% 50%`
+enlarges the picture without changing what is in front of what, so on a push-in *you* author, name
+a `transformOrigin` aimed at what the eye should land on — and write `50% 50%` deliberately when
+the frame really is centre-weighted. **When a cited recipe owns the camera its origin wins**:
+follow the recipe body in your packet and do not "improve" it.
 
-**Something must still be moving when the scene ends.** You author no exit — the seam owns it — but
-that is not licence to land everything early and hold. A frame frozen for its last second is a
-still image being pushed through the cut, and the seam gate cannot see it: it measures the wrapper,
-which is moving, not your content, which is not. Carry one slow element across the whole duration —
-a ground drifting a few percent, a vignette deepening, a world wrapper travelling 12–20px on
-`power1.inOut`. One tween, invisible as an event, and the beat stops feeling like a slide.
+**Something must still be moving when the scene ends.** You author no exit — the seam owns it — and
+the core contract's pacing law already says not to front-load. The part it cannot tell you: the
+seam gate cannot see a frozen tail, because it measures the wrapper, which is moving, not your
+content, which is not. Carry one slow element right across the duration — a ground drifting a few
+percent, a vignette deepening, a world wrapper travelling 12–20px on `power1.inOut`. One tween,
+invisible as an event.
 
 **Static atmosphere is not motion and costs nothing at render.** A grain plate at 3–5% on
-`mix-blend-mode: overlay`, a vignette plate, and a resting `filter: blur(2–4px)` on a background
-plane where the scene has more than one depth. Prefer the `grain-overlay` registry block. Never put
-a `filter` on a `preserve-3d` wrapper — it collapses `translateZ`.
+`mix-blend-mode: overlay`, a vignette plate, a resting `filter: blur(2–4px)` on a background plane
+where the scene has more than one depth. Prefer the `grain-overlay` registry block. Never put a
+`filter` on a `preserve-3d` wrapper — it collapses `translateZ`.
 
-None of this authorises decoration. A pulse, a shimmer, a drifting particle field, or any loop that
-fills silence stays banned: a scene with nothing left to do is a planning problem, and the fix is
-the frame's content.
+None of that authorises decoration: a pulse, a shimmer, a drifting particle field, any loop that
+fills silence — each stays banned. A scene with nothing left to do is a planning problem, and the
+fix is the frame's content.
 
 **Mockup tilt is capped on every axis**: `rotateY` ≤ 8°, `rotateX` ≤ 4°, `rotateZ` ≤ 4°, and no
-360° scene spin. Yaw takes the widest angle because it turns a card the way a product is presented;
-pitch foreshortens type vertically and costs legibility where a screenshot's own words are; roll
-reads as a mistake before it reads as style. A brand may narrow any of these — nothing widens them.
+360° scene spin. Yaw is widest because it turns a card the way a product is presented; pitch
+foreshortens type where a screenshot's own words are; roll reads as a mistake before it reads as
+style. A brand may narrow any of these — nothing widens them.
 
-**Different kinds of event get different curves.** The brand picks the *family* — `DESIGN.md` wins
-over any recipe's ease, and this never overrides it. Inside that family, an arrival, an emphasis
-and a settle are three different events and must not share one constant: a scene that assigns one
-`EASE` variable to nine entrances at nine near-identical durations has one emotion, which is no
+**Different kinds of event get different curves.** `DESIGN.md` picks the family and this never
+overrides it; inside that family an arrival, an emphasis and a settle must not share one constant.
+One `EASE` across nine entrances at nine near-identical durations is one emotion, which is no
 emotion. Vary the register with the event, not with the element.
 
 ## Real captures are sacred

@@ -46,10 +46,16 @@ Video sizes:
 Apple uses depth *sparingly* — contrast and surface separation do the layering. When you need a card shadow:
 
 ```css
-box-shadow: 0 20px 50px rgba(0,0,0,0.18);
+box-shadow: 5px 20px 50px rgba(0,0,0,0.18);
 ```
 
 Border-radius: pill (`980px` / `9999px`) for action buttons, capsule (`18–22px`) for cards.
+
+**Shadow offsets follow the film's key light, not this page.** The x-offsets above assume the
+house key at 32% 14% (upper-left). Blur, alpha and colour are this brand's and never move; only
+the offset answers to the light, and it flips sign if a film declares its key on the other side.
+A stack with every casting layer at x=0 reads as no light at all — it is a web-card shadow, and
+on video it disappears.
 
 ## 5. Motion
 

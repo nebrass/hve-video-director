@@ -28,6 +28,20 @@ ROOT = Path(__file__).resolve().parents[2]
 TEMPLATES = sorted((ROOT / "templates").glob("scene-*.html"))
 DELTA = ROOT / "sub-agents" / "scene-builder-delta.md"
 
+# Every surface a builder can copy a shadow from. The templates were only ever a third
+# of it: two archetypes (title card, CTA) have no template file and copy from a fenced
+# skeleton in the workflow, and `DESIGN.md` — packet item 2, inlined whole — outranks
+# both. All ten presets shipped an all-zero-x casting stack, which is why the reference
+# build had one: the builders were obedient, not sloppy.
+SHADOW_SURFACES = (
+    TEMPLATES
+    + [ROOT / "workflows" / "phase-3-design.md"]
+    + sorted((ROOT / "design-systems").glob("*/DESIGN.md"))
+)
+
+# A line that shows a shadow in order to forbid it.
+NEGATIVE_EXAMPLE = re.compile(r"\bavoid\b|\bundermines\b|\bnever\b|\bdo not\b", re.I)
+
 # A ground gradient with no horizontal direction. `at 50% <y>` is the common tell, and
 # `at center` is the same defect spelled idiomatically — an adversarial review found the
 # second form passing a check written only for the first.
@@ -101,6 +115,27 @@ class StagingContractTests(unittest.TestCase):
             [], sorted(set(centred)),
             "a skeleton grounds on a centred radial — combined with a straight-down shadow "
             "that is the signature of an unlit frame:\n  " + "\n  ".join(sorted(set(centred))),
+        )
+
+    def test_every_authored_surface_gives_its_shadows_a_direction(self):
+        """Beyond the templates: the workflow's own fenced skeletons and all ten
+        design-system presets. `DESIGN.md` is the one that actually decided the
+        measured defect — it is inlined whole into every packet and outranks a
+        template, so a rule in the role could narrow its offsets but nothing could
+        make the preset stop demonstrating a flat stack."""
+        flat = []
+        for path in SHADOW_SURFACES:
+            body = strip_comments(read(path))
+            for block in SHADOW_BLOCK.findall(body):
+                if NEGATIVE_EXAMPLE.search(block):
+                    continue          # a shadow shown in order to forbid it
+                layers = elevation_layers(block)
+                if layers and all(x == 0 for x, _, _ in layers):
+                    flat.append(f"{rel(path)}: {' '.join(block.split())[:70]}…")
+        self.assertEqual(
+            [], flat,
+            "an authored surface demonstrates a shadow with no direction — a builder "
+            "copying it produces the defect the role forbids:\n  " + "\n  ".join(flat),
         )
 
     def test_every_elevation_shadow_declares_a_direction(self):

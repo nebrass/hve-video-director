@@ -44,12 +44,18 @@ Multi-layer blue-tinted shadows for cards / browser mockups:
 
 ```css
 box-shadow:
-  0 7px 14px rgba(50,50,93,0.10),
-  0 3px 6px  rgba(0,0,0,0.08),
-  0 12px 36px rgba(50,50,93,0.15);
+  2px 7px 14px rgba(50,50,93,0.10),
+  1px 3px 6px  rgba(0,0,0,0.08),
+  3px 12px 36px rgba(50,50,93,0.15);
 ```
 
 Border-radius: **4–8px**. Nothing pill-shaped, nothing aggressively rounded.
+
+**Shadow offsets follow the film's key light, not this page.** The x-offsets above assume the
+house key at 32% 14% (upper-left). Blur, alpha and colour are this brand's and never move; only
+the offset answers to the light, and it flips sign if a film declares its key on the other side.
+A stack with every casting layer at x=0 reads as no light at all — it is a web-card shadow, and
+on video it disappears.
 
 ## 5. Motion (video-critical)
 

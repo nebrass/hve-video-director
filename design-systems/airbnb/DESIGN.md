@@ -47,12 +47,18 @@ Soft, rounded, generous. Cards float on subtle shadow:
 
 ```css
 box-shadow:
-  0 6px 16px rgba(0,0,0,0.12),
-  0 2px 4px rgba(0,0,0,0.06);
+  2px 6px 16px rgba(0,0,0,0.12),
+  1px 2px 4px rgba(0,0,0,0.06);
 border-radius: 16px;
 ```
 
 Photographic content uses **14–20px corner rounding edge-to-edge**. Pill shapes (`9999px`) on category tabs and CTAs.
+
+**Shadow offsets follow the film's key light, not this page.** The x-offsets above assume the
+house key at 32% 14% (upper-left). Blur, alpha and colour are this brand's and never move; only
+the offset answers to the light, and it flips sign if a film declares its key on the other side.
+A stack with every casting layer at x=0 reads as no light at all — it is a web-card shadow, and
+on video it disappears.
 
 ## 5. Motion
 

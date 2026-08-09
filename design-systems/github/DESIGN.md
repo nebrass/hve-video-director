@@ -52,10 +52,16 @@ Hairline borders, almost no shadow:
 border: 1px solid #d0d7de;
 border-radius: 6px;
 /* shadow: optional, very light */
-box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+box-shadow: 1px 1px 3px rgba(0,0,0,0.04);
 ```
 
 Pill-shaped status badges with strong colour semantics (Primer blue / merge green / danger red).
+
+**Shadow offsets follow the film's key light, not this page.** The x-offsets above assume the
+house key at 32% 14% (upper-left). Blur, alpha and colour are this brand's and never move; only
+the offset answers to the light, and it flips sign if a film declares its key on the other side.
+A stack with every casting layer at x=0 reads as no light at all — it is a web-card shadow, and
+on video it disappears.
 
 ## 5. Motion
 

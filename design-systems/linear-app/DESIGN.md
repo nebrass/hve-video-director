@@ -48,10 +48,16 @@ Multi-layered shadows with inset variants for depth on dark surfaces:
 box-shadow:
   inset 0 1px 0 rgba(255,255,255,0.04),
   0 1px 0 rgba(0,0,0,0.6),
-  0 10px 30px rgba(0,0,0,0.4);
+  3px 10px 30px rgba(0,0,0,0.4);
 ```
 
 Borders are barely-there: `1px solid rgba(255,255,255,0.05)`.
+
+**Shadow offsets follow the film's key light, not this page.** The x-offsets above assume the
+house key at 32% 14% (upper-left). Blur, alpha and colour are this brand's and never move; only
+the offset answers to the light, and it flips sign if a film declares its key on the other side.
+A stack with every casting layer at x=0 reads as no light at all — it is a web-card shadow, and
+on video it disappears.
 
 ## 5. Motion
 

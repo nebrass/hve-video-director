@@ -48,11 +48,17 @@ Sophisticated multi-layer shadows — ring border + soft diffused + inset highli
 box-shadow:
   inset 0 1px 0 rgba(255,255,255,0.6),     /* inset highlight */
   0 0 0 1px rgba(34,42,53,0.10),           /* ring border */
-  0 4px 12px rgba(0,0,0,0.06),             /* soft elevation */
-  0 12px 32px rgba(0,0,0,0.08);            /* ambient depth */
+  1px 4px 12px rgba(0,0,0,0.06),             /* soft elevation */
+  3px 12px 32px rgba(0,0,0,0.08);            /* ambient depth */
 ```
 
 Border-radius scale: 2px to 9999px (pill). Cards typically 8–12px; buttons pill.
+
+**Shadow offsets follow the film's key light, not this page.** The x-offsets above assume the
+house key at 32% 14% (upper-left). Blur, alpha and colour are this brand's and never move; only
+the offset answers to the light, and it flips sign if a film declares its key on the other side.
+A stack with every casting layer at x=0 reads as no light at all — it is a web-card shadow, and
+on video it disappears.
 
 ## 5. Motion
 

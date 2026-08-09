@@ -49,11 +49,17 @@ Modular grid blocks ("bento boxes") with rounded corners and a subtle drop:
 border-radius: 20px;
 background: #ffffff;     /* card on cream canvas */
 box-shadow:
-  0 2px 4px rgba(0,0,0,0.04),
-  0 8px 24px rgba(0,0,0,0.06);
+  1px 2px 4px rgba(0,0,0,0.04),
+  2px 8px 24px rgba(0,0,0,0.06);
 ```
 
 The grid-of-cards aesthetic is the brand's structural signature. Use it for feature reveals — multiple small cards entering with stagger.
+
+**Shadow offsets follow the film's key light, not this page.** The x-offsets above assume the
+house key at 32% 14% (upper-left). Blur, alpha and colour are this brand's and never move; only
+the offset answers to the light, and it flips sign if a film declares its key on the other side.
+A stack with every casting layer at x=0 reads as no light at all — it is a web-card shadow, and
+on video it disappears.
 
 ## 5. Motion (from upstream § 7)
 
