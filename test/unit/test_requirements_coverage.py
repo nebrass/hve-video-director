@@ -28,9 +28,12 @@ ROOT = Path(__file__).resolve().parents[2]
 SCRIPTS = ROOT / "scripts"
 CHECKER = SCRIPTS / "check_requirements.sh"
 
-# Read from os.environ in any of the shapes the helpers use.
+# Read from os.environ in any of the shapes the helpers use — including
+# `os.getenv`, the idiomatic spelling nothing in scripts/ uses *yet*.
 ENV_READ = re.compile(
-    r"environ\.get\(\s*[\"']([A-Z][A-Z0-9_]{3,})[\"']|environ\[\s*[\"']([A-Z][A-Z0-9_]{3,})[\"']"
+    r"environ\.get\(\s*[\"']([A-Z][A-Z0-9_]{3,})[\"']"
+    r"|environ\[\s*[\"']([A-Z][A-Z0-9_]{3,})[\"']"
+    r"|getenv\(\s*[\"']([A-Z][A-Z0-9_]{3,})[\"']"
 )
 
 # Variables a script reads that are NOT the user's to provide, so the checker
@@ -44,10 +47,25 @@ class CredentialCoverage(unittest.TestCase):
         found = {}
         for script in sorted(SCRIPTS.glob("*.py")):
             text = script.read_text(encoding="utf-8")
-            for first, second in ENV_READ.findall(text):
-                name = first or second
+            for groups in ENV_READ.findall(text):
+                name = next(g for g in groups if g)
                 found.setdefault(name, set()).add(script.name)
         return found
+
+    def test_the_scanner_catches_every_env_read_spelling(self):
+        """Guard the guard: `os.getenv` is the idiomatic spelling a future
+        credential is most likely to use, and a spelling the scanner misses is
+        a credential the checker never probes — the exact drift class this
+        module exists to stop (mutation-verified before this test existed)."""
+        snippet = (
+            'a = os.environ.get("VAR_ALPHA")\n'
+            'b = os.environ["VAR_BRAVO"]\n'
+            'c = os.getenv("VAR_CHARLIE", "fallback")\n'
+        )
+        names = set()
+        for groups in ENV_READ.findall(snippet):
+            names.update(g for g in groups if g)
+        self.assertEqual(names, {"VAR_ALPHA", "VAR_BRAVO", "VAR_CHARLIE"})
 
     def test_every_env_var_a_script_reads_is_probed_by_the_checker(self):
         checker = CHECKER.read_text(encoding="utf-8")
