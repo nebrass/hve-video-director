@@ -145,12 +145,28 @@ def cmd_prepare(project_dir: Path, ids: list[str], as_json: bool) -> int:
                 path.unlink()
                 removed.append(str(path.relative_to(project_dir)))
     state_dir(project_dir).mkdir(parents=True, exist_ok=True)
+    pending_path = state_dir(project_dir) / PENDING_NAME
+    # A subset prepare during a retry round must EXTEND the round, not restart
+    # it: dropping a previously-cleared id from the marker erases the
+    # absence-proof behind its already-good take, and on a first round (no
+    # prior manifest to carry it forward) seal then refuses exactly the
+    # sections that synthesized correctly. `seal` unlinks the marker, which is
+    # what ends the round.
+    existing = {}
+    if pending_path.is_file():
+        try:
+            existing = json.loads(pending_path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            existing = {}  # corrupt marker: its ids lose their proof; seal refuses them
     pending = {
         "schema_version": SCHEMA_VERSION,
-        "ids": target,
-        "request_sha256": {i: sha256_text(requested[i]) for i in target},
+        "ids": sorted(set(existing.get("ids", [])) | set(target)),
+        "request_sha256": {
+            **existing.get("request_sha256", {}),
+            **{i: sha256_text(requested[i]) for i in target},
+        },
     }
-    (state_dir(project_dir) / PENDING_NAME).write_text(
+    pending_path.write_text(
         json.dumps(pending, indent=2, sort_keys=True) + "\n", encoding="utf-8"
     )
     payload = {

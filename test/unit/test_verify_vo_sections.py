@@ -116,6 +116,44 @@ class CheckFindsTheGap(unittest.TestCase):
             self.assertEqual(VV.main(["--project-dir", str(project), "check"]), 0)
 
 
+class RetryRoundKeepsAbsenceProof(unittest.TestCase):
+    """A subset re-prepare must extend the round, not restart it.
+
+    The documented retry flow is prepare → engine (partial) → check →
+    prepare <failed ids> → engine → seal. Overwriting the pending marker on
+    the second prepare erases the first round's absence-proof, and seal then
+    refuses exactly the sections that synthesized correctly — with
+    "prepare with no ids and synthesize again" (re-billing every line, the
+    thing check's own advice forbids) as the only escape.
+    """
+
+    def test_seal_succeeds_after_a_subset_reprepare(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            project = make_project(tmp)
+            self.assertEqual(VV.main(["--project-dir", str(project), "prepare"]), 0)
+            write_section(project, "00")          # 00 came back, 01 failed
+            self.assertEqual(VV.main(["--project-dir", str(project), "check"]), 1)
+            self.assertEqual(
+                VV.main(["--project-dir", str(project), "prepare", "01"]), 0
+            )
+            write_section(project, "01")          # retry succeeded
+            self.assertEqual(VV.main(["--project-dir", str(project), "seal"]), 0)
+            manifest = json.loads((project / ".hve" / "vo-sections.json").read_text())
+            self.assertEqual(sorted(manifest["sections"]), ["00", "01"])
+
+    def test_subset_reprepare_unions_the_pending_marker(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            project = make_project(tmp)
+            VV.main(["--project-dir", str(project), "prepare"])
+            write_section(project, "00")
+            VV.main(["--project-dir", str(project), "prepare", "01"])
+            pending = json.loads(
+                (project / ".hve" / "vo-sections.pending.json").read_text()
+            )
+            self.assertEqual(pending["ids"], ["00", "01"])
+            self.assertEqual(sorted(pending["request_sha256"]), ["00", "01"])
+
+
 class SealBindsBytes(unittest.TestCase):
     def test_seal_without_prepare_is_refused(self):
         """Sealing files that were never cleared would certify stale bytes as fresh."""
