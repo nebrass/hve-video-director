@@ -1974,6 +1974,226 @@ def command_vo_budget(project_dir: Path, as_json: bool) -> int:
     return 1 if payload["over_count"] else 0
 
 
+# --------------------------------------------------------------------------
+# keys-audit — a structural audit of the director keys a storyboard carries.
+#
+# Read-only, and deliberately outside every fingerprint: the storyboard
+# describes the film, the brief records consent. It REPORTS and never gates —
+# the `vo-budget` precedent, and ADR-001's reason for it: the user owns the
+# choice, so exit 1 marks a finding, not a blocked phase.
+#
+# Three things it will not do, each a rejected proposal rather than an omission:
+#   * no score. Invented numerics are the fabricated-metric class ADR-005 and
+#     the anti-slop law both ban.
+#   * no headroom. It reports DENIALS — what `runtime_rejected:` recorded —
+#     never unspent budget. "You used 1 of 3 hero beats" reads as pressure to
+#     spend two more, and the contrast between flat and hero beats IS the
+#     storytelling (ADR-008).
+#   * no hard-coded budget numbers. They are parsed out of the budget table,
+#     which ADR-008/C6 makes the only place they live.
+# --------------------------------------------------------------------------
+
+SKILL_ROOT = Path(__file__).resolve().parents[1]
+SCENE_ANALYSIS_PATH = SKILL_ROOT / "reasoning" / "scene-analysis.md"
+CAPABILITY_CATALOG_PATH = SKILL_ROOT / "reasoning" / "capability-catalog.md"
+
+# `| \`key:\` | required | allowed values |`
+KEY_ROW = re.compile(r"^\|\s*`([a-z_]+):`\s*\|\s*([^|]+?)\s*\|\s*(.*?)\s*\|\s*$", re.M)
+# A vocabulary stated inline as `a` \| `b` \| `c`, with nothing else in the cell.
+INLINE_VOCAB = re.compile(r"^(`[a-z0-9-]+`(?:\s*\\?\|\s*`[a-z0-9-]+`)+)\s*$")
+CATALOG_TAG_ROW = re.compile(r"^\|\s*`([a-z][a-z0-9-]+)`\s*\|", re.M)
+HERO_ROW = re.compile(
+    r"^\|\s*\*\*Hero beats\*\*\s*\|\s*≤\s*(\d+)\s*frames[^|]*\|\s*(.*?)\s*\|\s*$", re.M
+)
+
+
+def _section(text: str, heading: str, stop: str) -> str:
+    start = text.index(heading)
+    rest = text[start:]
+    cut = rest.index(stop, len(heading)) if stop in rest[len(heading):] else len(rest)
+    return rest[:cut]
+
+
+def load_key_contract() -> dict[str, dict[str, Any]]:
+    """The closed key set, read from the file that owns it."""
+    text = SCENE_ANALYSIS_PATH.read_text(encoding="utf-8")
+    body = _section(text, "## Director keys — the closed contract", "\n### ")
+    contract: dict[str, dict[str, Any]] = {}
+    for key, required, allowed in KEY_ROW.findall(body):
+        vocabulary: list[str] | None = None
+        match = INLINE_VOCAB.match(allowed.strip())
+        if match:
+            vocabulary = re.findall(r"`([a-z0-9-]+)`", match.group(1))
+        contract[key] = {
+            "required": required.startswith("yes"),
+            "conditional": required.startswith("conditional"),
+            "vocabulary": vocabulary,
+        }
+    return contract
+
+
+def load_catalog_tags() -> set[str]:
+    text = CAPABILITY_CATALOG_PATH.read_text(encoding="utf-8")
+    return set(CATALOG_TAG_ROW.findall(text))
+
+
+def load_hero_budget() -> dict[str, Any]:
+    """The hero-beat limit and the runtimes that spend it, from the budget table."""
+    text = SCENE_ANALYSIS_PATH.read_text(encoding="utf-8")
+    found = HERO_ROW.search(text)
+    if not found:
+        return {"limit": None, "runtimes": []}
+    return {
+        "limit": int(found.group(1)),
+        "runtimes": re.findall(r"`([a-z][a-z0-9-]+)`", found.group(2)),
+    }
+
+
+def audit_frame(
+    frame: dict[str, Any],
+    contract: dict[str, dict[str, Any]],
+    tags: set[str],
+) -> dict[str, Any]:
+    extra = frame.get("extra") or {}
+    findings: list[str] = []
+    directed = str(extra.get("user_directed", "")).strip().lower() == "true"
+
+    for key, rule in sorted(contract.items()):
+        value = str(extra.get(key, "")).strip()
+        if rule["required"] and not value:
+            findings.append(f"missing required key `{key}:`")
+            continue
+        if not value:
+            continue
+        vocabulary = rule["vocabulary"]
+        if vocabulary and value not in vocabulary:
+            findings.append(
+                f"`{key}: {value}` is outside its closed vocabulary "
+                f"({', '.join(vocabulary)})"
+            )
+
+    if not (extra.get("blueprint") or extra.get("motion")):
+        findings.append("neither `blueprint:` nor `motion:` is present")
+
+    declared = [t.strip() for t in str(extra.get("capabilities", "")).split(",") if t.strip()]
+    for tag in declared:
+        if tag in {"—", "-", "--", "none"}:
+            # `—` is the grammar tables' "adds nothing beyond the baseline". On a frame
+            # it is not a value: every scene carries at least `timeline-choreography`,
+            # so a frame's derived set is never empty.
+            findings.append(
+                f"`capabilities: {tag}` — every frame carries at least the baseline "
+                "`timeline-choreography`; `—` means 'adds nothing' in a grammar table, "
+                "not 'no capabilities' on a frame"
+            )
+        elif tag not in tags:
+            findings.append(f"capability `{tag}` is not in the catalog vocabulary")
+
+    rejected = str(extra.get("runtime_rejected", "")).strip()
+    if rejected and "—" not in rejected and "--" not in rejected:
+        findings.append("`runtime_rejected:` is not in `<runtime> — <reason>` form")
+
+    return {
+        "index": frame.get("index"),
+        "title": frame.get("title"),
+        "runtime": str(extra.get("runtime", "")).strip() or None,
+        "user_directed": directed,
+        "findings": findings,
+        "denial": rejected or None,
+    }
+
+
+def keys_audit_payload(path: Path, text: str) -> dict[str, Any]:
+    document = parse_storyboard(text)
+    contract = load_key_contract()
+    tags = load_catalog_tags()
+    hero = load_hero_budget()
+
+    frames = [audit_frame(f, contract, tags) for f in document["frames"]]
+    hero_frames = [f for f in frames if f["runtime"] in hero["runtimes"]]
+    # `user_directed: true` is exempt-but-visible: counted and shown, never a violation.
+    counted = [f for f in hero_frames if not f["user_directed"]]
+
+    return {
+        "complete": bool(frames),
+        "storyboard": str(path),
+        "format": document.get("format"),
+        "frame_count": len(frames),
+        "frames": frames,
+        "finding_count": sum(len(f["findings"]) for f in frames),
+        "hero_budget": {
+            "limit": hero["limit"],
+            "runtimes": hero["runtimes"],
+            "counted": len(counted),
+            "user_directed": len(hero_frames) - len(counted),
+            "over": (
+                hero["limit"] is not None and len(counted) > hero["limit"]
+            ),
+            "frames": [f["index"] for f in hero_frames],
+        },
+        "denials": [
+            {"index": f["index"], "runtime_rejected": f["denial"]}
+            for f in frames if f["denial"]
+        ],
+        "errors": [],
+        "warnings": document.get("warnings", []),
+    }
+
+
+def command_keys_audit(project_dir: Path, as_json: bool) -> int:
+    """Audit the director keys a storyboard carries. Reports; never gates."""
+    try:
+        path, text = read_storyboard(project_dir)
+    except FileNotFoundError as error:
+        emit(error_payload(str(error)), as_json, stream=sys.stdout if as_json else sys.stderr)
+        return 1
+    except BriefFormatError as error:
+        emit(error_payload(str(error)), as_json, stream=sys.stdout if as_json else sys.stderr)
+        return 2
+
+    payload = keys_audit_payload(path, text)
+    if not payload["complete"]:
+        payload["message"] = f"No frames found in {payload['storyboard']}."
+        emit(payload, as_json, stream=sys.stdout if as_json else sys.stderr)
+        return 1
+
+    hero = payload["hero_budget"]
+    summary = [
+        f"Director keys: {payload['finding_count']} finding(s) across "
+        f"{payload['frame_count']} frame(s)."
+    ]
+    for frame in payload["frames"]:
+        for finding in frame["findings"]:
+            summary.append(f"  Frame {frame['index']}: {finding}")
+
+    if hero["limit"] is not None:
+        line = (
+            f"Hero beats: {hero['counted']} counted against a limit of {hero['limit']}"
+        )
+        if hero["user_directed"]:
+            line += f" (+{hero['user_directed']} user-directed, exempt but shown)"
+        summary.append(line + ".")
+        if hero["over"]:
+            summary.append(
+                "  Over budget — keep the highest story-leverage frames and degrade "
+                "the rest to their Tier-A camera expression, saying so."
+            )
+
+    # Denials, never headroom: what the derivation ruled out and why.
+    if payload["denials"]:
+        summary.append("Runtimes considered and rejected:")
+        for denial in payload["denials"]:
+            summary.append(f"  Frame {denial['index']}: {denial['runtime_rejected']}")
+
+    summary.append(
+        "This is a report. Nothing here blocks a phase — the storyboard is the "
+        "user's (ADR-001)."
+    )
+    payload["message"] = "\n".join(summary)
+    emit(payload, as_json)
+    return 1 if (payload["finding_count"] or hero["over"]) else 0
+
+
 def command_storyboard(project_dir: Path, as_json: bool) -> int:
     try:
         path, text = read_storyboard(project_dir)
@@ -2396,6 +2616,12 @@ def build_parser() -> argparse.ArgumentParser:
     )
     vo_budget.add_argument("--json", action="store_true", help="Emit one JSON object.")
 
+    keys_audit = subparsers.add_parser(
+        "keys-audit",
+        help="Audit the storyboard's director keys. Reports; never gates.",
+    )
+    keys_audit.add_argument("--json", action="store_true", help="Emit one JSON object.")
+
     migrate_storyboard = subparsers.add_parser(
         "migrate-storyboard",
         help=(
@@ -2443,6 +2669,9 @@ def main(argv: list[str] | None = None) -> int:
         return command_storyboard(project_dir, args.json)
     if args.command == "vo-budget":
         return command_vo_budget(project_dir, args.json)
+
+    if args.command == "keys-audit":
+        return command_keys_audit(project_dir, args.json)
     if args.command == "migrate-storyboard":
         return command_migrate_storyboard(project_dir, args.json)
     if args.command == "confirm-story":
