@@ -109,6 +109,15 @@ class RegistryClaimTests(unittest.TestCase):
         make every other assertion below vacuously true."""
         self.assertGreater(len(self.rows), 20, "capability registry parsed to almost nothing")
 
+    # Directional matching -- check the symbol appears where the row CLAIMS it is used --
+    # was measured too, and is worse than the three below: strict (every named locator)
+    # fails 17 of 67 rows and lenient (>=1) fails 8, of which 7 are correct work. A phase
+    # reaches a capability through a file it loads (patterns/INDEX.md, the reasoning
+    # layer), through a sibling symbol (Phase 3 gets palette and type via VISUAL_STYLES),
+    # or through a stable CLI command name -- and it does not even address the flaw below,
+    # because narrowing WHERE a token is sought does not change WHAT a token proves: 8 of
+    # the 57 rows it passes still pass only on a negated line.
+    #
     # A token match proves the symbol is named, not that the naming is a citation --
     # prose rejecting a symbol would satisfy its own row. Left that way deliberately:
     # 22% of citation lines here carry a negation word ("never push the camera under a

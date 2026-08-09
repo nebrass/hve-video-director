@@ -1993,6 +1993,10 @@ def command_vo_budget(project_dir: Path, as_json: bool) -> int:
 #     which ADR-008/C6 makes the only place they live.
 # --------------------------------------------------------------------------
 
+# A grammar table writes `—` in a capabilities cell to mean "adds nothing beyond the
+# baseline". It is legal there and illegal on a frame; these are its spellings.
+EMPTY_MARKERS = {"—", "–", "-", "--", "none", "n/a"}
+
 SKILL_ROOT = Path(__file__).resolve().parents[1]
 SCENE_ANALYSIS_PATH = SKILL_ROOT / "reasoning" / "scene-analysis.md"
 CAPABILITY_CATALOG_PATH = SKILL_ROOT / "reasoning" / "capability-catalog.md"
@@ -2121,12 +2125,37 @@ def audit_frame(
     tags: set[str],
     vocabulary: set[str] | None = None,
 ) -> dict[str, Any]:
-    extra = frame.get("extra") or {}
+    raw_extra = frame.get("extra") or {}
     findings: list[str] = []
+
+    # `—` is a grammar TABLE's "adds nothing beyond the baseline" notation. On a frame it
+    # is not a value, and it fails in both directions: `capabilities: —` reads as a bad
+    # tag, while `motion: —` is *truthy*, so a frame carrying it and no `blueprint:` slid
+    # past the presence test below. Normalize once, here, so every check downstream sees
+    # the same thing — the alternative is special-casing the dash per key and missing one.
+    extra = {
+        name: ("" if str(value).strip() in EMPTY_MARKERS else value)
+        for name, value in raw_extra.items()
+    }
+    dashed = sorted(n for n in raw_extra if str(raw_extra[n]).strip() in EMPTY_MARKERS)
     directed = str(extra.get("user_directed", "")).strip().lower() == "true"
+
+    for name in dashed:
+        findings.append(
+            f"`{name}: —` — `—` is a grammar row's \"adds nothing beyond the baseline\" "
+            "notation, not a frame value. A frame bullet is read by a builder whose packet "
+            "carries no grammar file (ADR-004), so the notation arrives with no decoder: "
+            + (
+                "write `timeline-choreography`, the baseline every scene has"
+                if name == "capabilities"
+                else "write the real value, or omit the bullet"
+            )
+        )
 
     for key, rule in sorted(contract.items()):
         value = str(extra.get(key, "")).strip()
+        if key in dashed:
+            continue          # the dash finding above already says what to write
         if rule["required"] and not value:
             findings.append(f"missing required key `{key}:`")
             continue

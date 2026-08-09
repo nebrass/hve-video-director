@@ -71,3 +71,15 @@ exact-track confirmation and caption approval are gates a human passes.
 Not a template to copy. Scene HTML here answers *this* film's storyboard; the skill
 writes new scenes per run from the frame packets. Read it to see what a finished run
 looks like, not to reuse its markup.
+
+## It is allowed to be wrong
+
+`keys-audit`, written two milestones after this run, reports four findings here: frames 2 and 7
+carry `capabilities: —` and frame 6 carries `motion: —` with no `blueprint:` — the em dash copied
+from a grammar table's "adds nothing beyond the baseline" convention, where on a frame it is not a
+value. The key contract already forbade it the day this storyboard was written; no check existed to
+say so, and the two grammar files that taught the reading have since been corrected.
+
+They are not fixed, and will not be. An artifact edited to pass a check is a fixture, and a fixture
+proves nothing. What a defect found later in a frozen record demonstrates is exactly the thing this
+directory exists to demonstrate: the audit sees something a full human approval pass did not.

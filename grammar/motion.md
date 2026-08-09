@@ -22,9 +22,9 @@ but reads slower loses.
 `reasoning/capability-catalog.md` owns and versions the tag vocabulary, and owns the rule this
 table follows: a **Tags** cell lists only what the principle **adds** beyond the baseline
 capability every scene implies (`timeline-choreography`), and `—` means it adds nothing rather
-than "no capability". That rule is stated once, there; this line only cites it. A frame's
-capability set is the **union** of the tags declared by every grammar entry it cites (ADR-005) —
-mechanical, not a judgment call. A principle marked `—` changes what the frame *communicates* but
+than "no capability". That rule is stated once, there; this line only cites it. This cell says what a *row* adds; what a *frame*
+carries is the catalog's rule, and it starts from the baseline — `—` is row notation and never a
+frame value. A principle marked `—` changes what the frame *communicates* but
 not which runtime can serve it; a frame that adds nothing beyond the baseline resolves to the
 default runtime (GSAP) per the catalog's GSAP-first prior and `RUNTIME_PICKER`.
 

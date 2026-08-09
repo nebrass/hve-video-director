@@ -25,6 +25,19 @@ headless-Chromium render, and this skill's own per-phase approvals, which no age
 real run. `example/.hve/brief-state.json` is the consent record that makes the claim checkable:
 `validate_brief.py --project-dir example status` must report complete, confirmed and unstale.
 
+A tool that audits live projects will find things in it, and that is the record working, not
+failing. `keys-audit` reports four findings today — frames 2 and 7 carry `capabilities: —`, and
+frame 6 carries `motion: —` with no `blueprint:`, all of which `reasoning/scene-analysis.md`
+already forbade in the commit that added the storyboard. A run the pipeline produced and a human
+approved is allowed to contain a defect no gate of the day could see; that is most of what a
+record is *for*. **Findings against `example/` are adjudicated, never repaired.** They are pinned
+by frame and rule in the accepted-findings table of `test/unit/test_keys_audit.py`, so a new one
+fails and forces the decision — and `test/unit/test_example_consent.py` digests every committed artifact, so
+the cheaper answer is not available. Those two land and stay together: pinning a finding without
+hashing the record turns a red light into an incentive to edit the record, and the consent record
+cannot detect that (it fingerprints the brief table, and the storyboard is deliberately outside
+every fingerprint — measured: two words silences two findings while `status` stays green).
+
 ## Architecture
 
 `SKILL.md` is the orchestrator prompt. It loads first, decides the entry mode (`new` / `continue` / `jump`), and dispatches to one of six phase workflows. Each phase has a user-approval checkpoint before advancing.

@@ -101,12 +101,47 @@ class KeysAuditTests(unittest.TestCase):
         self.assertIn("depth-staging", json.dumps(payload["frames"]))
 
     def test_an_em_dash_capability_is_reported_with_the_reason(self):
-        """`—` means 'adds nothing' in a grammar table. On a frame it is not a value:
-        every scene carries the baseline, so a derived set is never empty. Found on the
-        first run against the committed reference build."""
+        """`—` means "adds nothing beyond the baseline" in a grammar ROW. On a frame it is
+        not a value — and the reason is architectural, not documentary: a frame bullet is
+        read by a builder whose packet carries no grammar file (ADR-004), so the notation
+        arrives with no decoder. `timeline-choreography` is self-describing; `—` is not."""
         self.write(storyboard(frame(1, caps="—")))
         _, payload = self.audit()
-        self.assertIn("timeline-choreography", json.dumps(payload["frames"]))
+        blob = json.dumps(payload["frames"])
+        self.assertIn("timeline-choreography", blob)
+        self.assertNotIn("missing required key", blob,
+                         "the dash finding already says what to write; do not also "
+                         "report the key as absent")
+
+    def test_an_em_dash_is_caught_on_every_key_not_just_capabilities(self):
+        """The same notation fails in the OTHER direction, which a capabilities-only
+        check missed: `motion: —` is *truthy*, so a frame carrying it and no `blueprint:`
+        slid past the presence rule entirely. Found in the committed reference build,
+        frame 6 — the dash made the check miss a real non-conformance."""
+        self.write(storyboard(frame(1)).replace("- motion: fade-in, rise", "- motion: —"))
+        _, payload = self.audit()
+        # Read the findings, not json.dumps of them: the dash is escaped to \u2014 there,
+        # so an assertion on the literal passes or fails for the wrong reason.
+        findings = payload["frames"][0]["findings"]
+        self.assertTrue(
+            any("`motion: —`" in f for f in findings), findings,
+        )
+        self.assertTrue(
+            any("neither `blueprint:` nor `motion:` is present" in f for f in findings),
+            findings,
+        )
+
+    def test_a_legitimate_baseline_only_frame_reports_nothing(self):
+        """The check must not fire on the correct spelling of the same derivation.
+
+        Frames that genuinely add nothing beyond the baseline are legitimate — the
+        reference build has two, and their scenes really do only choreograph. What is
+        wrong is writing `—` instead of the baseline's name.
+        """
+        self.write(storyboard(frame(1, caps="timeline-choreography")))
+        proc, payload = self.audit()
+        self.assertEqual(0, proc.returncode, proc.stdout)
+        self.assertEqual(0, payload["finding_count"], payload["frames"])
 
     def test_an_undeclared_frame_bullet_is_reported(self):
         """The real sideways-growth surface: a generated project, not a grammar file.
@@ -278,14 +313,58 @@ class KeysAuditTests(unittest.TestCase):
         after = {p.name: p.read_bytes() for p in self.dir.rglob("*") if p.is_file()}
         self.assertEqual(before, after, "keys-audit modified the project directory")
 
-    def test_the_committed_reference_build_can_be_audited(self):
-        """An end-to-end run against real data. It is allowed to report findings --
-        example/ is a record, not a fixture, and is never edited to satisfy a check."""
+    # The record reports findings, and that is the correct state, not a defect to route
+    # around. It is also not a goalpost this audit moved: `reasoning/scene-analysis.md`
+    # required `capabilities:` non-empty and from the catalog in the SAME commit that
+    # added example/storyboard.md carrying `—`. Contract and violation shipped together,
+    # and nothing could see it until this audit existed. So the findings are evidence
+    # about the pipeline — a real run, human-approved at every gate, emitted keys no gate
+    # of the day could check. A synthetic fixture cannot show that.
+    #
+    # Pinned by (frame, rule signature) rather than by count, so a *different* pair still
+    # fails, and by substring rather than exact text, so rewording a message is not a
+    # doctrine review.
+    #
+    # WHEN THIS GOES RED: a new rule fired on the record, or an accepted finding vanished.
+    # Adjudicate it HERE — add a row with the date and why it stands, or retire the rule.
+    # Never edit example/. That temptation is real and measured: two words in
+    # storyboard.md silences the capabilities findings while `status` stays complete,
+    # confirmed and unstale. This pin is only safe because
+    # test_example_consent.py digests the record's bytes. Do not keep one without the other.
+    ACCEPTED_FINDINGS = {
+        (2, "capabilities: —"): "2026-08-09 — non-conforming as emitted; a record is not repaired",
+        (6, "motion: —"): "2026-08-09 — same notation, opposite failure: `—` is truthy, so the "
+                          "presence rule missed it until the dash was normalized",
+        (6, "neither `blueprint:` nor `motion:` is present"): "2026-08-09 — the contract "
+                          "violation the dash was hiding",
+        (7, "capabilities: —"): "2026-08-09 — non-conforming as emitted; a record is not repaired",
+    }
+
+    def test_the_committed_reference_build_audits_end_to_end(self):
+        """The audit's only run against real pipeline output. Every other test here builds
+        frames from a helper written to the same mental model as the parser, so a shared
+        blind spot passes all of them."""
         proc = run(REPO / "example", "--json")
         self.assertIn(proc.returncode, (0, 1), proc.stderr)
         payload = json.loads(proc.stdout)
         self.assertEqual(8, payload["frame_count"])
         self.assertTrue(payload["denials"], "the reference build records no denials")
+
+    def test_the_record_reports_exactly_the_findings_already_adjudicated(self):
+        payload = json.loads(run(REPO / "example", "--json").stdout)
+        self.assertEqual(
+            len(self.ACCEPTED_FINDINGS), payload["finding_count"],
+            "the findings against example/ changed. Adjudicate them in ACCEPTED_FINDINGS "
+            "above — example/ is a record and is never edited to satisfy a check "
+            "(CLAUDE.md; ADR-001).",
+        )
+        for (index, signature), why in sorted(self.ACCEPTED_FINDINGS.items()):
+            frame_report = next(f for f in payload["frames"] if f["index"] == index)
+            with self.subTest(frame=index, rule=signature):
+                self.assertTrue(
+                    any(signature in f for f in frame_report["findings"]),
+                    f"frame {index} no longer reports {signature!r} ({why})",
+                )
 
 
 if __name__ == "__main__":

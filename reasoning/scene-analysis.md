@@ -103,7 +103,7 @@ the official format unchanged.
 | `metaphor:` | yes | the **Concept** column value of a row in `grammar/metaphors.md` — the concept *is* the row identifier, and the unit the metaphor-consistency budget counts. Or `none — real product` |
 | `blueprint:` | conditional | one blueprint id resolved through `BLUEPRINT_INDEX`. At least one of `blueprint:` / `motion:` must be present |
 | `motion:` | conditional | 2–4 rule names, comma-separated, resolved through `RULES_INDEX`. Required when no blueprint fits; allowed alongside one (Adapt / Compose posture) |
-| `capabilities:` | yes, non-empty | comma-separated tags from the catalog vocabulary only |
+| `capabilities:` | yes, non-empty | comma-separated tags from the catalog vocabulary only — never `—`, which is a grammar **row's** "adds nothing beyond the baseline" notation and not a frame value. The baseline may stay implicit while other tags carry the value; a frame whose derivation adds nothing writes `timeline-choreography` |
 | `runtime:` | optional | `three` \| `html-in-canvas` \| `typegpu` \| `lottie` \| `anime` \| `css` \| `waapi`. **Omit for GSAP** — it is the default |
 | `runtime_rejected:` | conditional | `<runtime> — <reason>`. Required whenever a non-default runtime was considered and not chosen |
 | `surface_reading:` | conditional | `travelling-band` \| `fixed-glint` \| `matte-diffuse`. Required when `material-realism` is derived **and** `runtime: three` was selected; absent otherwise. Values owned by `grammar/three-taxonomy.md` § Ingredient defaults |
