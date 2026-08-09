@@ -28,6 +28,7 @@ ROOT = Path(__file__).resolve().parents[2]
 # Live sites that state the caps. `docs/` is a frozen M1 snapshot and `example/` is a record
 # of a render that happened; neither tracks a later decision.
 CAP_SITES = [
+    ROOT / "SKILL.md",          # the § DON'Ts section both mirrors call authoritative
     ROOT / "grammar" / "camera.md",
     ROOT / "patterns" / "visual-patterns.md",
     ROOT / "CLAUDE.md",

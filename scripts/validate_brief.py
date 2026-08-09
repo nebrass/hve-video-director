@@ -1999,8 +1999,15 @@ CAPABILITY_CATALOG_PATH = SKILL_ROOT / "reasoning" / "capability-catalog.md"
 
 # `| \`key:\` | required | allowed values |`
 KEY_ROW = re.compile(r"^\|\s*`([a-z_]+):`\s*\|\s*([^|]+?)\s*\|\s*(.*?)\s*\|\s*$", re.M)
-# A vocabulary stated inline as `a` \| `b` \| `c`, with nothing else in the cell.
-INLINE_VOCAB = re.compile(r"^(`[a-z0-9-]+`(?:\s*\\?\|\s*`[a-z0-9-]+`)+)\s*$")
+# A vocabulary stated as `a` \| `b` \| `c`. The list must be the LEAD of the cell, but the
+# cell may go on in prose afterwards -- `runtime:` does exactly that ("**Omit for GSAP** — it
+# is the default"), and requiring the whole cell to be backticked values left that row with
+# no vocabulary at all. The consequence was not cosmetic: `runtime: Three` was then neither
+# counted toward the hero budget nor reported as an illegal value, so the one budget this
+# audit checks was defeated by a capital letter.
+INLINE_VOCAB = re.compile(r"^(`[a-z0-9-]+`(?:\s*\\?\|\s*`[a-z0-9-]+`)+)")
+# A single-value vocabulary, e.g. `user_directed:` -> `true` (only value).
+SINGLE_VOCAB = re.compile(r"^`([a-z0-9-]+)`\s*\(only value\)")
 CATALOG_TAG_ROW = re.compile(r"^\|\s*`([a-z][a-z0-9-]+)`\s*\|", re.M)
 HERO_ROW = re.compile(
     r"^\|\s*\*\*Hero beats\*\*\s*\|\s*≤\s*(\d+)\s*frames[^|]*\|\s*(.*?)\s*\|\s*$", re.M
@@ -2014,16 +2021,34 @@ def _section(text: str, heading: str, stop: str) -> str:
     return rest[:cut]
 
 
+class SkillSourceError(Exception):
+    """A file this audit reads from the installed skill moved, or says something new.
+
+    Raised rather than propagating IndexError/FileNotFoundError: every other subcommand
+    answers with a structured payload, and a traceback from `keys-audit` reads like a
+    broken project rather than a broken install.
+    """
+
+
 def load_key_contract() -> dict[str, dict[str, Any]]:
     """The closed key set, read from the file that owns it."""
-    text = SCENE_ANALYSIS_PATH.read_text(encoding="utf-8")
-    body = _section(text, "## Director keys — the closed contract", "\n### ")
+    try:
+        text = SCENE_ANALYSIS_PATH.read_text(encoding="utf-8")
+        body = _section(text, "## Director keys — the closed contract", "\n### ")
+    except (OSError, ValueError) as error:
+        raise SkillSourceError(
+            f"cannot read the director-key contract from {SCENE_ANALYSIS_PATH}: {error}"
+        ) from error
     contract: dict[str, dict[str, Any]] = {}
     for key, required, allowed in KEY_ROW.findall(body):
         vocabulary: list[str] | None = None
-        match = INLINE_VOCAB.match(allowed.strip())
+        cell = allowed.strip()
+        match = INLINE_VOCAB.match(cell)
+        single = SINGLE_VOCAB.match(cell)
         if match:
             vocabulary = re.findall(r"`([a-z0-9-]+)`", match.group(1))
+        elif single:
+            vocabulary = [single.group(1)]
         contract[key] = {
             "required": required.startswith("yes"),
             "conditional": required.startswith("conditional"),
@@ -2033,13 +2058,23 @@ def load_key_contract() -> dict[str, dict[str, Any]]:
 
 
 def load_catalog_tags() -> set[str]:
-    text = CAPABILITY_CATALOG_PATH.read_text(encoding="utf-8")
+    try:
+        text = CAPABILITY_CATALOG_PATH.read_text(encoding="utf-8")
+    except OSError as error:
+        raise SkillSourceError(
+            f"cannot read the capability catalog at {CAPABILITY_CATALOG_PATH}: {error}"
+        ) from error
     return set(CATALOG_TAG_ROW.findall(text))
 
 
 def load_hero_budget() -> dict[str, Any]:
     """The hero-beat limit and the runtimes that spend it, from the budget table."""
-    text = SCENE_ANALYSIS_PATH.read_text(encoding="utf-8")
+    try:
+        text = SCENE_ANALYSIS_PATH.read_text(encoding="utf-8")
+    except OSError as error:
+        raise SkillSourceError(
+            f"cannot read the budget table at {SCENE_ANALYSIS_PATH}: {error}"
+        ) from error
     found = HERO_ROW.search(text)
     if not found:
         return {"limit": None, "runtimes": []}
@@ -2151,7 +2186,25 @@ def command_keys_audit(project_dir: Path, as_json: bool) -> int:
         emit(error_payload(str(error)), as_json, stream=sys.stdout if as_json else sys.stderr)
         return 2
 
-    payload = keys_audit_payload(path, text)
+    try:
+        payload = keys_audit_payload(path, text)
+    except SkillSourceError as error:
+        emit(error_payload(str(error)), as_json, stream=sys.stdout if as_json else sys.stderr)
+        return 2
+
+    if payload.get("format") == "legacy":
+        # CLAUDE.md: no generated project is ever stranded. A legacy storyboard has no
+        # director keys by construction, so reporting each one missing would tell the
+        # author to add keys their shape has no home for.
+        payload["message"] = (
+            f"{payload['storyboard']} is in the pre-adoption shape, which carries no "
+            "director keys — there is nothing here to audit. Nothing is gated on the "
+            "shape; convert with `migrate-storyboard` only if the user asks, and it "
+            "preserves the original alongside the converted file."
+        )
+        emit(payload, as_json)
+        return 0
+
     if not payload["complete"]:
         payload["message"] = f"No frames found in {payload['storyboard']}."
         emit(payload, as_json, stream=sys.stdout if as_json else sys.stderr)

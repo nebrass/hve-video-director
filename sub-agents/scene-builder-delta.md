@@ -124,10 +124,15 @@ colour stay exactly what `DESIGN.md` says; only its *offset* answers to the ligh
 grounds the object), form (mid, describes its mass), separation (wide, very low alpha, lifts it off
 the background). Two vertical layers at similar alpha read as one blur.
 
-**Name a `transformOrigin` on every camera move.** A scale about the default `50% 50%` enlarges the
-picture without changing what is in front of what — it is the least cinematic zoom there is. Point
-it at the thing the eye should land on, and if the frame really is centre-weighted, write
-`50% 50%` deliberately so the next reader knows it was chosen.
+**Point a scale at something — but only when the scale is yours.** A scale about the default
+`50% 50%` enlarges the picture without changing what is in front of what, so when *you* author the
+tween — a push-in on a `.clip-frame`, a `.shot-browser`, a card — name a `transformOrigin` aimed at
+the thing the eye should land on, and write `50% 50%` deliberately when the frame really is
+centre-weighted. **When a cited recipe owns the camera, its constraints win**: several require
+`transform-origin: 50% 50%` on the camera wrapper because their off-centre targeting is a
+counter-translate that the centred origin is derived from. Follow the recipe body in your packet
+and do not "improve" its origin — that is the structural-constraint rule above, not an exception
+to it.
 
 **Something must still be moving when the scene ends.** You author no exit — the seam owns it — but
 that is not licence to land everything early and hold. A frame frozen for its last second is a

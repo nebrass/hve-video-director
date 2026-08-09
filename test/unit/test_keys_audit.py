@@ -116,15 +116,67 @@ class KeysAuditTests(unittest.TestCase):
     # ---- the constraints, each a rejected proposal ----
 
     def test_the_hero_limit_comes_from_the_budget_table_not_the_code(self):
-        """ADR-008/C6. If the table moves, the audit moves with it."""
-        _, payload = self.audit_of(storyboard(frame(1)))
-        table = (REPO / "reasoning" / "scene-analysis.md").read_text(encoding="utf-8")
-        limit = payload["hero_budget"]["limit"]
-        self.assertIsNotNone(limit, "hero limit was not parsed at all")
-        self.assertIn(
-            f"≤ {limit} frames", table,
-            f"the audit reports a limit of {limit} that the budget table does not state",
+        """ADR-008/C6. If the table moves, the audit moves with it.
+
+        Asserting only that the reported number appears in the table was not a test of
+        this: a hard-coded 3 satisfies it too, which an adversarial pass demonstrated by
+        replacing the parse with a literal and staying green. So rewrite the table in a
+        copy of the skill and require the loader to follow it.
+        """
+        import shutil
+        skill = self.dir / "skill"
+        (skill / "reasoning").mkdir(parents=True, exist_ok=True)
+        shutil.copytree(REPO / "scripts", skill / "scripts")
+        for name in ("scene-analysis.md", "capability-catalog.md"):
+            shutil.copy(REPO / "reasoning" / name, skill / "reasoning" / name)
+
+        table = skill / "reasoning" / "scene-analysis.md"
+        original = table.read_text(encoding="utf-8")
+        self.assertIn("≤ 3 frames in the film", original, "budget table anchor moved")
+        table.write_text(
+            original.replace("≤ 3 frames in the film", "≤ 7 frames in the film", 1),
+            encoding="utf-8",
         )
+
+        self.write(storyboard(frame(1)))
+        proc = subprocess.run(
+            [sys.executable, str(skill / "scripts" / "validate_brief.py"),
+             "--project-dir", str(self.dir), "keys-audit", "--json"],
+            capture_output=True, text=True,
+        )
+        self.assertEqual(
+            7, json.loads(proc.stdout)["hero_budget"]["limit"],
+            "the limit did not follow the budget table — it is hard-coded",
+        )
+
+    def test_a_value_near_the_vocabulary_is_still_outside_it(self):
+        """`runtime:`'s row ends in prose, so a whole-cell vocabulary parser left it with
+        none — and `runtime: Three` was then neither counted toward the hero budget nor
+        reported. The audit's one budget was defeated by a capital letter."""
+        self.write(storyboard(frame(1, extra="runtime: Three|user_directed: yes")))
+        _, payload = self.audit()
+        blob = json.dumps(payload["frames"])
+        self.assertIn("runtime: Three", blob)
+        self.assertIn("user_directed: yes", blob)
+        self.assertEqual(0, payload["hero_budget"]["counted"], payload["hero_budget"])
+
+    def test_a_legacy_storyboard_is_told_it_is_legacy(self):
+        """CLAUDE.md: no generated project is ever stranded. A pre-adoption file carries
+        no director keys by construction, so reporting each one missing would tell the
+        author to add keys their shape has no home for.
+
+        The fixture needs enough legacy signal for the shape detector to classify it --
+        a lone `**Duration:**` line reads as official and gets ten spurious findings.
+        """
+        (self.dir / "storyboard.md").write_text(
+            "# Storyboard\n\n### Scene 1: Opening\n\n"
+            "**Duration:** 5s\n**Voiceover:** hello\n**Visual:** a card\n",
+            encoding="utf-8",
+        )
+        proc = run(self.dir)
+        self.assertEqual(0, proc.returncode, proc.stdout + proc.stderr)
+        self.assertIn("pre-adoption", proc.stdout)
+        self.assertIn("migrate-storyboard", proc.stdout)
 
     def audit_of(self, text):
         self.write(text)

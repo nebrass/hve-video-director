@@ -28,11 +28,12 @@ NOT_WIRED_MARKERS = (
     "reserved name",
 )
 
-# Files that may cite a symbol. compat/ecosystem.md is excluded: a row citing itself
-# would make every claim self-fulfilling.
-CITER_GLOBS = ("*.md", "scripts/*", "test/unit/*.py", "workflows/*.md", "**/*.md")
-
-SKIP_DIRS = {".git", "node_modules", ".agents", "__pycache__", "docs"}
+# compat/ecosystem.md is excluded: a row citing itself would make every claim
+# self-fulfilling. `test/` and CHANGELOG.md are excluded for exactly the same reason,
+# found by an adversarial pass -- a bogus row plus one line in either passed. `docs/` is
+# the frozen M1 snapshot and describes the tree as it was.
+SKIP_DIRS = {".git", "node_modules", ".agents", "__pycache__", "docs", "test"}
+SKIP_FILES = {"CHANGELOG.md"}
 
 
 def registry_rows():
@@ -67,7 +68,8 @@ def repo_citations():
             continue
         if path == ECOSYSTEM:
             continue
-        if any(part in SKIP_DIRS for part in path.relative_to(REPO).parts):
+        relative = path.relative_to(REPO)
+        if any(part in SKIP_DIRS for part in relative.parts) or relative.name in SKIP_FILES:
             continue
         try:
             texts.append((path.relative_to(REPO), path.read_text(encoding="utf-8")))

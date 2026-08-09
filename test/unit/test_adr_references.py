@@ -1,7 +1,9 @@
 """ADR citations are load-bearing, so they have to resolve.
 
-Nine records govern this repo and 215 citations point at them. `ADR-001` alone is named
-53 times, in prose that tells an agent it may not preselect an answer. A citation is the
+Ten records govern this repo and citations point at them from every layer. `ADR-001`
+alone is named dozens of times, in prose that tells an agent it may not preselect an
+answer. (No count is written here on purpose: this file was briefly wrong about its own
+numbers, because four later commits on the same branch changed them.) A citation is the
 only thing standing between "this rule has a reason" and "someone asserted it once":
 `(ADR-005)` at the end of a sentence is where a reader goes to check whether the rule
 still applies, and a number that resolves to nothing is worse than no citation at all --
@@ -36,10 +38,16 @@ SCAN_SUFFIXES = {".md", ".py", ".sh", ".json", ".html"}
 
 
 def scanned_files():
-    listed = subprocess.run(
-        ["git", "-C", str(ROOT), "ls-files", "-z"],
-        capture_output=True, text=True, check=True,
-    ).stdout.split("\0")
+    # An exported source copy is not a worktree. That is a reason to skip, not to error:
+    # this would otherwise be the only test in the tree that cannot run outside git.
+    try:
+        done = subprocess.run(
+            ["git", "-C", str(ROOT), "ls-files", "-z"],
+            capture_output=True, text=True, check=True,
+        )
+    except (subprocess.CalledProcessError, OSError) as error:
+        raise unittest.SkipTest(f"not a git worktree, so the file list is unavailable: {error}")
+    listed = done.stdout.split("\0")
     for name in listed:
         if not name:
             continue

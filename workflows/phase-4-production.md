@@ -582,6 +582,8 @@ A per-scene flag is re-dispatchable (Step 4.6). Skip this step for trivial edits
 different questions: a scene can be perfectly paced and still express one emotion nine times.
 
 ```bash
+# $SKILL_DIR: resolve it exactly as Step 4.5 resolves DOCTRINE_SKILL_DIR, or pass the
+# skill's path directly — this step reads scenes/ from the project's own directory.
 python3 "$SKILL_DIR/scripts/motion_register.py"
 ```
 

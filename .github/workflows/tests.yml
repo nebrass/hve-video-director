@@ -125,10 +125,17 @@ jobs:
           want=$(python3 -c 'import json;print(json.load(open("gsap-pin.json"))["integrity"])')
           url="https://cdn.jsdelivr.net/npm/gsap@$v/dist/gsap.min.js"
 
-          # A CDN outage must not read as a passing hash. Retry, then say plainly
-          # that this run did not verify rather than reporting a green it did not earn.
-          if ! curl -fsSL --retry 5 --retry-delay 3 -o /tmp/gsap.min.js "$url"; then
-            echo "::warning::could not fetch $url — SRI correspondence UNVERIFIED this run"
+          # A CDN outage must not read as a passing hash — but a 404 is not an outage,
+          # it is a pin naming a version that does not exist, and treating any curl
+          # failure as "unverified" let exactly that exit green. Separate the two.
+          code=$(curl -sSL --retry 5 --retry-delay 3 -w '%{http_code}' -o /tmp/gsap.min.js "$url" || echo 000)
+          if [ "$code" = "404" ] || [ "$code" = "403" ]; then
+            echo "gsap@$v is not published at $url (HTTP $code)."
+            echo "The pin names a version that does not exist; every scene would load without animation."
+            exit 1
+          fi
+          if [ "$code" != "200" ]; then
+            echo "::warning::could not fetch $url (HTTP $code) — SRI correspondence UNVERIFIED this run"
             exit 0
           fi
 

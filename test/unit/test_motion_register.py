@@ -114,14 +114,89 @@ class MotionRegisterTests(unittest.TestCase):
         self.assertIn("too few", json.dumps(payload["scenes"]))
 
     def test_a_set_call_is_not_a_tween(self):
-        """`gsap.set` has no duration and no character; counting it would skew the share."""
+        """`gsap.set` applies state; it has no character, so counting it would skew the
+        share. The fixture gives it a duration on purpose: an earlier version of this
+        test used a bare `set` and was vacuous — the duration guard dropped it anyway,
+        so deleting the `set` exclusion left the suite green."""
         self.write("00-a.html", scene(
-            'gsap.set(".x", { opacity: 0 });',
+            'gsap.set(".x", { duration: 0.8, ease: "expo.out" });',
             tween("expo.out", 0.8), tween("power2.inOut", 1.6),
             tween("power1.out", 0.4), tween("none", 2.0),
         ))
         _, payload = self.audit()
-        self.assertEqual(5, payload["scenes"][0]["tween_count"] + 1, payload["scenes"])
+        self.assertEqual(
+            4, payload["scenes"][0]["tween_count"],
+            "gsap.set was counted as a tween",
+        )
+
+    # ---- forms an adversarial pass found the first parser blind to ----
+
+    def test_a_chained_timeline_is_read(self):
+        """`tl.to(...).to(...).to(...)` is idiomatic GSAP and only the head has a
+        receiver. Matching on the receiver read six identical entrances as one tween."""
+        calls = "const tl = gsap.timeline();\ntl" + "".join(
+            f'\n  .to(".{c}", {{ duration: 0.8, ease: "expo.out" }})' for c in "abcdef"
+        ) + ";"
+        self.write("00-a.html", f"<template><script>{calls}</script></template>")
+        _, payload = self.audit()
+        self.assertEqual(6, payload["scenes"][0]["tween_count"], payload["scenes"])
+        self.assertEqual(1, payload["finding_count"])
+
+    def test_a_duration_and_ease_inherited_from_timeline_defaults_are_read(self):
+        """The maximally monotonous scene, written the most idiomatic way: no individual
+        call names either value, so a per-call parser saw zero tweens."""
+        calls = 'const tl = gsap.timeline({ defaults: { duration: 0.8, ease: "expo.out" } });\n'
+        calls += "\n".join(f'tl.to(".{c}", {{ y: 0 }});' for c in "abcde")
+        self.write("00-a.html", f"<template><script>{calls}</script></template>")
+        _, payload = self.audit()
+        self.assertEqual(5, payload["scenes"][0]["tween_count"], payload["scenes"])
+        self.assertEqual(1, payload["finding_count"])
+
+    def test_a_commented_out_ease_is_not_read_as_the_tween_s_own(self):
+        """Worse than cosmetic: a decoy pair beside a live one both misattributed the
+        ease and diluted the share below the reporting threshold."""
+        live = [tween("expo.out", 0.8) for _ in range(5)]
+        decoy = 'tl.to(".f", {/* duration: 1.1, ease: "power1.in" */ duration: 0.8, ease: "expo.out" });'
+        self.write("00-a.html", scene(*live, decoy))
+        _, payload = self.audit()
+        self.assertEqual({"expo.out": 6}, payload["scenes"][0]["eases"], payload["scenes"])
+
+    def test_a_paren_inside_a_string_does_not_swallow_the_tween(self):
+        """`)` in a string truncated the call slice and the tween vanished; `(` in one
+        invented a phantom."""
+        self.write("00-a.html", scene(
+            *[f'tl.to(".{c}", {{ text: "done)", duration: 0.8, ease: "expo.out" }});' for c in "abcde"],
+        ))
+        _, payload = self.audit()
+        self.assertEqual(5, payload["scenes"][0]["tween_count"], payload["scenes"])
+
+    def test_prose_mentioning_a_call_does_not_become_a_tween(self):
+        self.write("00-a.html", scene(
+            'const copy = "call gsap.to( now";',
+            tween("expo.out", 0.8), tween("power1.in", 1.9),
+            tween("none", 0.4), tween("power2.inOut", 2.6),
+        ))
+        _, payload = self.audit()
+        self.assertEqual(4, payload["scenes"][0]["tween_count"], payload["scenes"])
+
+    def test_a_positional_duration_is_read(self):
+        """GSAP's legacy signature `tl.to(target, 0.8, {...})` carries no `duration:`."""
+        self.write("00-a.html", scene(
+            *[f'tl.to(".{c}", 0.8, {{ ease: "expo.out" }});' for c in "abcde"],
+        ))
+        _, payload = self.audit()
+        self.assertEqual(5, payload["scenes"][0]["tween_count"], payload["scenes"])
+        self.assertEqual(1, payload["finding_count"])
+
+    def test_a_scene_that_is_not_utf8_is_reported_not_crashed(self):
+        """A crash exited 1 with empty stdout — the same code that means 'findings
+        exist', so a caller parsing the payload read a traceback as a report."""
+        (self.scenes / "00-a.html").write_bytes(
+            b'<script>tl.to(".caf\xe9", { duration: 0.8, ease: "expo.out" });</script>'
+        )
+        proc, payload = self.audit()
+        self.assertIn(proc.returncode, (0, 1), proc.stderr)
+        self.assertTrue(payload, "no JSON payload was emitted")
 
     # ---- the two properties that keep it legal ----
 

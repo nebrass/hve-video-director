@@ -8,9 +8,12 @@ example status` must report complete, confirmed and unstale -- and until now not
 
 Two failure modes this closes, neither visible in a diff:
 
-- Someone edits `example/project-plan.md` (a tempting way to "fix" a doc nit). The brief
-  fingerprint moves, every phase stamp goes stale, and the directory silently stops being
-  a record of anything.
+- Someone edits a Creative Brief *field* in `example/project-plan.md`. The fingerprint
+  moves, every phase stamp goes stale, and the directory silently stops being a record of
+  anything. Note the limit, since an adversarial pass found it overstated here: the
+  fingerprint covers the parsed brief table, so a comment or a prose edit elsewhere in
+  that file is correctly not a change of consent — and this suite says nothing about
+  whether the artifacts the record describes still exist.
 - `validate_brief.py` changes shape -- a new required field, a renamed stage -- and the
   committed state file no longer parses. The validator's own unit tests all use synthetic
   fixtures, so they would stay green.

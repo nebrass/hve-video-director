@@ -34,13 +34,6 @@ REPO = Path(__file__).resolve().parents[2]
 INSTALLER = REPO / "test" / "install_ecosystem.py"
 
 
-def run(args, cwd):
-    return subprocess.run(
-        [sys.executable, str(INSTALLER), *args],
-        capture_output=True, text=True, cwd=str(cwd),
-    )
-
-
 def fake_repo(tmp, lock, skills=("alpha",)):
     """A throwaway repo root: a lock file plus a source tree to copy from."""
     root = tmp / "repo"
@@ -128,6 +121,13 @@ class SourceAllowlistTests(unittest.TestCase):
             0, proc.returncode,
             "a skillPath escaping the checkout was accepted and its contents copied in",
         )
+
+    def test_it_records_the_commit_it_installed(self):
+        """The docstring claims a run is auditable afterwards. Without this, deleting the
+        line that prints the resolved commit left every test green."""
+        proc = self._install(lock_for("heygen-com/hyperframes"))
+        self.assertEqual(0, proc.returncode, proc.stderr)
+        self.assertIn("heygen-com/hyperframes @", proc.stdout, proc.stdout)
 
     def test_a_successful_install_reports_what_it_installed(self):
         proc = self._install(lock_for("heygen-com/hyperframes", ("alpha", "beta")),

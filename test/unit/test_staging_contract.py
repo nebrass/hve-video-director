@@ -28,8 +28,12 @@ ROOT = Path(__file__).resolve().parents[2]
 TEMPLATES = sorted((ROOT / "templates").glob("scene-*.html"))
 DELTA = ROOT / "sub-agents" / "scene-builder-delta.md"
 
-# A ground gradient positioned dead-centre horizontally. `at 50% <y>` is the tell.
-CENTRED_GROUND = re.compile(r"radial-gradient\([^)]*\bat\s+50%\s", re.I)
+# A ground gradient with no horizontal direction. `at 50% <y>` is the common tell, and
+# `at center` is the same defect spelled idiomatically — an adversarial review found the
+# second form passing a check written only for the first.
+CENTRED_GROUND = re.compile(
+    r"radial-gradient\([^)]*\bat\s+(?:50(?:\.0+)?%\s|center\b)", re.I
+)
 
 # A shadow layer: <x> <y> <blur> [spread] rgba(...). Inset layers and hairline rings
 # (0 0 0 1px) are not elevation and are excluded before the offset check.
@@ -39,7 +43,9 @@ CENTRED_GROUND = re.compile(r"radial-gradient\([^)]*\bat\s+50%\s", re.I)
 # made this regex match only the *fixed* shadows, so the check passed on a reverted tree.
 # Caught by mutation, not by review.
 SHADOW_BLOCK = re.compile(r"box-shadow\s*:\s*([^;}]+)", re.I)
-LAYER = re.compile(r"(-?[\d.]+)(?:px)?\s+(-?[\d.]+)(?:px)?\s+(-?[\d.]+)(?:px)?")
+LAYER = re.compile(
+    r"(-?[\d.]+)(?:px|rem|em)?\s+(-?[\d.]+)(?:px|rem|em)?\s+(-?[\d.]+)(?:px|rem|em)?"
+)
 
 
 def read(path):
@@ -120,12 +126,15 @@ class StagingContractTests(unittest.TestCase):
         did not use it."""
         missing = []
         for path in TEMPLATES:
-            for number, line in enumerate(read(path).splitlines(), 1):
-                if not re.search(r"\bscale:\s*[\d.]", line):
+            # Per statement, not per line. Requiring both tokens on one physical line made
+            # this a lint on whitespace: reformatting a GSAP vars object across lines —
+            # the normal way to write one — failed it.
+            for statement in read(path).split(";"):
+                if not re.search(r"\bscale:\s*[\d.]", statement):
                     continue
-                if "transformOrigin" in line:
+                if "transformOrigin" in statement:
                     continue
-                missing.append(f"{rel(path)}:{number}: {line.strip()[:70]}…")
+                missing.append(f"{rel(path)}: {' '.join(statement.split())[:70]}…")
         self.assertEqual(
             [], missing,
             "a camera-move example scales about the default 50% 50%, which enlarges the "

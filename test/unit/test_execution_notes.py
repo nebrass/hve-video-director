@@ -27,6 +27,15 @@ GRAMMARS = sorted((ROOT / "grammar").glob("*.md"))
 REGISTRY_HEADING = "### Execution notes"
 KEY_SECTION = "## Director keys — the closed contract"
 
+# A line that tells a frame to carry something. The scan is scoped to these because a
+# `key: value` token anywhere else is prose, a CSS property, or a brief field.
+INSTRUCTS_FRAME = re.compile(
+    r"\bon(?:to)? (?:a |the |an )?[\w`: -]*frame\b|\bthe packet carries\b|\bwrite[s]? .*frame\b",
+    re.I,
+)
+# `foo_bar:` or `foo_bar: value`, inside backticks.
+FRAME_KEY_TOKEN = re.compile(r"`([a-z][a-z0-9_]*):(?:\s[^`]*)?`")
+
 
 def read(path):
     return path.read_text(encoding="utf-8") if path.exists() else ""
@@ -155,6 +164,46 @@ class ExecutionNoteRegistryTests(unittest.TestCase):
                     for value in values if f"`{value}`" not in text
                 )
         self.assertEqual([], problems, "registry vocabulary drifted from its owner:\n  " + "\n  ".join(problems))
+
+    def test_no_grammar_writes_an_unregistered_note_onto_a_frame(self):
+        """The failure this file exists to stop, and the first version could not see it.
+
+        Registration was checked registry->world only: every row well-formed, nothing
+        looking the other way. So a grammar could add "write `parallax_bed: shallow` onto
+        the frame so the builder receives it" and the suite stayed green -- exactly the
+        sideways growth ADR-010 caps.
+
+        Scoped to lines that actually instruct a frame to carry something (they name the
+        frame or the packet), because a `key: value` token elsewhere is prose or CSS.
+        """
+        registered = {note for note, *_ in self.rows}
+        allowed = registered | set(self.keys)
+        offenders = []
+        for path in GRAMMARS + sorted((ROOT / "patterns").glob("*.md")):
+            for number, line in enumerate(read(path).splitlines(), 1):
+                if not INSTRUCTS_FRAME.search(line):
+                    continue
+                for token in FRAME_KEY_TOKEN.findall(line):
+                    if f"{token}:" in allowed or token in {k.rstrip(":") for k in allowed}:
+                        continue
+                    offenders.append(
+                        f"{rel(path)}:{number}: writes `{token}:` onto a frame, and it is "
+                        "neither a director key nor a registered execution note"
+                    )
+        self.assertEqual(
+            [], sorted(set(offenders)),
+            "an unregistered note reaches a builder:\n  " + "\n  ".join(sorted(set(offenders))),
+        )
+
+    def test_the_registered_note_is_written_as_a_literal_by_its_owner(self):
+        """A registry row naming `surface_reading:` while its owner only says "state it"
+        leaves a builder knowing a value and not the key it goes under."""
+        missing = []
+        for note, owner, *_ in self.rows:
+            for path in re.findall(r"`((?:grammar|reasoning|patterns)/[A-Za-z0-9_.-]+)`", owner):
+                if note not in read(ROOT / path):
+                    missing.append(f"{note} is registered but {path} never writes the literal")
+        self.assertEqual([], missing, "\n  ".join(missing))
 
     def test_the_registry_states_its_own_rules(self):
         """The constraints are the category's cap. A registry that lists notes but

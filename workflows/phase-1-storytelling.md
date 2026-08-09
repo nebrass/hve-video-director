@@ -479,6 +479,9 @@ the closed key contract, the catalog vocabulary and the hero-beat row of that sa
 which it *parses*, so it can never disagree with it:
 
 ```bash
+# $SKILL_DIR is the installed skill's own path — the same value the `validate_brief.py`
+# invocations later in this phase use; resolve it as `SKILL.md` § Runtime Compatibility
+# describes if it is not already set.
 python3 "$SKILL_DIR/scripts/validate_brief.py" --project-dir . keys-audit
 ```
 
