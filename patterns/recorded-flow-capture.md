@@ -15,6 +15,11 @@ recording, use the Step 2.1/2.2 flow in the workflow.
 
 ## When to use this path
 
+Phase 1 puts the choice to the user outright: whenever a web capture needs more than a single
+URL and a described state, its navigation-authorship question offers *replay my recording* /
+*skill navigates* / *I'll record before Phase 2* (recommend, never preselect — ADR-001). The
+judgment behind the recommendation:
+
 - Navigation too complex or too stateful to describe as a URL plus a target state: deep SaaS
   surfaces (a Power BI report and its drill paths are the motivating case), multi-step wizards,
   canvas/iframe UIs where improvised clicking is unreliable.

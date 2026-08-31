@@ -47,7 +47,11 @@ caught it.
   `allowed-tools` gains `drag` + `upload_file`; the brief discloses tabs and file names; an
   unknown custom-step name is reported before consent and aborts if reached. Enforced by the
   `NamedCustomStepsAreFirstClass` and `MultiTabTargetsAreDisclosed` suites in
-  `test_replay_flow.py`.
+  `test_replay_flow.py`. Navigation authorship is now also **asked, not just recommended**:
+  whenever a web capture needs more than a single URL and a described state, Phase 1 presents
+  the replay-my-recording / skill-navigates / I'll-record-later question (a user-owned lever
+  deserves a question block, not buried prose — ADR-001), and Phase 2 pauses with recording
+  instructions when a bound export has not arrived yet (the `supplied` blocking precedent).
 - **`scripts/replay_flow.py`** — the mechanical half of the replay (pure stdlib):
   `plan` validates the export against what the pipeline consumes and emits the deterministic
   humanized schedule (its pacing-profile block is the single owner of every humanization

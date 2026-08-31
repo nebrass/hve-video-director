@@ -72,7 +72,12 @@ A frame's `capture` value selects a source; each is feature-detected and degrade
   set that frame's `capture: screenshot`, and tell the user how to enable it:
   restart the chrome-devtools MCP server with `--experimentalScreencast=true`.
 - `recording:` on a `screenshot`/`screencast` frame (user-recorded browse flow, ADR-011):
-  requires the chrome-devtools MCP input tools for replay. With screencast additionally
+  requires the chrome-devtools MCP input tools for replay. A bound recording whose file does not
+  exist yet **pauses Phase 2 with recording instructions** (the `supplied` precedent — the user
+  chose "I'll record before Phase 2" in the Phase-1 navigation question): tell them how to
+  record and export (Chrome/Edge DevTools Recorder → Export → JSON, or the companion recorder
+  extension) into the exact bound path, then resume; never improvise navigation for a
+  recording-bound frame. With screencast additionally
   available, bound clip frames are filmed; with screencast absent, the replay still runs and
   those frames degrade to range-end stills (see § Replaying a recorded flow — this replaces the
   generic screencast fallback for replay-bound frames). With no chrome-devtools MCP at all,
@@ -244,10 +249,11 @@ every bound frame is cut or shot from that take.
 
 1. Validate before consent:
    `python3 scripts/replay_flow.py plan --recording "<recording>" --storyboard storyboard.md`.
-   Resolve any refusal (range beyond the recording, missing `clip`/`screenshot` bullet) by
-   returning to Phase 1. Surface every SECRET warning to the user verbatim — a recorded login
-   stores the typed password in plaintext; the remedy is re-recording after authentication,
-   never editing the user's export.
+   A missing recording *file* pauses for the user to record (see Capture-source detection
+   above); a structural refusal (range beyond the recording, missing `clip`/`screenshot`
+   bullet) returns to Phase 1. Surface every SECRET warning to the user verbatim — a recorded
+   login stores the typed password in plaintext; the remedy is re-recording after
+   authentication, never editing the user's export.
 2. Resolve the web source per Step 2.1 (`navigate`, or `attached-session` with its tab
    protocol), then obtain the Step 2.1b whole-flow consent and pointer choice. No browser
    action happens before both.

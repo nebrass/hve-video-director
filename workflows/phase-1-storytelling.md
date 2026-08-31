@@ -807,13 +807,33 @@ A web frame — still or filmed — may additionally bind a **user-recorded brow
 DevTools Recorder JSON export (Chrome/Edge → Record → Export → JSON) the user drops under
 `recordings/`. Add `recording: recordings/{name}.json` plus optional `recording_steps: A-B` to
 the frame; several frames may take different step ranges of one recording, which Phase 2 replays
-once and cuts per frame (`patterns/recorded-flow-capture.md`). Recommend this path — never
-preselect it — whenever navigation is too complex or too stateful to describe as a URL and a
-target state (deep SaaS surfaces like a Power BI report, multi-step drill paths, apps with no
-source to read): the user demonstrating the flow beats the agent inferring it, and the recorded
-steps are replayed with human pacing instead of improvised (ADR-011). If the user mentions
-having (or wanting to make) a recording, bind it here; the consent to actually replay it is
-Phase 2's, not this storyboard's.
+once and cuts per frame (`patterns/recorded-flow-capture.md`).
+
+**Ask the navigation-authorship question outright** — who drives the app is a user-owned lever
+(ADR-001: recommend, never preselect). Whenever any web frame needs more than reaching a single
+URL and a described state (a multi-step path, a stateful drill, a deep SaaS surface like a
+Power BI report, an app with no source to read), or the user has mentioned recording, present:
+
+```json
+{
+  "questions": [{
+    "question": "How should Phase 2 drive the app for the web captures?",
+    "header": "Navigation",
+    "options": [
+      { "label": "Replay my recording", "description": "You record the flow (Chrome/Edge DevTools Recorder, or the companion recorder extension for timing and Firefox), drop the JSON under recordings/, and Phase 2 replays your exact steps with human pacing. Recommended for complex, stateful, or source-less apps." },
+      { "label": "Skill navigates", "description": "Phase 2 reaches each bound view itself from the capture plan's URL/route and state notes, derived from the source code and app understanding. Fine for simple views." },
+      { "label": "I'll record before Phase 2", "description": "Bind the recording path now; Phase 2 pauses with recording instructions until the exported file exists." }
+    ],
+    "multiSelect": false
+  }]
+}
+```
+
+Bind the answer: **Replay my recording** and **I'll record before Phase 2** both write the
+`recording`/`recording_steps` bullets (the second leaves the file to arrive later — Phase 2
+pauses until it exists); **Skill navigates** binds nothing and the capture plan carries
+URL/route and state prose instead. Recorded steps replay with human pacing instead of
+improvisation (ADR-011); the consent to actually replay is Phase 2's, not this storyboard's.
 A clip frame's on-screen duration is the footage length (see Phase 4), so plan
 the frame's slot around the real clip length. Clips are available in **all**
 content modes; in `promo` they must be device-framed accents (Phase 4).
