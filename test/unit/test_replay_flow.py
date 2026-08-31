@@ -388,6 +388,49 @@ class CheckRefusesStaleRecordings(ReplayFlowCase):
             self.check(clip)
 
 
+@unittest.skipUnless(
+    shutil.which("ffmpeg") and shutil.which("ffprobe"),
+    "ffmpeg/ffprobe not installed — the hermetic tests above still cover the argv",
+)
+class ReplayCutIntegrationTest(ReplayFlowCase):
+    """One real cut: synthetic master → stitch_clip.py → sidecar → check."""
+
+    def test_a_real_master_take_cuts_publishes_and_checks(self):
+        raw = self.work / "public" / "clips" / ".drill.replay-raw.mp4"
+        raw.parent.mkdir(parents=True, exist_ok=True)
+        import subprocess
+        subprocess.run(
+            ["ffmpeg", "-y", "-f", "lavfi",
+             "-i", "testsrc=size=320x240:rate=30:duration=15",
+             "-pix_fmt", "yuv420p", str(raw)],
+            check=True, capture_output=True)
+
+        sha = self.mod.sha256_file(self.recording)
+        ledger_path = self.work / ".hve" / "replay" / "drill.json"
+        ledger_path.parent.mkdir(parents=True, exist_ok=True)
+        ledger_path.write_text(json.dumps(
+            CutMathBindsFramesToLedger.ledger_payload(self, sha)),
+            encoding="utf-8")
+
+        cwd = Path.cwd()
+        os_chdir = __import__("os").chdir
+        os_chdir(self.work)
+        self.addCleanup(os_chdir, cwd)
+        self.mod.arm(self.recording, self.storyboard)
+        results = self.mod.cut(
+            "recordings/drill.json", str(raw), str(ledger_path),
+            str(self.storyboard), canvas=(320, 240))
+
+        clip = self.work / "public" / "clips" / "scene-01-drill.mp4"
+        self.assertTrue(clip.is_file() and clip.stat().st_size > 0)
+        # steps 3-6 of the 15s master: 3.6s → clamp at 15.0 = 11.4s of footage
+        self.assertAlmostEqual(results[0]["duration"], 11.4, delta=0.2)
+        self.assertFalse(
+            (clip.parent / "scene-01-drill.mp4.replay.pending").exists())
+        self.assertEqual(
+            self.mod.check("recordings/drill.json", clip, "3-6"), 0)
+
+
 class ArmWritesPendingForClipFramesOnly(ReplayFlowCase):
     def test_arm_marks_the_clip_and_leaves_the_still_alone(self):
         cwd = Path.cwd()

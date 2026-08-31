@@ -670,7 +670,15 @@ def cut(recording_path, raw_path, ledger_path, storyboard_path,
         output = Path(binding["output"])
         start, duration = segment_for(
             ledger, tuple(binding["steps"]), master_duration)
-        start = max(0.0, start + offset)
+        # Re-clamp after the drift offset: a shifted window may spill past
+        # either edge of the take, and ffmpeg would silently truncate it.
+        start = min(max(0.0, start + offset), master_duration)
+        duration = min(duration, master_duration - start)
+        if duration <= 0:
+            raise ReplayError(
+                f"Cut for frame {binding['frame']} is empty after the drift "
+                f"offset ({offset:+.2f}s) — the take is shorter than the "
+                "ledger claims; retake the flow.")
         candidate = output.with_name(f".{output.name}.replay-candidate-{uuid.uuid4().hex}.mp4")
         command = [sys.executable, str(stitch),
                    f"{raw_path}::{start:.3f}::{duration:.3f}",
