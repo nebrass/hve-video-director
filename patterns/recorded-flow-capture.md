@@ -65,12 +65,32 @@ aborts if it reaches such a step. Selectors are the recorder's own forms — `ar
 `xpath//…`, `pierce/…`, `text/…`, each step carrying a preference-ordered list — plus optional
 `frame` index paths for iframe targets (the Power BI case).
 
+**Named custom steps (contract v1.1).** The schema's own extension point is
+`customStep { name, parameters }` (it carries `frame`, `target`, `assertedEvents` like any user
+step). Three names are part of this contract; an unknown name is reported before consent and
+aborts the take if reached. A foreign replayer with no custom-step handler skips or rejects
+them — a recorded, deliberate trade.
+
+| Name | Parameters | Replay treatment |
+|---|---|---|
+| `hve-wheel` | `selectors`, `x`, `y`, `deltaX`, `deltaY`, `ctrl` — one coalesced wheel/zoom burst; trackpad pinch arrives this way (`ctrl: true`), per the wheel-event spec | dispatch a synthetic `WheelEvent` at the target via script evaluation — best-effort: synthetic events are untrusted, which canvas zoom handlers rarely check. CDP itself offers a trusted wheel (`Input.dispatchMouseEvent` `type=mouseWheel`); the exit is a wheel/gesture tool ask on the chrome-devtools MCP |
+| `hve-drag` | `kind` (`html5` \| `pointer`), `from`, `to` (selector lists), optional `path` waypoints | resolve both ends to uids and perform the element-to-element drag capability; the waypoints inform pacing, not the mechanism |
+| `hve-upload` | `selectors`, `files` (names only — never bytes) | stage each named file under `recordings/files/` before the take; replay resolves the input and uploads the staged file. A missing staged file aborts with a named finding |
+
+**Multi-tab flows.** A step's `target` (schema string, default `main`) is bound to the acting
+tab's URL: tabs the flow opens are recorded, their steps carry `target`, and the consent brief
+lists every additional tab. Replay: the opening click executes in the main page and the new
+page appears as its side effect; before the first `target ≠ main` step, list the open pages and
+select the one matching the target URL (origin containment applies to targets too). A target
+page that never appears aborts the take with a named finding.
+
 **Reserved enrichment — the `hve` namespace.** A recording producer (the planned extension) may
 add a per-step `hve` object; every field is optional:
 
 ```json
-{ "type": "click", "selectors": [["aria/Sales by Region"]],
-  "hve": { "t": 8450, "dwellAfterMs": 900, "note": "open the region tile", "marker": "drill-start" } }
+{ "type": "change", "selectors": [["aria/Region filter"]], "value": "north",
+  "hve": { "t": 8450, "dwellAfterMs": 900, "note": "narrow to north", "marker": "drill-start",
+           "typingMs": 1800, "keyTimes": [120, 140, 200, 120] } }
 ```
 
 - `t` — milliseconds since recording start. When present on consecutive steps, the real deltas
@@ -79,6 +99,12 @@ add a per-step `hve` object; every field is optional:
 - `dwellAfterMs` — explicit post-step dwell; beats both `t` deltas and synthesis, same clamp.
 - `note` — free text, shown in the consent brief.
 - `marker` — reserved for future marker-based segmentation; not consumed today.
+- `typingMs` — how long a `change` value took to type; replay stretches its chunked typing to
+  match.
+- `keyTimes` — inter-key intervals for a `change` step, **quantized to 20 ms** and capped by
+  the producer: keystroke timing is an identifying biometric (the keystroke-dynamics
+  literature), so raw intervals are never recorded, and rhythm capture can be disabled at the
+  recorder. Replay paces its typing chunks with them.
 
 ## Security stance
 
@@ -237,6 +263,9 @@ track's clip-local timecodes and target boxes when `replay_pointer: branded`
 | Extracted still looks soft vs. real screenshots | Frame extraction inherits the take's pixel size, below the retina still standard | Accept with the measured warning, or reshoot that still via a second stills-only pass |
 | `check` fails after everything looked fine | The recording file changed since the cut (hash), or the clip was touched (fingerprint) | Retake/re-cut against the current recording; never edit a published clip in place |
 | Typing looks pasted, not typed | `fill` used on a filmed frame | Filmed `change` steps use chunked typing; `fill` is for unfilmed state transport |
+| A canvas zoom (`hve-wheel`) replays with no effect | The app checks `isTrusted` on wheel events — synthetic dispatch is untrusted | No local fix; note the frame for retake as a still, and see the wheel-tool exit in § Named custom steps |
+| An `hve-upload` step aborts | The named file is not staged | Place the exact file under `recordings/files/` before the take |
+| A `target` step aborts with "page never appeared" | The opening click did not open the tab this run (popup blocked, state changed) | Let the user unblock popups / restore state, then retake |
 
 ## See also
 

@@ -266,9 +266,16 @@ every bound frame is cut or shot from that take.
    the blockquote above), so the lead-in is both the first emitted frame and the timing origin.
 6. Replay each step with the pacing schedule `plan` emitted and the step→tool mapping from the
    pattern: `take_snapshot` → resolve the step's selector to a uid (aria-first ladder) → act
-   (`click`, `hover`, `press_key`; `type_text` in chunks for filmed typing, `fill` where typing
-   is not filmed); eased scrolls via `evaluate_script`; `navigate_page` only for the recording's
-   own `navigate` steps; waits via `wait_for` or an `evaluate_script` poll. After each step,
+   (`click`, `hover`, `press_key`; `type_text` in chunks for filmed typing — paced by
+   `hve.keyTimes`/`typingMs` when the recording carries them — and `fill` where typing is not
+   filmed); eased scrolls via `evaluate_script`; `navigate_page` only for the recording's
+   own `navigate` steps; waits via `wait_for` or an `evaluate_script` poll. Named custom steps
+   (pattern § Named custom steps): `hve-drag` resolves both ends and performs `drag`;
+   `hve-upload` uploads the file staged at `recordings/files/<name>` via `upload_file` (missing
+   file → abort with a named finding); `hve-wheel` dispatches a synthetic wheel via
+   `evaluate_script` (best-effort — the pattern records the trusted-path exit). A step whose
+   `target` is not `main` runs in the tab the flow opened: `list_pages`, then `select_page` on
+   the page matching the target URL (a page that never appeared aborts). After each step,
    append its ledger entry (`index`, `t_start`, `t_end`, `action`, target `bbox`, viewport). An
    unresolvable selector, an unexpected dialog, or any navigation to an origin the brief did not
    list **aborts the take** with a named finding (step index + selector list); prior valid clips
@@ -572,8 +579,8 @@ fi
 
 Runs once per bound recording, after Step 2.1 fixed the web source (and, for
 `attached-session`, the exact tab). Print the sanitized step brief from `replay_flow.py plan` —
-every origin, every step with its target's accessible name, typed values hidden, secret warnings
-verbatim — then ask:
+every origin, every additional tab the flow opens, every step with its target's accessible
+name, upload file names, typed values hidden, secret warnings verbatim — then ask:
 
 ```json
 {

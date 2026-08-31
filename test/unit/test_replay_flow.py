@@ -139,12 +139,15 @@ class ScheduleStaysInsideHumanBounds(ReplayFlowCase):
 
     def test_an_unhandled_step_type_is_marked_so_consent_sees_it(self):
         payload = recording_payload()
+        payload["steps"].append({"type": "webglGesture"})  # a truly foreign type
         payload["steps"].append({"type": "customStep", "name": "x"})
         schedule = self.mod.build_schedule(payload)
+        self.assertIn("UNHANDLED", schedule[-2]["note"])
         self.assertIn("UNHANDLED", schedule[-1]["note"])
         self.write_recording(payload)
         plan = self.mod.build_plan(self.recording)
-        self.assertTrue(any("customStep" in w for w in plan["unhandled"]))
+        self.assertTrue(any("webglGesture" in w for w in plan["unhandled"]))
+        self.assertTrue(any("custom step 'x'" in w for w in plan["unhandled"]))
 
 
 class SecretLikeValuesAreFlagged(ReplayFlowCase):
@@ -173,6 +176,81 @@ class SecretLikeValuesAreFlagged(ReplayFlowCase):
         self.assertNotIn("token=SECRET", brief)
         self.assertIn("typed value hidden", brief)
         self.assertIn("https://app.example.com/reports", brief)
+
+
+class NamedCustomStepsAreFirstClass(ReplayFlowCase):
+    """Contract v1.1: hve-wheel / hve-drag / hve-upload ride the schema's
+    customStep extension point and are scheduled, briefed, and never reported
+    as unhandled — while an unknown custom name still is."""
+
+    def custom_payload(self):
+        payload = recording_payload(3)
+        payload["steps"] += [
+            {"type": "customStep", "name": "hve-wheel",
+             "parameters": {"selectors": [["aria/Report canvas"]],
+                            "x": 640, "y": 360, "deltaX": 0, "deltaY": -480,
+                            "ctrl": True}},
+            {"type": "customStep", "name": "hve-drag",
+             "parameters": {"kind": "pointer",
+                            "from": [["aria/Year slicer"]],
+                            "to": [["aria/Filters pane"]],
+                            "path": [{"x": 10, "y": 10, "t": 150}]}},
+            {"type": "customStep", "name": "hve-upload",
+             "parameters": {"selectors": [["aria/Import data"]],
+                            "files": ["q3-sales.csv"]}},
+            {"type": "customStep", "name": "vendor-mystery",
+             "parameters": {}},
+        ]
+        return payload
+
+    def test_known_names_schedule_with_dwells_and_unknown_names_warn(self):
+        self.write_recording(self.custom_payload())
+        plan = self.mod.build_plan(self.recording)
+        self.assertEqual(len(plan["unhandled"]), 1)
+        self.assertIn("vendor-mystery", plan["unhandled"][0])
+        by_name = {e.get("name"): e for e in plan["schedule"] if "name" in e}
+        self.assertTrue(by_name["hve-wheel"]["zoom"])
+        lo, hi = self.mod.READ_DWELL_MS
+        for name in ("hve-wheel", "hve-drag", "hve-upload"):
+            self.assertTrue(lo <= by_name[name]["post_ms"] <= hi, name)
+        self.assertEqual(by_name["hve-upload"]["files"], ["q3-sales.csv"])
+        self.assertEqual(by_name["hve-drag"]["to"], "Filters pane")
+
+    def test_the_brief_shows_drag_destination_and_upload_files(self):
+        self.write_recording(self.custom_payload())
+        out = io.StringIO()
+        with redirect_stdout(out):
+            self.mod.print_brief(self.mod.build_plan(self.recording))
+        brief = out.getvalue()
+        self.assertIn("hve-wheel zoom", brief)
+        self.assertIn("'Year slicer' → 'Filters pane'", brief)
+        self.assertIn("files: q3-sales.csv", brief)
+        self.assertIn("UNHANDLED", brief)
+
+
+class MultiTabTargetsAreDisclosed(ReplayFlowCase):
+    def test_non_main_targets_are_sanitized_and_listed_before_consent(self):
+        payload = recording_payload(3)
+        payload["steps"].append(
+            {"type": "click", "target": "https://docs.example.com/help?token=S#x",
+             "selectors": [["aria/Continue"]]})
+        self.write_recording(payload)
+        plan = self.mod.build_plan(self.recording)
+        self.assertEqual(plan["targets"], ["https://docs.example.com/help"])
+        self.assertIn("https://docs.example.com", plan["origins"])
+        out = io.StringIO()
+        with redirect_stdout(out):
+            self.mod.print_brief(plan)
+        self.assertIn("Additional tabs", out.getvalue())
+        self.assertNotIn("token=S", out.getvalue())
+
+    def test_recorded_typing_rhythm_is_tolerated_enrichment(self):
+        payload = recording_payload()
+        payload["steps"][3]["hve"] = {"t": 7000, "typingMs": 1800,
+                                      "keyTimes": [120, 140, 200, 120]}
+        self.write_recording(payload)
+        plan = self.mod.build_plan(self.recording)  # must not raise
+        self.assertEqual(plan["step_count"], 6)
 
 
 class BindingsComeFromTheStoryboard(ReplayFlowCase):

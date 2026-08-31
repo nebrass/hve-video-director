@@ -36,6 +36,18 @@ caught it.
   treatment under a user-owned `replay_pointer` choice (ADR-001). Contract in
   `patterns/recorded-flow-capture.md`; enforced by the question-contract, director-keys,
   probe-shape and packet suites plus the extended storyboard-extras round-trip sample.
+- **Recorded-flow contract v1.1** (ADR-011 amendment) — the survey-driven second pass
+  (`hve-flow-recorder` `docs/research.md`): the schema's `customStep {name, parameters}` is its
+  sanctioned extension point, so wheel/zoom bursts (`hve-wheel` — trackpad pinch included, per
+  MDN it arrives as ctrl+wheel), drags (`hve-drag`, HTML5 + pointer — capture neither DevTools
+  Recorder nor Playwright codegen offers), and uploads (`hve-upload`, names staged under
+  `recordings/files/`, never bytes) become first-class named steps; a step's `target` string
+  binds to the acting tab's URL for multi-tab flows; `hve.typingMs`/`hve.keyTimes` carry typing
+  rhythm with inter-key intervals quantized (keystroke timing is an identifying biometric).
+  `allowed-tools` gains `drag` + `upload_file`; the brief discloses tabs and file names; an
+  unknown custom-step name is reported before consent and aborts if reached. Enforced by the
+  `NamedCustomStepsAreFirstClass` and `MultiTabTargetsAreDisclosed` suites in
+  `test_replay_flow.py`.
 - **`scripts/replay_flow.py`** — the mechanical half of the replay (pure stdlib):
   `plan` validates the export against what the pipeline consumes and emits the deterministic
   humanized schedule (its pacing-profile block is the single owner of every humanization

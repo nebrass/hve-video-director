@@ -777,6 +777,22 @@ consumed verbatim with unknown keys ignored; enrichment is a reserved optional `
 schema fork. The pattern file's handled-steps table is this repo's statement of what it consumes —
 a consumption contract owned here, not a restatement of upstream mechanism.
 
+**Amendment (2026-08-31) — named custom steps, multi-tab targets, typing rhythm.** The upstream
+schema's `customStep { name, parameters }` is its sanctioned extension point (it carries
+`frame`, `target`, `assertedEvents` like any user step), so the gestures the baseline cannot
+express enter the contract as three named custom steps — `hve-wheel` (coalesced wheel/zoom
+bursts; trackpad pinch arrives as ctrl+wheel per the wheel-event spec), `hve-drag`
+(HTML5 and pointer drags, replayed element-to-element), `hve-upload` (file *names*, staged
+under `recordings/files/` at replay; never bytes) — plus two contract bindings: a step's
+`target` string is the acting tab's URL (multi-tab flows disclosed in the consent brief,
+origin containment applying to targets), and `hve.keyTimes` carries inter-key intervals
+**quantized** because keystroke timing is an identifying biometric. Two trades are recorded
+rather than hidden: a foreign replayer with no custom-step handler skips or rejects the named
+steps, and wheel replay is a synthetic (untrusted) dispatch until the chrome-devtools MCP
+exposes the trusted wheel CDP already has — that tool ask is the exit. An unknown custom-step
+name is reported before consent and aborts the take if reached, exactly like an unknown step
+type: the consent brief never under-describes what replay will do.
+
 **Consequences.** (a) Recordings are plaintext and may contain credentials — a recorded login
 puts the password in a `change` step's value. The planner warns on secret-like values; the
 documented posture is record *after* authenticating and replay over the attached session; a

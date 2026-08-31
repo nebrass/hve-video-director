@@ -116,8 +116,15 @@ HANDLED_STEP_TYPES = (
     "scroll",
     "waitForElement",
     "waitForExpression",
+    "customStep",
 )
 IGNORED_STEP_TYPES = ("close", "emulateNetworkConditions")
+
+# The schema's sanctioned extension point is `customStep {name, parameters}`;
+# these are the names this pipeline replays (contract v1.1 — the pattern's
+# § Named custom steps). An unknown name is reported before consent and
+# aborts the take if reached.
+KNOWN_CUSTOM_STEPS = ("hve-wheel", "hve-drag", "hve-upload")
 
 # Bullet spellings mirror `templates/storyboard.md` § Capture and clip keys.
 # The regexes mirror validate_brief.py's lenient official-shape reader; this
@@ -361,6 +368,28 @@ def build_schedule(recording):
         elif step_type in ("keyDown", "keyUp"):
             entry["post_ms"] = recorded or _pick(TYPE_CHUNK_PAUSE_MS, index, 6)
             entry["key"] = str(step.get("key", ""))
+        elif step_type == "customStep":
+            name = str(step.get("name", ""))
+            params = step.get("parameters") or {}
+            entry["name"] = name
+            if name == "hve-wheel":
+                entry["pre_ms"] = _pick(SCROLL_MS, index, 7)
+                entry["post_ms"] = recorded or _pick(READ_DWELL_MS, index, 8)
+                entry["target"] = _describe_target(params)
+                if params.get("ctrl"):
+                    entry["zoom"] = True
+            elif name == "hve-drag":
+                entry["pre_ms"] = _pick(POINTER_TRAVEL_MS, index, 1) + HOVER_SETTLE_MS
+                entry["post_ms"] = recorded or _pick(READ_DWELL_MS, index, 2)
+                entry["target"] = _describe_target(
+                    {"selectors": params.get("from")})
+                entry["to"] = _describe_target({"selectors": params.get("to")})
+            elif name == "hve-upload":
+                entry["post_ms"] = recorded or _pick(READ_DWELL_MS, index, 9)
+                entry["target"] = _describe_target(params)
+                entry["files"] = [str(f) for f in (params.get("files") or [])][:8]
+            else:
+                entry["note"] = "UNHANDLED — replay aborts at this step"
         elif step_type in IGNORED_STEP_TYPES:
             entry["note"] = "ignored by design"
         else:
@@ -441,18 +470,30 @@ def build_plan(recording_path, storyboard_path=None):
     steps = recording["steps"]
     schedule = build_schedule(recording)
 
-    origins, warnings, secrets, unhandled = [], [], [], []
+    origins, warnings, secrets, unhandled, targets = [], [], [], [], []
     for index, step in enumerate(steps, start=1):
         step_type = step.get("type")
         if step_type == "navigate":
             origin = _origin(str(step.get("url", "")))
             if origin and origin not in origins:
                 origins.append(origin)
+        target = step.get("target")
+        if isinstance(target, str) and target and target != "main":
+            sanitized = _sanitized_url(target)
+            if sanitized not in targets:
+                targets.append(sanitized)
+            origin = _origin(target)
+            if origin and origin not in origins:
+                origins.append(origin)
         if step_type == "emulateNetworkConditions":
             warnings.append(
                 f"step {index}: emulateNetworkConditions is ignored — capture "
                 "films the real network")
-        if step_type not in HANDLED_STEP_TYPES and step_type not in IGNORED_STEP_TYPES:
+        if step_type == "customStep":
+            if str(step.get("name", "")) not in KNOWN_CUSTOM_STEPS:
+                unhandled.append(
+                    f"step {index}: unhandled custom step {step.get('name')!r}")
+        elif step_type not in HANDLED_STEP_TYPES and step_type not in IGNORED_STEP_TYPES:
             unhandled.append(f"step {index}: unhandled type {step_type!r}")
         secrets.extend(_secret_findings(index, step))
 
@@ -463,6 +504,7 @@ def build_plan(recording_path, storyboard_path=None):
         "title": recording.get("title", ""),
         "step_count": len(steps),
         "origins": origins,
+        "targets": targets,
         "warnings": warnings,
         "secrets": secrets,
         "unhandled": unhandled,
@@ -482,12 +524,22 @@ def print_brief(plan):
         print("Origins the flow visits (replay aborts on any other):")
         for origin in plan["origins"]:
             print(f"  - {origin}")
+    if plan["targets"]:
+        print("Additional tabs the flow opens (steps address them by URL):")
+        for target in plan["targets"]:
+            print(f"  - {target}")
     for entry in plan["schedule"]:
         line = f"  {entry['index']:>3}. {entry['type']}"
+        if entry.get("name"):
+            line += f" [{entry['name']}{' zoom' if entry.get('zoom') else ''}]"
         if "url" in entry:
             line += f" → {entry['url']}"
         if "target" in entry:
             line += f" — {entry['target']!r}"
+        if "to" in entry:
+            line += f" → {entry['to']!r}"
+        if entry.get("files"):
+            line += " files: " + ", ".join(entry["files"])
         if entry["type"] == "change":
             line += " («typed value hidden»)"
         if "key" in entry and entry["key"]:
