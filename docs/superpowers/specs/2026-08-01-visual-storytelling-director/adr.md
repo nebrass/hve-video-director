@@ -8,6 +8,9 @@ that calls itself a proposal while the tree treats it as settled misleads exactl
 exists to inform — the one deciding whether a rule may be broken. Nothing here was re-argued to
 make the change; the status caught up with the practice. ADR-009, added 2026-08-08 from a real
 Phase-5 run, is accepted on the same footing.
+**Revision note (2026-08-31):** ADR-011 added — recorded browse-flow replay. A new record, not an
+amendment; nothing earlier was re-argued. It extends ADR-001's `user_directed` clause to
+navigation and adds the one sanctioned exception to the attached-session no-navigation rule.
 **Revision note (2026-08-01):** updated after the Principal Engineer review
 (`review-principal.md`): ADR-002 and ADR-005 replaced, ADR-001 and ADR-007 amended,
 ADR-008 added.
@@ -704,3 +707,118 @@ proposal that wants builder reach, with no cap and no test. *Put execution notes
 instead* — brand-wide values do belong there and some of the staging contract will land there, but
 a note that varies per frame cannot: `DESIGN.md` is one document for the whole film, and per-frame
 variation is precisely what a frame block is for.
+
+---
+
+## ADR-011 — Recorded browse-flow replay: the user's demonstration is the navigation authority *(added 2026-08-31)*
+
+**Context.** Phase 2's web navigation has always been inference. Phase 1 writes a URL/route and a
+target state as capture-plan prose; Phase 2 reaches the view and improvises the clicks against a
+live accessibility snapshot. On a simple app that works. On the surfaces users actually ask for —
+a Power BI report is the motivating case: SaaS with no source to reason from, deep iframe and
+canvas UI, stateful drill paths — it fails two ways at once. The agent guesses wrong, because
+nothing it can read names the six-click path to the view that matters. And when it guesses right,
+the footage reads mechanical: state teleports, nothing dwells, no hand appears to be driving.
+
+Chrome and Edge ship a recorder (DevTools Recorder) that captures a user-performed flow and
+exports it as JSON in the Puppeteer Replay user-flow schema — steps, selectors (`aria/`, CSS,
+`xpath//`, `pierce/`, `text/`), iframe paths, asserted navigations. No timing data. Firefox has
+no native recorder; a planned browser extension by this skill's author would emit the same schema
+(and may enrich it). That export is something this pipeline has never had: the user *showing* the
+skill the flow, step by step, in their own product, with their own hands.
+
+Two existing rules make the integration non-trivial. The attached-session contract
+(`patterns/authenticated-browser-capture.md`) bans navigation absolutely and requires exact
+per-action consent for every click — correct for improvised capture in a logged-in browser, and
+unusable for a thirty-step recorded flow, where thirty consent prompts would train the user to
+stop reading them. And the storyboard is a description of the film, never a consent record, so
+whatever the storyboard says about a recording cannot itself be the approval to replay it.
+
+**Decision.** Four commitments, each the load-bearing form of "the user's demonstration is the
+authority".
+
+1. **A recording binds to frames orthogonally, and while bound it is the sole navigation
+   authority.** A frame keeps its `capture:` value (`screenshot` for a still, `screencast` for a
+   filmed clip) and adds `recording:` (project path of the export) plus optional
+   `recording_steps:` (1-based inclusive range; absent means the whole flow). Replay executes
+   exactly the recorded steps, in order, with humanized pacing — and never improvises: a selector
+   that no longer resolves aborts the take with a named finding rather than guessing at a
+   substitute. This is ADR-001's `user_directed` clause extended from creative choices to
+   navigation: the recording *is* an explicit user instruction, and derivation (ADR-005) neither
+   reads it nor is displaced by it.
+2. **Consent is granted per flow, not per action — and it is scoped like a fingerprint.** Phase 2
+   presents a sanitized step brief (hosts without query or fragment, element descriptions, flagged
+   secret-like values) and asks for whole-flow approval. That approval supersedes per-action
+   consent for exactly the approved steps, covers one replay run of one recording hash (a
+   re-recorded flow re-asks), and creates the single sanctioned exception to the attached-session
+   no-navigation rule. Containment is structural: only origins the recording itself visits; an
+   off-origin navigation or unexpected dialog aborts; every other attached-session rule stays in
+   force during and after the replay. The completion contract is amended honestly rather than
+   silently violated: a replay take ends at the flow's final state, which the brief disclosed —
+   the skill reports the final origin and the user restores their tab.
+3. **Replay once, cut many.** One approved flow is replayed once, filmed as one continuous master
+   screencast take, while the agent writes a step→timecode ledger. Per-frame clips are cut from
+   the master by `recording_steps` range through the canonical stitcher's segment syntax; stills
+   are taken at range-end dwells. State discipline is `capture_screen.py`'s, applied to a new
+   artifact family (ADR-009's freshness doctrine): a pending marker before the take, a
+   fingerprinted sidecar on publish, a `check` verb that refuses when the recording hash, the
+   request, or the media fingerprint no longer match — so a stale cut cannot count as complete.
+4. **The human-feel pointer is data, not pixels.** Screencast footage renders no pointer
+   (registered as a behavior probe, not asserted as folklore), and Phase 3 already mandates a
+   brand-styled pointer with click pulse on clip scenes. So the ledger carries a pointer track —
+   per step: timecode, action, target bounding box — and Phase 3's existing treatment renders it,
+   governed by a user-owned `replay_pointer:` choice asked in Phase 2 (recommend, never
+   preselect). The sidecar rides packet item 5 as a bound capture artifact; it is not a sixth
+   packet item (ADR-004) and not a `reasoning/` file in disguise.
+
+The format contract is deliberately asymmetric: the baseline is whatever Chrome/Edge export today,
+consumed verbatim with unknown keys ignored; enrichment is a reserved optional `hve` namespace
+(per-step timing, dwell hints, markers) so the future extension can improve pacing without a
+schema fork. The pattern file's handled-steps table is this repo's statement of what it consumes —
+a consumption contract owned here, not a restatement of upstream mechanism.
+
+**Amendment (2026-08-31) — named custom steps, multi-tab targets, typing rhythm.** The upstream
+schema's `customStep { name, parameters }` is its sanctioned extension point (it carries
+`frame`, `target`, `assertedEvents` like any user step), so the gestures the baseline cannot
+express enter the contract as three named custom steps — `hve-wheel` (coalesced wheel/zoom
+bursts; trackpad pinch arrives as ctrl+wheel per the wheel-event spec), `hve-drag`
+(HTML5 and pointer drags, replayed element-to-element), `hve-upload` (file *names*, staged
+under `recordings/files/` at replay; never bytes) — plus two contract bindings: a step's
+`target` string is the acting tab's URL (multi-tab flows disclosed in the consent brief,
+origin containment applying to targets), and `hve.keyTimes` carries inter-key intervals
+**quantized** because keystroke timing is an identifying biometric. Two trades are recorded
+rather than hidden: a foreign replayer with no custom-step handler skips or rejects the named
+steps, and wheel replay is a synthetic (untrusted) dispatch until the chrome-devtools MCP
+exposes the trusted wheel CDP already has — that tool ask is the exit. An unknown custom-step
+name is reported before consent and aborts the take if reached, exactly like an unknown step
+type: the consent brief never under-describes what replay will do.
+
+**Consequences.** (a) Recordings are plaintext and may contain credentials — a recorded login
+puts the password in a `change` step's value. The planner warns on secret-like values; the
+documented posture is record *after* authenticating and replay over the attached session; a
+credentialed recording must never be committed, and no recording ever enters `example/`. (b) The
+"attached capture never navigates" sentence — stated as an absolute in two mirrors and the README
+— gains a qualifier everywhere it appears, or the mirrors drift into falsehood the parity suite
+cannot see. (c) Four MCP input capabilities (`hover`, `press_key`, `type_text`, `fill`) enter
+`allowed-tools`; recorder steps they serve would otherwise be unreplayable. (d) The new bullets
+ride the storyboard's extra-keys preservation and the template's key tables — no validator edit,
+no migration entry (no legacy spelling ever existed), no change to `web_capture_source`'s
+test-pinned value set. (e) Where screencast tooling is absent the flow still replays for stills:
+capture quality degrades, the consent doctrine does not.
+
+**Alternatives rejected.** *A new `capture:` enum value* — the enum is restated across four
+authoritative surfaces, and a recording is a navigation source, not an artifact type: both stills
+and clips need it, so a fifth value would either double the enum or fork it. *Replay each step
+range independently* — re-runs every prerequisite step against a live, possibly authenticated app
+once per frame, multiplying both state mutation and the consent surface; rejected on the same
+ground per-action consent was: repetition trains people to stop reading. *Bake the cursor into
+the pixels* — collides with the Phase-3 pointer mandate (two cursors), freezes pointer style into
+footage a retake would be needed to restyle, and forfeits brand-token styling. *Drive replay with
+Puppeteer/`@puppeteer/replay` directly* — spawns its own browser, which forfeits the attached
+authenticated session (the exact case the feature exists for) and imports a non-stdlib dependency
+this repo's doctrine forbids; the MCP already exposes the needed input surface. *Require the
+extension's enriched format* — nobody can use the feature until an extension ships; synthesized
+pacing with an optional `hve.t` override serves the native export today and the extension later.
+*Per-action consent for recorded steps* — thirty prompts per flow makes each one meaningless; the
+user authored these steps, and the honest consent unit is the flow they demonstrated, disclosed
+whole.

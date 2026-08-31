@@ -802,6 +802,38 @@ Prefer `terminal-clip` over `terminal` when the command's real output matters
 (deploys, test runs, scaffolding) — it degrades to the authored-terminal path
 automatically if asciinema/agg aren't installed. Clip frames use the clip
 bullets in the storyboard template (`clip`, `clip_in`, `clip_out`, `speed`, `captions`).
+
+A web frame — still or filmed — may additionally bind a **user-recorded browse flow**: a
+DevTools Recorder JSON export (Chrome/Edge → Record → Export → JSON) the user drops under
+`recordings/`. Add `recording: recordings/{name}.json` plus optional `recording_steps: A-B` to
+the frame; several frames may take different step ranges of one recording, which Phase 2 replays
+once and cuts per frame (`patterns/recorded-flow-capture.md`).
+
+**Ask the navigation-authorship question outright** — who drives the app is a user-owned lever
+(ADR-001: recommend, never preselect). Whenever any web frame needs more than reaching a single
+URL and a described state (a multi-step path, a stateful drill, a deep SaaS surface like a
+Power BI report, an app with no source to read), or the user has mentioned recording, present:
+
+```json
+{
+  "questions": [{
+    "question": "How should Phase 2 drive the app for the web captures?",
+    "header": "Navigation",
+    "options": [
+      { "label": "Replay my recording", "description": "You record the flow (Chrome/Edge DevTools Recorder, or the companion recorder extension for timing and Firefox), drop the JSON under recordings/, and Phase 2 replays your exact steps with human pacing. Recommended for complex, stateful, or source-less apps." },
+      { "label": "Skill navigates", "description": "Phase 2 reaches each bound view itself from the capture plan's URL/route and state notes, derived from the source code and app understanding. Fine for simple views." },
+      { "label": "I'll record before Phase 2", "description": "Bind the recording path now; Phase 2 pauses with recording instructions until the exported file exists." }
+    ],
+    "multiSelect": false
+  }]
+}
+```
+
+Bind the answer: **Replay my recording** and **I'll record before Phase 2** both write the
+`recording`/`recording_steps` bullets (the second leaves the file to arrive later — Phase 2
+pauses until it exists); **Skill navigates** binds nothing and the capture plan carries
+URL/route and state prose instead. Recorded steps replay with human pacing instead of
+improvisation (ADR-011); the consent to actually replay is Phase 2's, not this storyboard's.
 A clip frame's on-screen duration is the footage length (see Phase 4), so plan
 the frame's slot around the real clip length. Clips are available in **all**
 content modes; in `promo` they must be device-framed accents (Phase 4).
@@ -817,6 +849,11 @@ For web screenshot/screencast frames, define:
 - URL or route to navigate to
 - Specific element/state to capture (e.g., "dashboard with sample data", "modal open")
 - Device viewport — match the chosen canvas: desktop 1920×1080 for 16:9; mobile 390×844 for 9:16; square viewport 1080×1080 for 1:1; mobile 390×488 (or desktop crop) for 4:5
+
+For recording-bound web frames, define instead the exact `recording` path and each frame's
+`recording_steps` range (omit for the whole flow) — the recording supplies the navigation, so no
+URL/route prose is needed; the viewport is still the chosen canvas, which overrides the
+recording's own `setViewport` steps.
 
 For terminal frames, define the exact command and whether the accepted output is an authored
 terminal scene or a `terminal-clip`. For native `screen-recording` frames, define the required

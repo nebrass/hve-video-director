@@ -149,12 +149,12 @@ less check_requirements.sh && bash check_requirements.sh --plan
 | HyperFrames CLI | Yes | `npm install --global hyperframes` (the checker never fetches it during report modes) |
 | HyperFrames companion skills | Phases 3–5 | `npx skills add heygen-com/hyperframes` — installs the `hyperframes` router *and* the domain family it dispatches to |
 | `chrome-headless-shell` | Yes | Used by `npx hyperframes render` for frame capture. System Chrome causes 120s render hangs. Install once: `npx puppeteer browsers install chrome-headless-shell` (one-time, ~170MB, cached). Verify with `npx hyperframes doctor`. |
-| Chrome DevTools MCP | For web capture | Required only when the storyboard requests web screenshots/screencasts. Configure it in the active agent; capability names are resolved per runtime. For an already-authenticated tab, use Chrome 144+ remote debugging plus MCP `--autoConnect` (preferred), or the documented dedicated-profile `--browser-url` fallback. |
+| Chrome DevTools MCP | For web capture | Required only when the storyboard requests web screenshots/screencasts — including replaying a user-recorded browse flow. Configure it in the active agent; capability names are resolved per runtime. For an already-authenticated tab, use Chrome 144+ remote debugging plus MCP `--autoConnect` (preferred), or the documented dedicated-profile `--browser-url` fallback. |
 | HeyGen credential | Recommended | `heygen auth login --oauth` (or `HEYGEN_API_KEY`) — lets the `media-use` engine retrieve catalog sound effects and a catalog music bed instead of generating them or falling back to its bundled library; either route is recorded in the brief as `music_strategy: delegated` with a provenance URI (see [Music Strategy](#music-strategy)). It does **not** change the voice: the brief's `voice` vocabulary is `elevenlabs:…` or `kokoro:…` only (enforced by [`scripts/validate_brief.py`](scripts/validate_brief.py)), so the engine's HeyGen voice route is not selectable through this skill's vocabulary. The checker reports it as `heygen-credential` and degrades gracefully without it; Phase 5 never prompts for sign-in and never substitutes a confirmed provider. |
 | `ELEVENLABS_API_KEY` | For an ElevenLabs voice | [elevenlabs.io](https://elevenlabs.io) — required when the confirmed voice uses ElevenLabs. It is consumed by the `media-use` engine's ElevenLabs route, the only path that reads it. Choose Kokoro explicitly for no-key local TTS; providers are never substituted automatically. |
 | Whisper | Recommended | `pip install openai-whisper` — voiceover timing verification when `npx hyperframes transcribe` is unavailable. The engine's per-line word timings never substitute for it: they are relative to each line's own audio, while captions need composition-absolute times over the assembled voiceover. |
 | `espeak-ng` | Optional | `brew install espeak-ng` / `apt install espeak-ng` — only needed for non-English voiceover via a confirmed Kokoro voice |
-| `--experimentalScreencast` (chrome-devtools MCP) | No | Enables `screencast` web-clip capture; without it, web scenes fall back to screenshots. |
+| `--experimentalScreencast` (chrome-devtools MCP) | No | Enables `screencast` web-clip capture; without it, web scenes fall back to screenshots, and recorded-flow clip frames degrade to stills at each range's end. |
 | `asciinema` + `agg` | No | Optional true terminal-clip recording for CLI scenes; without them, CLI scenes use the authored-terminal path. Install: `brew install asciinema agg` (macOS) · `apt install asciinema && cargo install --git https://github.com/asciinema/agg` (Debian/Ubuntu). See [`patterns/cli-terminal-capture.md`](patterns/cli-terminal-capture.md) for the full recording workflow. |
 | `wf-recorder` | Wayland native capture only | Feature-detected by `scripts/capture_screen.py`. Without it, use the desktop recorder and normalize the result with `scripts/stitch_clip.py`; generic FFmpeg PipeWire capture is not assumed. |
 
@@ -164,13 +164,51 @@ Phase 2 can capture an SSO/MFA app from an already-open Chrome tab without navig
 preferred setup is Chrome 144+ with remote debugging enabled at
 `chrome://inspect/#remote-debugging` and `--autoConnect` added to the Chrome DevTools MCP server
 arguments. Phase 2 then lists the connected profile's tabs, asks the user to select the exact tab,
-and leaves its URL/history unchanged.
+and leaves its URL/history unchanged — with one consented exception: replaying a browse flow you
+recorded yourself (next section) performs exactly your recorded steps and ends at the flow's
+disclosed final state.
 
 The MCP can inspect and control every open window in the connected profile. Close unrelated
 sensitive tabs first, never expose a remote-debugging port to the network, and use a dedicated
 profile when appropriate. See
 [`patterns/authenticated-browser-capture.md`](patterns/authenticated-browser-capture.md) for the
 manual `--browser-url` fallback, privacy contract, viewport restoration, and failure handling.
+
+### Record-and-replay browse capture
+
+For navigation too complex to describe — a Power BI report's drill path, a deep SaaS wizard —
+record the flow yourself and let Phase 2 replay it with human pacing instead of guessing. Chrome
+and Edge ship the recorder natively (DevTools → **Recorder** → record → Export → **JSON**); the
+companion [HVE Flow Recorder](https://github.com/nebrass/hve-flow-recorder) extension records
+the same format on Chrome, Edge, **and Firefox** with real per-step timing, typing rhythm,
+drag/wheel/upload capture, and capture-time secret redaction (consent-first: it holds no site
+access at install — the browser asks once, at the first Start, and capture code exists on pages
+only during a recording session). Drop
+the export under the project's `recordings/` and bind storyboard frames to it (`recording:` plus
+an optional `recording_steps: A-B` range — several frames can take different ranges of one
+recording). Phase 2 shows you a sanitized step brief and asks for one whole-flow approval, then
+replays the steps once — pointer travel, settle, read dwells, chunked typing, eased scrolls —
+while filming a single master take, and cuts each frame's clip from it. The replayed clicks are
+your own recorded steps, never improvised: a selector that no longer resolves aborts the take
+rather than guessing.
+
+```bash
+# Validate a recording, see the step brief, origins, and any secret warnings
+python3 scripts/replay_flow.py plan --recording recordings/drill.json --storyboard storyboard.md
+
+# Verify a cut clip is complete and fresh (resume predicate)
+python3 scripts/replay_flow.py check --recording recordings/drill.json \
+  --steps 3-6 -o public/clips/scene-01-drill.mp4
+```
+
+Replay needs the Chrome DevTools MCP; filming additionally needs its experimental screencast
+(without it, replay still runs and clip frames degrade to stills at each range's end). Cuts
+publish atomically with fingerprinted `<clip>.replay.json` sidecars — re-recording the flow
+stales every clip cut from it, and an interrupted take reads as incomplete, never as done. Mind
+that **recorder exports are plaintext**: record *after* logging in (pair with the
+authenticated-tab setup above) so no credential is ever in the file, and never commit a recording
+that holds one. Full contract:
+[`patterns/recorded-flow-capture.md`](patterns/recorded-flow-capture.md).
 
 ### Native screen capture and clip normalization
 
@@ -520,8 +558,11 @@ my-video-project/
 ├── .hyperframes/
 │   └── frame-comments.json   # Only while a Studio frame-review round is open
 ├── DESIGN.md                 # Design contract from Phase 3 (palette, type, motion)
+├── recordings/               # Your DevTools Recorder JSON exports (replayed by Phase 2)
+├── .hve/replay/              # Step→timecode ledgers from replay takes
 ├── public/
-│   └── screenshots/          # App captures from Phase 2
+│   ├── screenshots/          # App captures from Phase 2
+│   └── clips/                # Filmed clips: screencast takes, native recordings, replay cuts
 ├── scenes/                   # Phase 3 HyperFrames scene templates
 │   ├── 00-title-card.html
 │   ├── 01-pain-point.html

@@ -598,6 +598,44 @@ automated.
 - **Probe — manual.** Re-read the MCP's screencast tool at each bump for any change to frame
   emission or PTS behaviour; the normalize step is the mitigation and stays regardless.
 
+### `SCREENCAST_POINTER_ABSENCE` — screencast footage renders no pointer
+
+- **Local text.** `workflows/phase-2-capture.md` (§ Replaying a recorded flow — the pointer-free
+  footage expectation in the quality gate), `workflows/phase-3-design.md` (§ Clip scene — the
+  brand pointer driven by a replay's pointer track), `patterns/recorded-flow-capture.md`
+  (the pointer-as-data design).
+- **Exit.** n/a — a CDP property, not a HyperFrames defect
+- **What.** CDP screencast composites page pixels only: synthetic input has no pointer sprite,
+  so replayed clicks and hovers leave no visible cursor in the footage. Documented in neither
+  the `chrome-devtools-mcp` README nor the protocol's screencast docs.
+- **Why it matters.** It is what makes pointer-as-data (ADR-011) correct rather than merely
+  tidy: the human-feel cursor cannot come from the pixels, so the replay ledger records a
+  pointer track (timecode, action, target bbox per step) and Phase 3's existing brand-pointer
+  treatment renders it, governed by the user's `replay_pointer:` choice. If a future
+  MCP/protocol change started compositing a cursor, replayed clips would show two pointers and
+  the Phase-3 wiring would need a skip rule.
+- **Probe — manual.** At each bump, replay one click on a test page under screencast and inspect
+  a frame at the click timecode for any rendered cursor; footage with a cursor flips the Phase-3
+  consumption rule.
+
+### `SCREENCAST_CONCURRENT_CAPTURE` — `take_screenshot` during an active screencast is version-dependent
+
+- **Local text.** `workflows/phase-2-capture.md` (§ Replaying a recorded flow step 7 —
+  attempt-then-degrade for range-end stills), `patterns/recorded-flow-capture.md`
+  (troubleshooting row).
+- **Exit.** n/a — a chrome-devtools-mcp property, not a HyperFrames defect
+- **What.** Whether a screenshot can be taken while a screencast session is live is documented
+  nowhere and plausibly varies by MCP server version and flag set; both features are gated
+  behind `--experimentalScreencast=true` territory.
+- **Why it matters.** Replay wants stills at range-end dwells *inside* the one master take. The
+  local rule is attempt-then-degrade: try the screenshot during the dwell; on any error, extract
+  the frame from the normalized master afterwards (`ffmpeg -ss … -frames:v 1`) and measure the
+  result against the canvas — a measured warning, never a claim about screencast DPR (also
+  undocumented).
+- **Probe — manual.** At each bump, attempt one `take_screenshot` mid-screencast; record whether
+  it succeeds, errors, or corrupts the take. The degrade path stays regardless, because older
+  servers remain deployed.
+
 ### `GATE_BLIND_SPOTS` — what `lint` and `check` verifiably do not catch
 
 - **Local text.** `patterns/visual-patterns.md` (the `tl.from()` stagger trap, the jitter DON'T,
@@ -784,7 +822,7 @@ automated.
 2. Re-verify every path in this file — the pointer-validity suite does this; it is part of step 3.
 3. `bash test/run.sh` — the stdlib suite, including the question-contract tests.
 4. Re-run the `CHECK_DEPRECATION_SIGNAL` probe (needs headless Chrome; not in `test/run.sh`).
-5. **Walk § Behavior probes — every row, not the automated ones.** Six of the eight say
+5. **Walk § Behavior probes — every row, not the automated ones.** Most rows say
    *"Probe — manual"*, and each states its own re-read duty; that duty is written where an auditor
    reads the map, not where a bumper works, so it was reachable by nobody. For each `### SYMBOL`,
    re-read its named upstream owner and record one of: **still holds** / **now documented upstream**

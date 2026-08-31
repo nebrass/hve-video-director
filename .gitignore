@@ -52,6 +52,8 @@ public/clips/
 *.mp4.capture.json
 *.capture.pending
 *.capture.lock
+*.mp4.replay.json
+*.replay.pending
 
 # Graphify knowledge-graph tool output (local, machine-specific absolute paths)
 graphify-out/

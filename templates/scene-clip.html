@@ -41,7 +41,10 @@
                    22px 90px 200px rgba(0,0,0,.22), inset 0 1px 0 rgba(255,255,255,.08);
         outline:1px solid rgba(255,255,255,.06);visibility:hidden;opacity:0}
       [data-composition-id="scene-NN-clip"] .clip-vid{display:block;width:100%;height:auto}
-      /* device-frame chrome, brand color-grade, vignette, restyled cursor go here */
+      /* device-frame chrome, brand color-grade, vignette, restyled cursor go here.
+         For a clip cut from a recorded flow, the restyled cursor's motion source is the
+         packet-bound <clip>.replay.json pointer track (clip-local timecodes + target
+         bboxes) when replay_pointer is branded — never an invented path. */
     </style>
     <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js" integrity="sha384-sG0Hv1tP1lZCk9KQmrIbY/XNwi+OY84GQqhMscbnsoBFqAz8KNCil1kvfL3Hbbk2" crossorigin="anonymous"></script>
     <script>

@@ -25,10 +25,10 @@ user change `theme`; never capture the opposite theme and silently recolor it.
 ## Phase 2 routing
 
 Everything this phase reads from `storyboard.md` is either a frontmatter key (`product_surface`,
-`capture_plan`, `web_capture_source`) or a `- key: value` bullet in a frame's metadata block
-(`capture`, `screenshot`, `clip`, `capture_duration`, `capture_region`, `command`,
-`record_timeout`). Read `product_surface` and every frame's `capture` bullet before asking for a
-web source:
+`capture_plan`, `web_capture_source`, `replay_pointer`) or a `- key: value` bullet in a frame's
+metadata block (`capture`, `screenshot`, `clip`, `capture_duration`, `capture_region`,
+`recording`, `recording_steps`, `command`, `record_timeout`). Read `product_surface` and every
+frame's `capture` bullet before asking for a web source:
 
 - If `product_surface: none`, `capture_plan` plans no artifacts (Phase 1 writes
   `none — skip Phase 2`), **and every frame has `capture: none`**, mark Phase 2 **skipped** in
@@ -37,6 +37,9 @@ web source:
   completion markers. Use the checkpoint's Phase-2 stamp to record the intentional skip before
   proceeding.
 - Run the web path (Steps 2.1–2.2) only for `screenshot` or `screencast` frames.
+- A web frame that also carries a `recording:` bullet is captured by § Replaying a recorded flow
+  (after Step 2.1 fixes the source and Step 2.1b grants the whole-flow consent), never by the
+  improvised Step-2.2 loop. Group such frames by recording file — one recording, one take.
 - Run the native screen path only for `screen-recording` frames.
 - Run the terminal path only for `terminal` or `terminal-clip` frames.
 - For `supplied`, verify the storyboard's exact file exists and is non-empty.
@@ -68,6 +71,18 @@ A frame's `capture` value selects a source; each is feature-detected and degrade
   it; if the tool is absent or it errors about the flag, **fall back to `take_screenshot`**,
   set that frame's `capture: screenshot`, and tell the user how to enable it:
   restart the chrome-devtools MCP server with `--experimentalScreencast=true`.
+- `recording:` on a `screenshot`/`screencast` frame (user-recorded browse flow, ADR-011):
+  requires the chrome-devtools MCP input tools for replay. A bound recording whose file does not
+  exist yet **pauses Phase 2 with recording instructions** (the `supplied` precedent — the user
+  chose "I'll record before Phase 2" in the Phase-1 navigation question): tell them how to
+  record and export (Chrome/Edge DevTools Recorder → Export → JSON, or the companion recorder
+  extension) into the exact bound path, then resume; never improvise navigation for a
+  recording-bound frame. With screencast additionally
+  available, bound clip frames are filmed; with screencast absent, the replay still runs and
+  those frames degrade to range-end stills (see § Replaying a recorded flow — this replaces the
+  generic screencast fallback for replay-bound frames). With no chrome-devtools MCP at all,
+  replay is impossible: hand off like the WSL native path — the user records the flow themselves
+  as video and `stitch_clip.py` normalizes it into the bound `clip`.
 - `screen-recording` (native desktop/non-browser app): requires a positive
   `capture_duration` and an exact `clip` output path; `capture_region: x,y,w,h` is optional.
   Invoke `scripts/capture_screen.py` as described below. A missing or failed expected output
@@ -82,8 +97,8 @@ Stills remain the universal fallback for unavailable screencast/terminal tooling
 
 ### Canonical native capture + clip helpers (don't re-author per run)
 
-The skill ships two reviewed, pure-stdlib helpers. Invoke them instead of writing throwaway
-capture or stitching scripts:
+The skill ships three reviewed, pure-stdlib helpers. Invoke them instead of writing throwaway
+capture, stitching, or replay-bookkeeping scripts:
 
 - `scripts/capture_screen.py` orchestrates fixed-duration native desktop/region capture, invokes
   its sibling `stitch_clip.py` with an explicit `::0::<capture_duration>` trim, validates
@@ -95,14 +110,21 @@ capture or stitching scripts:
   trimming, and multi-take assembly. It enforces constant 30fps, H.264 High / yuv420p, even
   dimensions, no audio, and `+faststart`. Multiple takes use ffmpeg's concat **filter**, not the
   concat demuxer, so heterogeneous sparse-VFR inputs normalize onto one canvas.
+- `scripts/replay_flow.py` owns the mechanical half of a recorded browse-flow capture
+  (ADR-011): `plan` validates the recording and emits the pacing schedule plus the sanitized
+  consent brief, `arm` writes the pending markers, `cut` cuts per-frame clips from the master
+  take through `stitch_clip.py` and publishes each atomically with a fingerprinted
+  `<clip>.replay.json` sidecar, and `check` is the resume predicate (hash, fingerprint, and
+  request match). Its pacing-profile block is the single owner of every humanization number.
 
-Copy both into the project's `scripts/` directory like the voiceover script (locate the skill dir
-the way `workflows/phase-5-audio.md` § "Step 5.0: Resolve the tools this phase runs" resolves
-`$SKILL_DIR`), then run:
+Copy all three into the project's `scripts/` directory like the voiceover script (locate the
+skill dir the way `workflows/phase-5-audio.md` § "Step 5.0: Resolve the tools this phase runs"
+resolves `$SKILL_DIR`), then run:
 
 ```bash
 mkdir -p scripts
-cp "$SKILL_DIR/scripts/capture_screen.py" "$SKILL_DIR/scripts/stitch_clip.py" scripts/
+cp "$SKILL_DIR/scripts/capture_screen.py" "$SKILL_DIR/scripts/stitch_clip.py" \
+   "$SKILL_DIR/scripts/replay_flow.py" scripts/
 # capture the full native desktop for six seconds, normalize, validate, then publish atomically
 python3 scripts/capture_screen.py --duration 6 -o public/clips/scene-02-dashboard.mp4
 # capture a region; odd source dimensions are accepted and normalized to even output dimensions
@@ -214,6 +236,83 @@ archetype (`templates/scene-clip.html`) in Phase 3 — no extra wiring here.
 > first) so the opening frame is captured, and after `screencast_stop` **normalize the PTS**
 > with `stitch_clip.py` (step 5) so the change-driven timing becomes a constant 30fps the
 > renderer can footage-lock. If the clip is still empty, fall back to `take_screenshot` (step 6).
+
+### Replaying a recorded flow (web)
+
+When any web frame (`capture: screenshot` or `capture: screencast`) carries a `recording:`
+bullet, the bound DevTools Recorder export — not improvisation — is the navigation authority for
+that frame (ADR-011). The full contract (accepted format, step→tool mapping, pacing law, ledger
+schema, abort semantics) is
+[`patterns/recorded-flow-capture.md`](../patterns/recorded-flow-capture.md); this recipe is the
+take itself. Each recording is replayed **once**, filmed as **one** continuous master take, and
+every bound frame is cut or shot from that take.
+
+1. Validate before consent:
+   `python3 scripts/replay_flow.py plan --recording "<recording>" --storyboard storyboard.md`.
+   A missing recording *file* pauses for the user to record (see Capture-source detection
+   above); a structural refusal (range beyond the recording, missing `clip`/`screenshot`
+   bullet) returns to Phase 1. Surface every SECRET warning to the user verbatim — a recorded
+   login stores the typed password in plaintext; the remedy is re-recording after
+   authentication, never editing the user's export.
+2. Resolve the web source per Step 2.1 (`navigate`, or `attached-session` with its tab
+   protocol), then obtain the Step 2.1b whole-flow consent and pointer choice. No browser
+   action happens before both.
+3. Size the viewport per the screencast recipe above (`resize_page` on `navigate`; the consented
+   resize-and-restore contract on `attached-session`). The recording's own `setViewport` steps
+   are **overridden by the locked Phase-1 canvas**; when the recorded viewport differs, warn
+   that footage geometry will differ from what the user saw while recording.
+4. Arm the take:
+   `python3 scripts/replay_flow.py arm --recording "<recording>" --storyboard storyboard.md`
+   writes `<clip>.replay.pending` for every bound clip frame, so an interrupted take reads as
+   *incomplete*, never as absent.
+5. When filming, start the master take with `screencast_start`, raw path
+   `public/clips/.{recording-stem}.replay-raw.mp4`; a stills-only recording skips the screencast
+   entirely. Lead with motion — an eased scroll nudge — and record that instant as the ledger's
+   clock anchor (`t = 0`): screencast frames are change-driven (`SCREENCAST_FRAME_EMISSION`, and
+   the blockquote above), so the lead-in is both the first emitted frame and the timing origin.
+6. Replay each step with the pacing schedule `plan` emitted and the step→tool mapping from the
+   pattern: `take_snapshot` → resolve the step's selector to a uid (aria-first ladder) → act
+   (`click`, `hover`, `press_key`; `type_text` in chunks for filmed typing — paced by
+   `hve.keyTimes`/`typingMs` when the recording carries them — and `fill` where typing is not
+   filmed); eased scrolls via `evaluate_script`; `navigate_page` only for the recording's
+   own `navigate` steps; waits via `wait_for` or an `evaluate_script` poll. Named custom steps
+   (pattern § Named custom steps): `hve-drag` resolves both ends and performs `drag`;
+   `hve-upload` uploads the file staged at `recordings/files/<name>` via `upload_file` (missing
+   file → abort with a named finding); `hve-wheel` dispatches a synthetic wheel via
+   `evaluate_script` (best-effort — the pattern records the trusted-path exit). A step whose
+   `target` is not `main` runs in the tab the flow opened: `list_pages`, then `select_page` on
+   the page matching the target URL (a page that never appeared aborts). After each step,
+   append its ledger entry (`index`, `t_start`, `t_end`, `action`, target `bbox`, viewport). An
+   unresolvable selector, an unexpected dialog, or any navigation to an origin the brief did not
+   list **aborts the take** with a named finding (step index + selector list); prior valid clips
+   stay protected behind their pending markers.
+7. Stills: at each `capture: screenshot` frame's range-end step, hold the post-action dwell and
+   attempt `take_screenshot` to the frame's exact bound path. If it errors while the screencast
+   is live (`SCREENCAST_CONCURRENT_CAPTURE`), mark the frame for post-take extraction instead:
+   `ffmpeg -ss <ledger t> -i <master> -frames:v 1 <bound path>`, then measure the written image
+   against the canvas and warn when it lands below the retina still standard (Capture Tips).
+8. End the take (`screencast_stop` when filming), write the ledger to
+   `.hve/replay/<recording-stem>.json` (schema in the pattern), then cut every bound clip frame
+   in one call:
+   `python3 scripts/replay_flow.py cut --recording "<recording>" --raw "<master>" --ledger
+   ".hve/replay/<recording-stem>.json" --storyboard storyboard.md --canvas <W>x<H>`.
+   `cut` validates ledger-vs-master drift (a uniform end-anchored offset inside its bound, a
+   refusal beyond it), cuts dwell-aligned segments through `stitch_clip.py`, and publishes each
+   clip atomically with its fingerprinted `<clip>.replay.json` sidecar — pointer track included.
+   Remove the raw master only after every cut succeeds.
+9. Accept a clip frame only when its exact `clip` is non-empty and
+   `python3 scripts/replay_flow.py check --recording "<recording>" [--steps "<A-B>"] -o "<clip>"`
+   passes; the Footage quality gate below still applies to every cut. A rejected or failed frame
+   keeps its pending marker: offer **retake** (the whole flow again — one fresh take, new cuts,
+   reusing the consent only while the recording file is byte-identical), **degrade to a
+   range-end still**, or **skip the frame**, and record the outcome on the storyboard.
+10. Degradations: screencast absent/flagless → the replay still runs and bound clip frames
+    become range-end stills (rewrite `capture: screenshot` on those frames and tell the user how
+    to enable screencast — for replay-bound frames this replaces the generic screencast
+    fallback). No chrome-devtools MCP at all → replay is impossible; hand off like the WSL
+    native path (the user records the flow themselves as video and `stitch_clip.py` normalizes
+    it into the bound `clip`). The MCP-side ffmpeg PATH trap above applies to the master take
+    unchanged.
 
 ### Recording a CLI scene (terminal)
 
@@ -446,6 +545,10 @@ connecting.
    submit forms, change account/app settings, publish, purchase, delete, log out, or follow links.
    If a storyboard beat genuinely requires an in-page click, scroll, or keypress, name the exact
    action and obtain per-action consent first; consent for one action does not cover another.
+   The sole exception is a user-recorded flow replayed after the Step 2.1b whole-flow consent —
+   and only its approved steps, in order, once per take: the recording's own steps may click,
+   type, scroll, and follow the recording's own navigations, while every ban here stays in force
+   outside them, and consent for the flow is not consent for any other action.
 6. Before any temporary resize, record the selected page's original outer width and height.
    Present the viewport choice from the pattern. If the user approves resizing, use `resize_page`
    for the confirmed canvas and restore the original viewport after the last capture and on every
@@ -458,8 +561,11 @@ connecting.
    to change it manually or return to Phase 1; do not mutate a persistent theme setting in the
    authenticated profile.
 8. At completion, restore the original viewport. Never close the tab or browser, and leave its
-   URL and history unchanged. If the session expires or the tab closes, let the user
-   re-authenticate manually and start again from `list_pages`; do not navigate to a sign-in page.
+   URL and history unchanged. A consented recorded-flow replay is the one exception to the
+   URL/history half: its take ends at the flow's final state, which the Step 2.1b brief
+   disclosed — report the final origin and let the user restore their tab manually. If the
+   session expires or the tab closes, let the user re-authenticate manually and start again from
+   `list_pages`; do not navigate to a sign-in page.
 
 ### URL navigation path
 
@@ -475,6 +581,53 @@ if [ -f "package.json" ]; then
 fi
 ```
 
+## Step 2.1b: Whole-flow consent for recorded replays (recording-bound frames only)
+
+Runs once per bound recording, after Step 2.1 fixed the web source (and, for
+`attached-session`, the exact tab). Print the sanitized step brief from `replay_flow.py plan` —
+every origin, every additional tab the flow opens, every step with its target's accessible
+name, upload file names, typed values hidden, secret warnings verbatim — then ask:
+
+```json
+{
+  "questions": [{
+    "question": "Replay this recorded flow exactly as shown for capture?",
+    "header": "Replay flow",
+    "options": [
+      { "label": "Approve whole flow", "description": "Perform the listed steps once, in order, against the chosen source. Hash-bound to this exact recording; a changed recording re-asks." },
+      { "label": "Show brief again", "description": "Reprint the full sanitized step list before deciding." },
+      { "label": "Skip these frames", "description": "Do not replay; recording-bound frames stay uncaptured for now." }
+    ],
+    "multiSelect": false
+  }]
+}
+```
+
+Approval covers exactly one replay run of one recording hash: the approved steps, in order, once
+per take, against only the origins the brief listed. It is not consent for any other action, and
+a retake reuses it only while the recording file is byte-identical. Say plainly that the steps
+will be performed **again** against the live app — state may have changed since the user
+recorded them; the brief is what they approve, the app's current behavior is what happens.
+
+Then, once per project (persist and reuse on resume), the pointer choice:
+
+```json
+{
+  "questions": [{
+    "question": "Should replayed clips show the animated brand pointer?",
+    "header": "Pointer",
+    "options": [
+      { "label": "Branded pointer (Recommended)", "description": "Phase 3 renders the brand-styled pointer with click pulses from the replay's pointer track — most of what makes a replay read as human." },
+      { "label": "No pointer overlay", "description": "Footage plays with no rendered pointer; state changes carry the motion alone." }
+    ],
+    "multiSelect": false
+  }]
+}
+```
+
+Record the answer as `replay_pointer: branded` or `replay_pointer: none` in the storyboard
+frontmatter before the take, the way Step 2.1 persists `web_capture_source`.
+
 ## Step 2.2: Capture the selected web source
 
 **Capture richly — more than one frame per view where it strengthens a beat.** A single flat
@@ -486,7 +639,8 @@ callout). Stay on the locked Phase-1 canvas/aspect — extra viewports are for v
 cropping only, never a second output aspect. Variety here is what lets Phase 3 frame a product
 spine instead of repeating one image.
 
-For each view bound to a frame in the storyboard (Phase 1, Step 1.6):
+Frames carrying a `recording:` bullet are captured by § Replaying a recorded flow, never by this
+loop. For each remaining view bound to a frame in the storyboard (Phase 1, Step 1.6):
 
 1. **Reach the view**:
    - For `attached-session`, retain the selected page and current URL from Step 2.1; skip this
@@ -502,7 +656,8 @@ For each view bound to a frame in the storyboard (Phase 1, Step 1.6):
 
 3. **Interact** if needed (click buttons, open modals, fill forms):
    - In `attached-session`, follow the read-only/per-action-consent contract above; filling or
-     submitting forms is prohibited.
+     submitting forms is prohibited, except as recorded steps replayed under § Replaying a
+     recorded flow (Step 2.1b consent).
    - Take a snapshot first with `take_snapshot`
    - Click elements with `click` using the uid from the snapshot
    - Wait for state with `wait_for` and the target text
@@ -555,6 +710,9 @@ Before accepting any recorded clip, check (retake if it fails):
   overlays, extension badges, or personal data (emails, tokens, real names).
 - **The meaningful action is one clean, uninterrupted take** (no mid-action cut, no stray
   cursor jitter, no accidental clicks).
+- **Replay cuts** show human pacing — dwells around every action, no teleporting state — the
+  footage itself is pointer-free (the pointer is Phase-3 data), and
+  `replay_flow.py check` passes for each cut.
 - **Duration** within the frame's planned slot (Phase 4 will footage-lock it).
 
 In the Phase-2 gallery review, present each clip and prompt the user to **accept or retake**.
