@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-08-31
+
 A remediation pass over a seven-agent audit of the skill (41 findings), plus an expert review
 of the nine "premium motion" proposals that came out of it. The audit's P0 and P1 items shipped
 as written. **Most of P2 did not**, and that is the substantive outcome: five of the nine
@@ -596,7 +598,8 @@ Initial release of the hve-video-director skill.
   earlier Pixabay integration.
 - README with install instructions and an MIT license.
 
-[Unreleased]: https://github.com/nebrass/hve-video-director/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/nebrass/hve-video-director/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/nebrass/hve-video-director/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/nebrass/hve-video-director/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/nebrass/hve-video-director/compare/v0.0.4...v0.1.0
 [0.0.4]: https://github.com/nebrass/hve-video-director/compare/v0.0.3...v0.0.4
