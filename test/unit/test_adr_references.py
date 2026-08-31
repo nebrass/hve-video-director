@@ -1,6 +1,6 @@
 """ADR citations are load-bearing, so they have to resolve.
 
-Ten records govern this repo and citations point at them from every layer. `ADR-001`
+Eleven records govern this repo and citations point at them from every layer. `ADR-001`
 alone is named dozens of times, in prose that tells an agent it may not preselect an
 answer. (No count is written here on purpose: this file was briefly wrong about its own
 numbers, because four later commits on the same branch changed them.) A citation is the
@@ -12,9 +12,10 @@ it looks checked.
 Two ways that rots, both silent:
 
 - A record is renumbered or removed and the citations keep pointing at the old number.
-- A citation is written for a record that was planned and never landed. This is live: the
-  next number in the series is queued for the premium-motion program, and until that record
-  exists no file may cite it.
+- A citation is written for a record that was planned and never landed. This is live: at any
+  moment the next number in the series may already be spoken for by a planned record (the
+  premium-motion program held that slot until ADR-011 — recorded browse-flow replay — landed
+  first), and until a record exists in `adr.md` no file may cite its number.
 
 `docs/` is a frozen M1 snapshot everywhere except `adr.md`, which is amended in place --
 so the ADR file is the one thing in there this suite may treat as current.
