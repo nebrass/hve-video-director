@@ -178,7 +178,10 @@ manual `--browser-url` fallback, privacy contract, viewport restoration, and fai
 
 For navigation too complex to describe — a Power BI report's drill path, a deep SaaS wizard —
 record the flow yourself and let Phase 2 replay it with human pacing instead of guessing. Chrome
-and Edge ship the recorder natively (DevTools → **Recorder** → record → Export → **JSON**); drop
+and Edge ship the recorder natively (DevTools → **Recorder** → record → Export → **JSON**); the
+companion [HVE Flow Recorder](https://github.com/nebrass/hve-flow-recorder) extension records
+the same format on Chrome, Edge, **and Firefox** with real per-step timing, typing rhythm,
+drag/wheel/upload capture, and capture-time secret redaction. Drop
 the export under the project's `recordings/` and bind storyboard frames to it (`recording:` plus
 an optional `recording_steps: A-B` range — several frames can take different ranges of one
 recording). Phase 2 shows you a sanitized step brief and asks for one whole-flow approval, then

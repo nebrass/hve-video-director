@@ -37,8 +37,11 @@ so).
 Chrome and Edge ship the recorder natively: DevTools → **Recorder** panel → *Start new
 recording* → perform the flow → stop → **Export** → **JSON** (the Puppeteer Replay user-flow
 format). Save the export under the project's `recordings/` with a slug name
-(`recordings/drill-to-details.json`). Firefox has no native recorder; a planned browser
-extension will emit the same schema (and may enrich it — see the `hve` fields below).
+(`recordings/drill-to-details.json`). Firefox has no native recorder; the companion
+[HVE Flow Recorder](https://github.com/nebrass/hve-flow-recorder) extension emits the same
+schema on Chrome, Edge, and Firefox — enriched with real timing, typing rhythm, and the named
+custom steps (see the `hve` fields and § Named custom steps below), and it redacts secret
+fields at capture time, which the native recorder does not.
 
 Record deliberately: the replay reproduces your *steps*, and synthesizes its own pacing, so
 stray clicks and dead-end detours are replayed too. Record **after** authenticating (see
@@ -89,7 +92,7 @@ page appears as its side effect; before the first `target ≠ main` step, list t
 select the one matching the target URL (origin containment applies to targets too). A target
 page that never appears aborts the take with a named finding.
 
-**Reserved enrichment — the `hve` namespace.** A recording producer (the planned extension) may
+**Reserved enrichment — the `hve` namespace.** A recording producer (the companion extension) may
 add a per-step `hve` object; every field is optional:
 
 ```json
