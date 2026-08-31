@@ -41,7 +41,9 @@ format). Save the export under the project's `recordings/` with a slug name
 [HVE Flow Recorder](https://github.com/nebrass/hve-flow-recorder) extension emits the same
 schema on Chrome, Edge, and Firefox — enriched with real timing, typing rhythm, and the named
 custom steps (see the `hve` fields and § Named custom steps below), and it redacts secret
-fields at capture time, which the native recorder does not.
+fields at capture time, which the native recorder does not. It is consent-first: no site access
+at install, one browser prompt at the first Start (the user must Allow it for recording to
+work), and capture code present on pages only during a recording session.
 
 Record deliberately: the replay reproduces your *steps*, and synthesizes its own pacing, so
 stray clicks and dead-end detours are replayed too. Record **after** authenticating (see

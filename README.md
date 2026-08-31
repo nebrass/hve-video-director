@@ -181,7 +181,9 @@ record the flow yourself and let Phase 2 replay it with human pacing instead of 
 and Edge ship the recorder natively (DevTools → **Recorder** → record → Export → **JSON**); the
 companion [HVE Flow Recorder](https://github.com/nebrass/hve-flow-recorder) extension records
 the same format on Chrome, Edge, **and Firefox** with real per-step timing, typing rhythm,
-drag/wheel/upload capture, and capture-time secret redaction. Drop
+drag/wheel/upload capture, and capture-time secret redaction (consent-first: it holds no site
+access at install — the browser asks once, at the first Start, and capture code exists on pages
+only during a recording session). Drop
 the export under the project's `recordings/` and bind storyboard frames to it (`recording:` plus
 an optional `recording_steps: A-B` range — several frames can take different ranges of one
 recording). Phase 2 shows you a sanitized step brief and asks for one whole-flow approval, then
