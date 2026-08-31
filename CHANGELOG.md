@@ -20,6 +20,32 @@ caught it.
 
 ### Added
 
+- **Recorded browse-flow replay** (ADR-011) — the answer to capture that guesses: for surfaces
+  too complex or too source-less to navigate by inference (a Power BI report's drill path is the
+  motivating case), the user records the flow with the Chrome/Edge DevTools Recorder, drops the
+  JSON export under `recordings/`, and binds frames to it with two new storyboard bullets
+  (`recording`, `recording_steps` — several frames may take ranges of one recording). Phase 2
+  presents a sanitized step brief (typed values hidden, URLs stripped of query/fragment,
+  secret-like values flagged) and asks one whole-flow consent — hash-scoped to the exact export,
+  the single sanctioned exception to the attached-session no-navigation rule — then replays the
+  steps **once** with human pacing, films one continuous master take, and cuts each frame's clip
+  from it. Replay never improvises: an unresolvable selector, unexpected dialog, or off-origin
+  navigation aborts the take with a named finding. The cursor is data, not pixels: footage stays
+  pointer-free (`SCREENCAST_POINTER_ABSENCE`, registered beside `SCREENCAST_CONCURRENT_CAPTURE`
+  in the behavior probes) and the ledger's pointer track drives Phase 3's existing brand-pointer
+  treatment under a user-owned `replay_pointer` choice (ADR-001). Contract in
+  `patterns/recorded-flow-capture.md`; enforced by the question-contract, director-keys,
+  probe-shape and packet suites plus the extended storyboard-extras round-trip sample.
+- **`scripts/replay_flow.py`** — the mechanical half of the replay (pure stdlib):
+  `plan` validates the export against what the pipeline consumes and emits the deterministic
+  humanized schedule (its pacing-profile block is the single owner of every humanization
+  number, `test_replay_flow.py`-asserted); `arm` writes `<clip>.replay.pending` so an
+  interrupted take reads *incomplete*, never absent; `cut` slices dwell-aligned segments from
+  the master through `stitch_clip.py` and publishes clip + fingerprinted `<clip>.replay.json`
+  atomically (a failed cut leaves the previous clip byte-identical); `check` is the
+  continue/jump resume predicate — a re-recorded flow (hash), a tampered clip (fingerprint), or
+  a rebound frame (steps) all refuse, ADR-009's freshness family applied to a new artifact
+  class.
 - **`keys-audit`** (`validate_brief.py`) — a structural audit of the director keys a storyboard
   carries: required keys, closed vocabularies, catalog tags, `blueprint:`/`motion:` presence, the
   hero-beat count, and every `runtime_rejected:` denial. It turns Step 1.4c, which was pure prose,
