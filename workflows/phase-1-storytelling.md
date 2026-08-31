@@ -802,6 +802,18 @@ Prefer `terminal-clip` over `terminal` when the command's real output matters
 (deploys, test runs, scaffolding) — it degrades to the authored-terminal path
 automatically if asciinema/agg aren't installed. Clip frames use the clip
 bullets in the storyboard template (`clip`, `clip_in`, `clip_out`, `speed`, `captions`).
+
+A web frame — still or filmed — may additionally bind a **user-recorded browse flow**: a
+DevTools Recorder JSON export (Chrome/Edge → Record → Export → JSON) the user drops under
+`recordings/`. Add `recording: recordings/{name}.json` plus optional `recording_steps: A-B` to
+the frame; several frames may take different step ranges of one recording, which Phase 2 replays
+once and cuts per frame (`patterns/recorded-flow-capture.md`). Recommend this path — never
+preselect it — whenever navigation is too complex or too stateful to describe as a URL and a
+target state (deep SaaS surfaces like a Power BI report, multi-step drill paths, apps with no
+source to read): the user demonstrating the flow beats the agent inferring it, and the recorded
+steps are replayed with human pacing instead of improvised (ADR-011). If the user mentions
+having (or wanting to make) a recording, bind it here; the consent to actually replay it is
+Phase 2's, not this storyboard's.
 A clip frame's on-screen duration is the footage length (see Phase 4), so plan
 the frame's slot around the real clip length. Clips are available in **all**
 content modes; in `promo` they must be device-framed accents (Phase 4).
@@ -817,6 +829,11 @@ For web screenshot/screencast frames, define:
 - URL or route to navigate to
 - Specific element/state to capture (e.g., "dashboard with sample data", "modal open")
 - Device viewport — match the chosen canvas: desktop 1920×1080 for 16:9; mobile 390×844 for 9:16; square viewport 1080×1080 for 1:1; mobile 390×488 (or desktop crop) for 4:5
+
+For recording-bound web frames, define instead the exact `recording` path and each frame's
+`recording_steps` range (omit for the whole flow) — the recording supplies the navigation, so no
+URL/route prose is needed; the viewport is still the chosen canvas, which overrides the
+recording's own `setViewport` steps.
 
 For terminal frames, define the exact command and whether the accepted output is an authored
 terminal scene or a `terminal-clip`. For native `screen-recording` frames, define the required

@@ -205,7 +205,14 @@ SHAPED_VALUES = {
     "goal": "the viewer understands the product is three cooperating layers, not one box",
     "capabilities": "timeline-choreography, spatial-depth",
     "user_directed": "true",
+    "recording": "recordings/probe-flow.json",
+    "recording_steps": "2-5",
 }
+
+# Capture bindings ride the same `extra` mechanism as the director keys; the
+# round-trip exercises the newest pair (ADR-011's recorded-flow bindings) as
+# part of its representative sample.
+CAPTURE_BINDING_SAMPLE = ("recording", "recording_steps")
 
 
 def probe_value(key):
@@ -219,6 +226,7 @@ def probe_value(key):
 GLOBAL_EXTRAS = {
     "content_mode": "promo",
     "emotional_journey": "curiosity → tension → relief → confidence",
+    "replay_pointer": "branded",
 }
 
 
@@ -269,6 +277,7 @@ class RoundTripThroughUpstreamParser(unittest.TestCase):
             f"'{SECTION}' — the probe has nothing to prove, which is a broken "
             f"probe, not a passing one",
         )
+        keys = keys + list(CAPTURE_BINDING_SAMPLE)
         source = probe_storyboard(keys)
 
         with tempfile.TemporaryDirectory() as tmp:

@@ -381,6 +381,12 @@ asciinema/agg terminal footage).
 drop shadow, a vignette toward the brand canvas, a hidden OS cursor replaced by a brand-styled
 pointer with a click pulse, and a color-grade toward the active design system's tokens. The
 `<video>` stays muted; clip-own audio, if enabled, is mixed separately in Phase 5 Step 5.3a.
+When the packet binds a `<clip>.replay.json` sidecar and `replay_pointer:` is `branded`, the
+brand pointer's travel and click pulses follow the sidecar's **pointer track** — each entry's
+clip-local timecode and target bounding box (scaled from the recorded viewport to the scene
+canvas), eased with the track's named easing — never an invented path; replay footage itself is
+pointer-free (`SCREENCAST_POINTER_ABSENCE`). `replay_pointer: none` drops the pointer overlay on
+replayed clips — the user's per-run choice (ADR-001, via Phase 2 Step 2.1b).
 
 - **Tutorial mode:** layer a Step-Label / Chapter overlay (`patterns/visual-patterns.md` § Step Label / Chapter Overlay) so each instructional scene shows `Step N of M` + chapter title, taken verbatim from that frame's `step_label` and `chapter` bullets — never re-derived from the frame number, which counts the cold open (spec §7.2c).
 
@@ -421,7 +427,7 @@ resolve a citation itself has been handed the wrong packet.
 | 2 | the project's design spec | `DESIGN.md` from Step 3.1, inlined whole |
 | 3 | the **bodies** of the upstream recipes the frame cites | read from the installed skill *at this moment* and pasted in: the `blueprint:` id resolved through `BLUEPRINT_INDEX`, each `motion:` name through `RULES_INDEX`, plus the adapter contract when `runtime:` names a non-default runtime (the Contract column of `reasoning/capability-catalog.md` says which one), followed by this skill's `sub-agents/non-default-runtime-rider.md` — labelled as a local narrowing constraint, so a reader can tell which half upstream owns |
 | 4 | the scene-builder role | `FRAME_WORKER_CORE`, read from the installed skill, followed by this skill's `sub-agents/scene-builder-delta.md` — core first, delta second, read as one role. **Once per worker, not once per packet** — see Step 3.4 |
-| 5 | canvas size, the captions flag, and the exact paths of any bound capture artifacts | the Phase-1 canvas dimensions; the frame's `captions:` bullet; the frame's `screenshot:` / `clip:` bullets, as project-relative paths |
+| 5 | canvas size, the captions flag, and the exact paths of any bound capture artifacts | the Phase-1 canvas dimensions; the frame's `captions:` bullet; the frame's `screenshot:` / `clip:` bullets, as project-relative paths — plus, when the clip was cut from a recorded flow, its `<clip>.replay.json` sidecar path and the frontmatter `replay_pointer:` choice (the sidecar is a capture artifact bound by path, not a sixth item) |
 
 Plus the starting point Step 3.2 chose for that archetype — the copy-ready `templates/scene-*.html`
 file, or the block already installed from the registry.

@@ -78,6 +78,8 @@ web_capture_source: {navigate | attached-session | pending | n/a}
 - capture: {none | screenshot | screencast | screen-recording | terminal | terminal-clip | supplied}
 - capture_duration: {seconds}
 - capture_region: {x,y,w,h}
+- recording: recordings/{name}.json
+- recording_steps: {A-B}
 - command: {exact shell command}
 - record_timeout: {seconds}
 - clip: public/clips/scene-{NN}-{slug}.mp4
@@ -126,8 +128,11 @@ a guessed default.
 | `poster` | seconds to seek for the tile poster, past the intro animation |
 
 `format`, `duration`, `message`, `arc` and `audience` are the official frontmatter keys.
-`content_mode`, `theme`, `renderer`, `product_surface`, `emotional_journey`, `capture_plan` and
-`web_capture_source` are this skill's own and ride in `globals.extra`.
+`content_mode`, `theme`, `renderer`, `product_surface`, `emotional_journey`, `capture_plan`,
+`web_capture_source` and `replay_pointer` are this skill's own and ride in `globals.extra`.
+`replay_pointer` (`branded` | `none`) is written by Phase 2 only when a frame binds a
+`recording` bullet — it records the user's per-run choice of whether Phase 3 renders the brand
+pointer from the replay's pointer track; absent otherwise, like every unused key.
 
 > **Do not write `mode` in frontmatter.** Upstream reserves that key for the *interaction* mode
 > (collaborative / autonomous) of a run-shape contract this skill deliberately does not adopt —
@@ -159,6 +164,8 @@ would break.
 | `capture` | `none`, `screenshot`, `screencast`, `screen-recording`, `terminal`, `terminal-clip` or `supplied`. Default `screenshot` for a product/spine frame, `none` for connective beats |
 | `capture_duration` | REQUIRED with `capture: screen-recording` — the fixed native recording duration in seconds |
 | `capture_region` | `screen-recording` only, optional — `x,y,w,h`; omit for the full desktop |
+| `recording` | binds a user-recorded browse flow (a DevTools Recorder JSON export under `recordings/`) as this frame's navigation source. While bound, replay of the recorded steps is the only navigation — never improvised (ADR-011). Rides with `capture: screencast` (a filmed segment of the flow) or `capture: screenshot` (a still at the range end); contract in `patterns/recorded-flow-capture.md` |
+| `recording_steps` | 1-based inclusive step range `A-B` (or a single step `A`) of the bound recording this frame uses; omit for the whole flow. One recording may feed several frames by ranges — the flow is replayed **once** and per-frame clips are cut from the master take |
 | `command` | REQUIRED with `capture: terminal-clip` — the exact shell command the skill runs via `asciinema rec --command`. Use `bash -c '…'` for pipelines. Omit for `capture: terminal`, which uses authored output |
 | `record_timeout` | `terminal-clip` only; default frame duration + 2s — bounds non-terminating commands |
 | `clip` | REQUIRED exact output path with `capture: screen-recording`; present whenever a capture yields a clip |

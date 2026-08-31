@@ -12,9 +12,9 @@ description: >
   "launch video", "desktop app demo", "screen recording video", "record a screen region".
 user-invocable: true
 argument-hint: "[project-dir] [--mode new|continue|jump] [--phase 0|1|2|3|4|5]"
-allowed-tools: Bash(npm:*), Bash(npx:*), Bash(node:*), Bash(bash:*), Bash(ffmpeg:*), Bash(python:*), Bash(python3:*), Bash(pip:*), Bash(pip3:*), Bash(whisper:*), Bash(curl:*), Bash(git:*), Bash(asciinema:*), Bash(agg:*), Bash(timeout:*), Bash(ffprobe:*), Bash(script:*), Read, Write, Edit, Glob, Grep, AskUserQuestion, Skill, mcp__chrome-devtools__navigate_page, mcp__chrome-devtools__take_screenshot, mcp__chrome-devtools__take_snapshot, mcp__chrome-devtools__click, mcp__chrome-devtools__wait_for, mcp__chrome-devtools__evaluate_script, mcp__chrome-devtools__emulate, mcp__chrome-devtools__list_pages, mcp__chrome-devtools__new_page, mcp__chrome-devtools__select_page, mcp__chrome-devtools__screencast_start, mcp__chrome-devtools__screencast_stop, mcp__chrome-devtools__resize_page
-version: "0.2.0"
-updated: "2026-08-09"
+allowed-tools: Bash(npm:*), Bash(npx:*), Bash(node:*), Bash(bash:*), Bash(ffmpeg:*), Bash(python:*), Bash(python3:*), Bash(pip:*), Bash(pip3:*), Bash(whisper:*), Bash(curl:*), Bash(git:*), Bash(asciinema:*), Bash(agg:*), Bash(timeout:*), Bash(ffprobe:*), Bash(script:*), Read, Write, Edit, Glob, Grep, AskUserQuestion, Skill, mcp__chrome-devtools__navigate_page, mcp__chrome-devtools__take_screenshot, mcp__chrome-devtools__take_snapshot, mcp__chrome-devtools__click, mcp__chrome-devtools__hover, mcp__chrome-devtools__press_key, mcp__chrome-devtools__type_text, mcp__chrome-devtools__fill, mcp__chrome-devtools__wait_for, mcp__chrome-devtools__evaluate_script, mcp__chrome-devtools__emulate, mcp__chrome-devtools__list_pages, mcp__chrome-devtools__new_page, mcp__chrome-devtools__select_page, mcp__chrome-devtools__screencast_start, mcp__chrome-devtools__screencast_stop, mcp__chrome-devtools__resize_page
+version: "0.3.0"
+updated: "2026-08-31"
 ---
 
 # hve-video-director — AI Video Production Pipeline
@@ -241,7 +241,7 @@ Run Phase -1 for direct/default `new` mode only when there is no `project-plan.m
    |---|---|---|
    | Phase 0 — Discovery | Understand product, audience, goal, and constraints | Approve `context.md`; Phase 1 is where the user chooses how it looks/sounds |
    | Phase 1 — Storytelling | Collect and confirm the user-owned story brief, then build the narrative | Confirm the complete brief before `storyboard.md`; approve the storyboard |
-   | Phase 2 — Capture | Gather bound web (including an already-open authenticated Chrome tab), terminal, supplied, or native recordings | Approve the capture set and any fallbacks |
+   | Phase 2 — Capture | Gather bound web (including an already-open authenticated Chrome tab, and human-paced replay of a user-recorded browse flow), terminal, supplied, or native recordings | Approve the capture set and any fallbacks; whole-flow consent before any replay |
    | Phase 3 — Design | Define brand/motion and author scene HTML | Approve `DESIGN.md` and scene previews |
    | Phase 4 — Production | Wire the root composition and transitions | Approve the preview after the seam gate + lint + check |
    | Phase 5 — Audio & Render | Generate narration, music and SFX through the `media-use` audio engine, review captions, mix, render MP4 | Confirm title/path/source/license (or explicit none) before mixing; approve render |
@@ -253,6 +253,11 @@ Run Phase -1 for direct/default `new` mode only when there is no `project-plan.m
    If the product needs an already-open authenticated Chrome tab, explain that Phase 2 supports
    it after the user manually enables Chrome remote debugging and configures the Chrome DevTools
    MCP with `--autoConnect` (Chrome 144+). Do not enable it during onboarding.
+   If navigation is complex or stateful (a deep SaaS surface like a Power BI report), mention
+   that the user can record the flow themselves with the Chrome/Edge DevTools Recorder, export
+   it as JSON into the project's `recordings/`, and Phase 2 will replay it with human pacing —
+   see `patterns/recorded-flow-capture.md`. Mention only; the binding is Phase 1's and the
+   replay consent is Phase 2's.
 
 **First, select video type:**
 
@@ -372,6 +377,14 @@ If Phase 2 is required and any planned capture lacks its accepted output → Pha
   - screenshot: the frame's bound `screenshot` exists and is non-empty
   - screencast: the exact bound `clip` exists and is non-empty, or the storyboard was explicitly
     rewritten to `capture: screenshot` and its bound `screenshot` exists and is non-empty
+  - screenshot or screencast bound to a recording (the frame also carries `recording:`): the
+    recording file exists; for a clip frame, the exact bound `clip` exists and is non-empty,
+    `<clip>.replay.pending` is absent, `<clip>.replay.json` is present (both named after the
+    bound `clip` path), and
+    `python3 scripts/replay_flow.py check --recording "<recording>"`
+    `[--steps "<recording_steps>"] -o "<clip>"` passes (sidecar request match, media
+    fingerprint, and unchanged recording hash — a re-recorded flow stales every clip cut from
+    it); for a still frame, the bound `screenshot` exists and is non-empty
   - screen-recording: a positive `capture_duration` is present, an optional `capture_region` is a
     valid `x,y,w,h`, the exact bound `clip` exists and is non-empty, `<clip>.capture.pending` is
     absent, `<clip>.capture.json` is present (both named after the bound `clip` path), and
@@ -428,7 +441,10 @@ Phase 3 requires: context.md + storyboard.md, plus completion of every capture r
   after the bound `clip` path, not after a file called `clip`. Run
   `capture_screen.py --check` with that frame's `capture_duration` / `capture_region` / `clip`;
   if any check fails, BLOCK Phase 3 and resume Phase 2 (or return to Phase 1 to repair invalid
-  fields). Frontmatter `product_surface: none` with no requested captures has no Phase-2 artifact
+  fields). A frame bound to a `recording:` is likewise never a file-presence check: for its
+  clip, require no `<clip>.replay.pending`, a `<clip>.replay.json` sidecar, and a passing
+  `replay_flow.py check --recording "<recording>" [--steps "<recording_steps>"] -o "<clip>"`;
+  any failure BLOCKS Phase 3 the same way — a re-recorded flow stales every clip cut from it. Frontmatter `product_surface: none` with no requested captures has no Phase-2 artifact
   prerequisite, but the intentional Phase-2 skip must still have a fresh Phase-2 stamp.
   Capture-coverage gate (orchestrator-enforced; promo/showcase only): before authoring
   scenes, if frontmatter `product_surface` is `ui` and NO storyboard frame binds an existing real
@@ -499,7 +515,7 @@ tradeoff once, comply, and record `user_directed: true` on the frame.
 Phase 0: DISCOVERY ──── Phase 1: STORYTELLING ──── Phase 2: CAPTURE
   │                       │                          │
   ├ Design thinking       ├ Narrative structure      ├ Web / terminal / supplied
-  ├ Codebase analysis     ├ Scene storyboard         ├ Auto-navigate app
+  ├ Codebase analysis     ├ Scene storyboard         ├ Navigate or replay recording
   ├ Product context Q&A   ├ Emotional arc            ├ Screenshots + clips
   └ Goal/audience         └ Script outline           └ Bound capture artifacts
 

@@ -60,7 +60,10 @@ launches a debuggable browser, chooses a profile directory, or accepts Chrome's 
 
 Never persist page IDs, complete URLs, profile paths, DOM snapshots, cookies, storage, request
 headers, or authentication material in `context.md`, `storyboard.md`, logs, or generated helper
-files. The storyboard persists only `web_capture_source: attached-session` (storyboard frontmatter).
+files. The storyboard persists only `web_capture_source: attached-session` (storyboard
+frontmatter) — plus, when a recorded flow is bound, the `recording:`/`recording_steps:` bullets
+and the `replay_pointer:` choice, none of which carry tab identity or any URL beyond the
+project-relative recording path.
 
 ## Read-only capture contract
 
@@ -81,6 +84,30 @@ files. The storyboard persists only `web_capture_source: attached-session` (stor
 The accepted capture files intentionally contain visible product data. The Phase-2 gallery review
 must check them for email addresses, names, tenant IDs, tokens, financial data, or unrelated tabs
 before the user accepts them.
+
+## Recorded-flow exception — the one sanctioned interaction path
+
+A user-provided recording, replayed after the whole-flow consent of
+`workflows/phase-2-capture.md` § Step 2.1b, is the only case in which an attached session may go
+beyond the contract above (ADR-011) — and the permission is exactly the recording's own steps:
+
+- **Only the approved steps, in order, once per take.** No improvised click, scroll, keypress,
+  or navigation may be added. A selector that no longer resolves aborts the take with a named
+  finding; it is never guessed around.
+- **Only origins the recording itself visits.** The consent brief lists them; any navigation
+  toward an origin outside that list, and any unexpected dialog, aborts the take.
+- **Everything else stays in force, during and after the replay**: no cookie/storage/header
+  inspection, no full-page capture without its separate consent, the viewport
+  record-and-restore contract unchanged, and nothing persisted beyond the replay ledger's
+  timecodes and element bounding boxes — never query strings, typed values, cookies, or tab
+  identity.
+- **The completion contract is amended honestly rather than silently broken.** A replay take
+  ends at the flow's final state, which the consent brief disclosed. Report the final origin;
+  the user restores their tab manually. Everything else about completion below still applies.
+- **Consent is hash-scoped.** Whole-flow approval covers one replay run of one recording hash;
+  a retake reuses it only while the recording file is byte-identical, and a re-recorded flow
+  re-asks. Recordings are plaintext — the documented posture is record *after* authenticating,
+  so the export holds no credentials, and never commit a recording that does.
 
 ## Temporary viewport changes
 
@@ -115,5 +142,6 @@ or browser as cleanup.
 - **Capture source changed:** update `web_capture_source` and treat all prior web captures as
   stale until the user reviews replacements.
 
-On successful completion, restore the viewport, leave the selected tab open at the same URL, and
-persist only the accepted screenshots/clips.
+On successful completion, restore the viewport, leave the selected tab open at the same URL
+(after a consented recorded-flow replay: at the flow's disclosed final state, with its origin
+reported), and persist only the accepted screenshots/clips plus the replay ledger and sidecars.

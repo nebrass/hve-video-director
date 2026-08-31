@@ -1,6 +1,6 @@
 # Patterns Index — the local map
 
-Six files, all of them things the HyperFrames ecosystem does not own. Everything else a phase needs
+Seven files, all of them things the HyperFrames ecosystem does not own. Everything else a phase needs
 — rendering, motion recipes, seams, palettes, audio — is delegated, and the map for *that* is
 `compat/ecosystem.md`, not this file.
 
@@ -14,6 +14,7 @@ Six files, all of them things the HyperFrames ecosystem does not own. Everything
 | `anti-slop.md` | Cardinal sins, soft tells, polish tells — what separates "shipped by a marketer" from "AI default output", plus AI-tool-promo specifics and CTA discipline |
 | `cli-terminal-capture.md` | Real terminal recording via `asciinema` + `agg`: install, shell pre-flight, cast editing, theme pairing, MP4 render, quality gate. The no-dependency fallback is `templates/scene-terminal.html` |
 | `authenticated-browser-capture.md` | Attaching Chrome DevTools MCP to an already-authenticated Chrome session, capturing without navigating, and protecting auth data |
+| `recorded-flow-capture.md` | Replaying a user-recorded DevTools Recorder flow as human-like capture (ADR-011): the accepted JSON contract, step→tool mapping, pacing law, ledger/cut discipline, whole-flow consent, and the secrets stance |
 
 ## Everything else is delegated
 
