@@ -607,30 +607,30 @@ collect_checks() {
     capture_line raw node --version 2>/dev/null || raw=""
     version="${raw#v}"
     if [ -n "$version" ] && ver_ge "$version" 22 12; then
-      add_check node "Node.js" required ready "3,4,5" \
+      add_check node "Node.js" required ready "1,2,3,4,5" \
         "meets the >= 22.12 runtime requirement" "$version" manual-download "" \
         "Install Node.js >= 22.12 from https://nodejs.org/" Required \
         "Node.js $version"
     else
-      add_check node "Node.js" required blocked "3,4,5" \
+      add_check node "Node.js" required blocked "1,2,3,4,5" \
         "need >= 22.12 (hyperframes needs >= 22; chrome-devtools-mcp needs ^20.19 || ^22.12 || >=23)" \
         "$version" manual-download "" \
         "Install or upgrade Node.js to >= 22.12 from https://nodejs.org/" Required \
         "Node.js ${version:-unknown} — need >= 22.12 (hyperframes needs >= 22; chrome-devtools-mcp needs ^20.19 || ^22.12 || >=23)"
     fi
   else
-    add_check node "Node.js" required blocked "3,4,5" "not found" "" \
+    add_check node "Node.js" required blocked "1,2,3,4,5" "not found" "" \
       manual-download "" "Install Node.js >= 22.12 from https://nodejs.org/" \
       Required "Node.js — not found"
   fi
 
   if command -v npx >/dev/null 2>&1; then
-    add_check npx "npx" required ready "3,4,5" \
+    add_check npx "npx" required ready "1,3,4,5" \
       "available locally; report modes do not invoke it" "" manual-download "" \
       "Reinstall Node.js >= 22.12 from https://nodejs.org/ if npx is broken." \
       Required "npx"
   else
-    add_check npx "npx" required blocked "3,4,5" \
+    add_check npx "npx" required blocked "1,3,4,5" \
       "not found (ships with Node.js/npm)" "" manual-download "" \
       "Reinstall Node.js >= 22.12 from https://nodejs.org/ (bundles npm/npx)." \
       Required "npx — not found (ships with Node/npm)"

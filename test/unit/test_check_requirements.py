@@ -145,6 +145,16 @@ class RequirementsCheckerTestCase(unittest.TestCase):
         self.assertIn("All required dependencies satisfied.", result.stdout)
         self.assertIn("○", result.stdout)
 
+    def test_language_intake_and_guards_report_their_node_dependency(self):
+        _, absent = self.json_checks()
+        self.assertEqual(absent["node"]["phases"], [1, 2, 3, 4, 5])
+        self.assertEqual(absent["npx"]["phases"], [1, 3, 4, 5])
+        self.install_required_shims()
+        _, present = self.json_checks()
+        self.assertEqual(present["node"]["phases"], absent["node"]["phases"])
+        self.assertEqual(present["npx"]["phases"], absent["npx"]["phases"])
+        self.assertFalse(self.log.exists(), "reporting dependencies must not invoke online npx")
+
     def assert_companion_skill_degrades(self, name, check_id, phases):
         """A recommended companion skill: present -> ready, absent -> degraded.
 

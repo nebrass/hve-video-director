@@ -98,6 +98,10 @@ opposite-theme default. Map speed exactly once: `quick = 0.4s`, `medium = 0.7s`,
 Call that value `D` — it is the whole seam's time budget at every boundary. Replace every uppercase
 color and timing token below with computed literals before linting.
 
+Carry the **Confirmed Languages** contract from `DESIGN.md` into the root and authored text
+wrappers. Do not overwrite per-caption `lang`/`dir` with the text locale. Captures and literal
+code/URLs keep their original content and orientation.
+
 **Loader windows follow the boundary kind, and Step 4.5 decides which kind each boundary is.**
 Write the ledger first, then size the loaders from it:
 
@@ -305,7 +309,8 @@ field from inside Phase 4.
 ```bash
 # $SKILL_HOMES is the canonical home list defined in SKILL.md § Runtime Compatibility.
 # Keep this line identical to that definition; edit it there, not here.
-SKILL_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+SKILL_SEARCH_DIR=$(cd "${SOURCE_DIR:-.}" && pwd -P) || exit 2
+SKILL_ROOT=$(git -C "$SKILL_SEARCH_DIR" rev-parse --show-toplevel 2>/dev/null || printf '%s\n' "$SKILL_SEARCH_DIR")
 SKILL_HOMES="$HOME/.claude/skills|$HOME/.copilot/skills|$HOME/.agents/skills|$HOME/.pi/agent/skills|$HOME/.config/opencode/skills|$HOME/.cursor/skills|$HOME/.codex/skills|/etc/codex/skills|.claude/skills|.github/skills|.agents/skills|.pi/skills|.opencode/skills|.cursor/skills|.codex/skills|$SKILL_ROOT/.claude/skills|$SKILL_ROOT/.github/skills|$SKILL_ROOT/.agents/skills|$SKILL_ROOT/.pi/skills|$SKILL_ROOT/.opencode/skills|$SKILL_ROOT/.cursor/skills|$SKILL_ROOT/.codex/skills"
 # zsh does not word-split unquoted $SKILL_HOMES and makes an unmatched glob fatal;
 # both make this loop silently resolve to nothing. No-ops in bash/dash/sh.
@@ -314,6 +319,7 @@ DOCTRINE_SKILL_DIR=$(
   OLD_IFS=$IFS
   IFS='|'
   for h in $SKILL_HOMES; do
+    case "$h" in /*) ;; *) h="$SKILL_SEARCH_DIR/$h";; esac
     [ -d "$h/motion-doctrine" ] && { echo "$h/motion-doctrine"; break; }
   done
   IFS=$OLD_IFS
@@ -490,6 +496,31 @@ seam frame visibly matches the Creative Brief theme. Any opposite-theme default 
 back to Phase 3; do not approve it as an intentional contrast unless the Creative Brief itself is
 changed and reconfirmed.
 
+**Language backstop:** inspect authored copy and captions in their separately confirmed languages.
+Check real glyphs, joined-script shaping, mixed-direction text, text expansion and line fit at
+the relevant visible moments. A mechanical pass or a `lang` attribute is not proof of correct
+language or readable glyphs. Repair font/layout/copy defects without altering the user's language;
+an actual incompatibility returns to the user's language/identity choice before synthesis/render.
+
+**Scenario Coverage backstop (only for an approved scenario contract):** compare the inventory
+in `context.md` with the storyboard's single Scenario Coverage table and the actual composition.
+Every approved requirement needs visible evidence, including each required option and the final
+result. Capture evidence alone does not prove it survived cropping, timing, overlays, or unreadable
+scaling in the film.
+
+Inspect the **requirement-bearing moments**, not just scene midpoints: use the existing snapshot
+or preview capabilities at the actual action/option states, and playback when a still cannot show
+the action. Fill **Assembled evidence** in the same table with the observed frame/moment and
+result. Coverage IDs are production notes, not text to place on screen. Authored illustrations
+prove only the explanatory content the user approved, not that a real product action was performed.
+
+A missing or unreadable approved requirement is unresolved work, never completed coverage.
+Repair the owning frame/capture/plan, or obtain an explicit user-approved scope change and
+reconcile the inventory/map. Do not invent UI or results, add a parallel mechanical validator,
+or waive existing gates. Rebinding, retaking, trimming, changing speed, or retiming a frame reopens
+the affected evidence; repeat this review before render approval. Legacy and non-scenario
+projects do not acquire a coverage-map prerequisite.
+
 ### Re-dispatch a failing frame
 
 Re-dispatch is a **return arc into `check`**, not a sixth rung of the ladder. A finding is
@@ -550,7 +581,8 @@ the same way Phase 3 resolves this one:
 ```bash
 # $SKILL_HOMES is the canonical home list defined in SKILL.md § Runtime Compatibility.
 # Keep this line identical to that definition; edit it there, not here.
-SKILL_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+SKILL_SEARCH_DIR=$(cd "${SOURCE_DIR:-.}" && pwd -P) || exit 2
+SKILL_ROOT=$(git -C "$SKILL_SEARCH_DIR" rev-parse --show-toplevel 2>/dev/null || printf '%s\n' "$SKILL_SEARCH_DIR")
 SKILL_HOMES="$HOME/.claude/skills|$HOME/.copilot/skills|$HOME/.agents/skills|$HOME/.pi/agent/skills|$HOME/.config/opencode/skills|$HOME/.cursor/skills|$HOME/.codex/skills|/etc/codex/skills|.claude/skills|.github/skills|.agents/skills|.pi/skills|.opencode/skills|.cursor/skills|.codex/skills|$SKILL_ROOT/.claude/skills|$SKILL_ROOT/.github/skills|$SKILL_ROOT/.agents/skills|$SKILL_ROOT/.pi/skills|$SKILL_ROOT/.opencode/skills|$SKILL_ROOT/.cursor/skills|$SKILL_ROOT/.codex/skills"
 # zsh does not word-split unquoted $SKILL_HOMES and makes an unmatched glob fatal;
 # both make this loop silently resolve to nothing. No-ops in bash/dash/sh.
@@ -559,6 +591,7 @@ ANIM_SKILL_DIR=$(
   OLD_IFS=$IFS
   IFS='|'
   for h in $SKILL_HOMES; do
+    case "$h" in /*) ;; *) h="$SKILL_SEARCH_DIR/$h";; esac
     [ -d "$h/hyperframes-animation" ] && { echo "$h/hyperframes-animation"; break; }
   done
   IFS=$OLD_IFS

@@ -20,6 +20,9 @@
 /captions-review.json
 /captions-review.previous.json
 /.hve/captions-state.json
+/.hve/language-*.json
+/.hve/elevenlabs-*.json
+/.hve/kokoro-*.json
 /out/final.srt
 /out/final.vtt
 /background-music.mp3

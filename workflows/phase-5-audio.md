@@ -3,10 +3,13 @@
 Generate voiceover, mix music, and render the final video.
 
 **Division of labour.** *Acquisition* is delegated: the `media-use` skill's audio engine
-(`AUDIO_ENGINE`) synthesizes narration, retrieves or generates a music bed (`BGM`), resolves sound
+(`AUDIO_ENGINE`) synthesizes ElevenLabs narration, retrieves or generates a music bed (`BGM`), resolves sound
 effects (`SFX`), and returns word timings. *Governance stays here* — the confirmed voice, the
 exact-track music confirmation, the reviewed captions, the verified mix recipes, and render
 approval. Delegation moves the search and the synthesis; it never moves a choice (ADR-001).
+Confirmed Kokoro narration uses the existing `TTS_LOCAL` route directly so its native phonemizer
+locale is not reused as an engine-internal ASR token. This is the same local synthesizer, not a
+new acquisition implementation; music/SFX routing is unchanged.
 
 Resolve the tool paths in Step 5.0 first, then require the accepted composition to match the current
 story fingerprint before generating any final audio:
@@ -26,7 +29,8 @@ Shell state does not survive between calls; re-state this block whenever a later
 ```bash
 # $SKILL_HOMES is the canonical home list defined in SKILL.md § Runtime Compatibility.
 # Keep this line identical to that definition; edit it there, not here.
-SKILL_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+SKILL_SEARCH_DIR=$(cd "${SOURCE_DIR:-.}" && pwd -P) || exit 2
+SKILL_ROOT=$(git -C "$SKILL_SEARCH_DIR" rev-parse --show-toplevel 2>/dev/null || printf '%s\n' "$SKILL_SEARCH_DIR")
 SKILL_HOMES="$HOME/.claude/skills|$HOME/.copilot/skills|$HOME/.agents/skills|$HOME/.pi/agent/skills|$HOME/.config/opencode/skills|$HOME/.cursor/skills|$HOME/.codex/skills|/etc/codex/skills|.claude/skills|.github/skills|.agents/skills|.pi/skills|.opencode/skills|.cursor/skills|.codex/skills|$SKILL_ROOT/.claude/skills|$SKILL_ROOT/.github/skills|$SKILL_ROOT/.agents/skills|$SKILL_ROOT/.pi/skills|$SKILL_ROOT/.opencode/skills|$SKILL_ROOT/.cursor/skills|$SKILL_ROOT/.codex/skills"
 # zsh does not word-split unquoted $SKILL_HOMES and makes an unmatched glob fatal;
 # both make this loop silently resolve to nothing. No-ops in bash/dash/sh.
@@ -35,6 +39,7 @@ SKILL_DIR=$(
   OLD_IFS=$IFS
   IFS='|'
   for h in $SKILL_HOMES; do
+    case "$h" in /*) ;; *) h="$SKILL_SEARCH_DIR/$h";; esac
     [ -d "$h/hve-video-director" ] && { echo "$h/hve-video-director"; break; }
     # Fallback: a clone left under a pre-v0.1.0 directory name. Match the skill's
     # declared frontmatter identity, not its directory name or file layout, so a
@@ -53,6 +58,7 @@ MEDIA_SKILL_DIR=$(
   OLD_IFS=$IFS
   IFS='|'
   for h in $SKILL_HOMES; do
+    case "$h" in /*) ;; *) h="$SKILL_SEARCH_DIR/$h";; esac
     [ -d "$h/media-use" ] && { echo "$h/media-use"; break; }
   done
   IFS=$OLD_IFS
@@ -90,6 +96,19 @@ with a default, and do not silently fall back between providers — including in
 always pass an explicit provider, never its auto mode, which picks by whichever credential happens
 to be present. An invalid value routes back to Phase 1.
 
+Recheck the active provider/model catalog and chosen voice, then run `language-profile --json`
+before synthesis. A failed refresh/profile check is not permission to reuse old compatibility
+data. Read `.hve/language-profile.json`: bind `NARRATION_LANGUAGE` from `narration.tag`,
+`TTS_LANGUAGE` from `speech.tts_language`, and
+`ASR_LANGUAGE` from `speech.asr_language`. Restore these bindings in each fresh call.
+`TTS_LANGUAGE_DISCOVERY` owns the provider/catalog/ASR readiness contract.
+
+Verify the actual model and supported parameters against `TTS_PROVIDER_ADAPTER`/`TTS_LOCAL`;
+do not substitute a model or assume the engine honors an added model field. Establish a compatible
+ASR route and script/font readiness before batch synthesis. Missing catalogs, language-specific
+G2P dependencies, or backend language support require setup or a user-approved alternative,
+not silent English, voice, or provider fallback.
+
 ### Write the aligned script
 
 Read the main composition for each scene's exact start, end, and on-screen content, then write one
@@ -103,13 +122,17 @@ modes cost real re-renders here:
   "Sage V E". Write them phonetically: `Aitch Vee Ee`, `A I`, `ay pee eye`, `sass`, `earl`. Periods
   between letters (`H. V. E.`) work in some voices and add sentence-end pauses in others. Generate
   one section and listen before doing the rest.
-- **Duration is not word count.** Syllable density and comma pauses both dominate it: 22 words with
+  Those phonetic spellings are English examples, not universal substitutions. Use pronunciation
+  appropriate to `narration_language`; preserve the literal product/code spelling on screen.
+- **Duration is not word count.** For English, syllable density and comma pauses both affect it: 22 words with
   5 commas can run 15s while the same idea in 26 commaless words takes 10s. When a section overruns,
   **drop commas before dropping words**. Phase 1's `vo-budget` check should have caught a film-wide
   overrun before you got here — re-run it against a rewritten line to see whether the cut is enough;
   it owns the timing numbers. The assembler also prints a stderr warning naming any section that
   overruns its slot; **watch stderr**, because concat inserts no spacer for an overrun, so every
   later section starts *late* and drifts out of sync with its scene.
+  For other narration languages, `vo-budget` explicitly reports unmeasurable/null estimates;
+  measure actual takes instead of applying the English heuristic as a language-independent rule.
 
 For a clip scene the window is footage-derived (Phase 4), not VO-derived: fit the VO to the existing
 window, never stretch the clip. **Clip-own audio is opt-in** — default `clip_audio: none` (clips
@@ -127,16 +150,18 @@ this project's config into every future project, and two projects could not run 
 cp "$SKILL_DIR/scripts/generate_voiceover.py" ./voiceover.py
 ```
 
-### Synthesize through the delegated engine
+### Build the checked synthesis request
 
 Write `audio_request.json` in the project directory: one `lines[]` entry per `sections` entry, same
 order, **`id` = the zero-padded section index**. That id is what joins returned audio to its slot.
 
 ```json
 {
-  "provider": "elevenlabs",
+  "provider": "<confirmed provider>",
   "voice": "<voice-id from the confirmed value>",
-  "lang": "en",
+  "model": "<actual model from the checked profile>",
+  "narration_language": "<canonical narration locale>",
+  "lang": "<native TTS language code from the checked profile>",
   "speed": 1.0,
   "lines": [
     { "id": "00", "text": "First section text." },
@@ -150,10 +175,18 @@ order, **`id` = the zero-padded section index**. That id is what joins returned 
 | `elevenlabs:<name>:<voice-id>` | `elevenlabs` | the exact third field |
 | `kokoro:<voice-id>` | `kokoro` | the exact ID after the prefix |
 
-`lang` is load-bearing. The engine derives its internal transcription model from it, and the default
-English model **translates** non-English audio instead of transcribing it — the
-`TRANSCRIBE_MODEL_DEFAULT` probe in `compat/ecosystem.md`, documented upstream under `TRANSCRIBE`.
-Set it to the narration's actual language every time.
+Use the profile's native TTS code for `lang`, and its separate ASR code after assembly.
+`model` and `narration_language` are local synthesis provenance, **not engine overrides**.
+The request must match the actual configured route. Write the text in the confirmed narration
+language; metadata alone does not make speech occur in that language. Keep per-line engine
+timings diagnostic and verify the assembled audio separately.
+
+The verifier hashes **all non-BGM/SFX request settings and each complete exact line**, not only
+`id`/`text`. Its schema-2 seal also binds the checked profile's opaque `speech_fingerprint`.
+Provider, voice, actual model, native language, narration locale, speed or other synthesis-setting
+changes require preparing and regenerating the whole set. Text-only locale changes do not alter
+that speech identity. Keep recorded settings equal to those actually applied by the selected
+route; ignored model/speed overrides are not provenance for a take.
 
 **Clear the targets first.** The engine never deletes a destination file before writing, so a
 failed line leaves the *previous* run's audio at the exact expected path — same name, plausible
@@ -164,6 +197,14 @@ duration, valid header. Clearing first turns a failure into an absence, which fa
 python3 "$SKILL_DIR/scripts/verify_vo_sections.py" --project-dir . prepare
 ```
 
+`prepare` validates the request/profile before deleting either audio layer and records the exact
+request plus every prepared ID. Keep `audio_request.json` as the **complete canonical request**;
+`audio_request.retry.json` is a filtered input, never its replacement. Editing after prepare fails
+`check`/`seal`: prepare changed lines again, or the whole set for changed synthesis settings.
+Old text-only proofs are preserved for inspection but require a full prepare to replace them.
+
+For **ElevenLabs**, synthesize through the delegated engine:
+
 ```bash
 # Reuse $ENGINE from Step 5.0. --only tts keeps this call to narration.
 # Concurrency 2 rather than the engine's default 4: a measured ~10% of lines fail
@@ -172,7 +213,22 @@ HYPERFRAMES_TTS_CONCURRENCY=2 \
   node "$ENGINE" --request ./audio_request.json --hyperframes . --out ./audio_meta.json --only tts
 ```
 
-`audio_meta.json` carries `voices[]` — per line: file path, duration, word timings.
+For **Kokoro**, use `TTS_LOCAL` per section instead of the engine's TTS branch. Write each exact
+request line to a UTF-8 text file, and use the explicit voice and native code from the profile:
+
+```bash
+npx hyperframes tts assets/voice/00.txt --voice "<confirmed voice-id>" \
+  --lang "$TTS_LANGUAGE" --output assets/voice/00.wav --json
+```
+
+Inspect the native JSON result: `ok` must be true, the reported `lang` must match the selected
+native code, and `langApplied` must be true. Do not accept a file produced with a backend's
+unapplied/default language. Surface the error and fix the backend or ask for a compatible choice;
+never silently accept an English-default take. Inspect a first take's actual language and
+pronunciation before generating the remainder.
+
+On the engine path, `audio_meta.json` carries `voices[]` — per line: file path, duration, word
+timings. The local path uses its native JSON result, not stale engine metadata.
 
 **The engine exits 0 with a missing line**, and eyeballing `voices[]` cannot prove the set is
 sound: the engine's success test is *exit 0 and the file exists*, so a provider that exits 0 without
@@ -185,17 +241,18 @@ python3 "$SKILL_DIR/scripts/verify_vo_sections.py" --project-dir . check
 ```
 
 It names every prepared section that did not come back and writes `audio_request.retry.json`
-carrying only those ids. Re-run the engine against that file — **the failed ids only**; re-clearing
+carrying only those ids. Retry **the failed ids only** through the same confirmed route: the
+engine receives that retry file, or local TTS re-synthesizes those exact lines. Re-clearing
 a good take re-bills it and rolls the same ~10% dice again. **Two retries, then stop and report**:
 at the measured rate one retry still leaves a coin-flip chance of manual escalation per film, and a
 line that fails three identical attempts is a content or outage problem a human must decide on.
 Never substitute a provider or voice to get past a failure — that is a Phase-1 choice, not a repair.
 
-A persistent failure is usually a provider problem — with `elevenlabs`, a missing
-`ELEVENLABS_API_KEY` or local `elevenlabs` Python package; with `kokoro`, non-English narration also
-needs `espeak-ng` system-wide (`brew install espeak-ng` / `apt-get install espeak-ng`;
-`AUDIO_REQUIREMENTS` lists the rest). Fix the cause or take the fallback; never assemble a short
-set.
+A persistent failure needs its actual provider/backend diagnostic — with `elevenlabs`, check
+the key and delegated adapter requirements; with `kokoro`, check the selected language's native
+G2P/backend prerequisites through `TTS_LOCAL` and `AUDIO_REQUIREMENTS`, including `espeak-ng` when
+that route requires it. Fix the cause or use the explicit user-supplied path; never change a
+confirmed language/provider or assemble a short set.
 
 The assembler concatenates against mono 44.1 kHz MP3 silence spacers, so transcode each line to that
 shape under the name it expects:
@@ -212,9 +269,15 @@ running it first fails with exit 2 — an existing file is not evidence it is th
 python3 "$SKILL_DIR/scripts/verify_vo_sections.py" --project-dir . seal
 ```
 
-For narration this engine did not produce — a confirmed local Kokoro voice, or a take the user
-supplied — there is no request to bind against, so state where it came from:
-`seal --attest local-tts` or `seal --attest user-supplied`.
+For local Kokoro or user-supplied takes, state their origin with `seal --attest local-tts` or
+`seal --attest user-supplied`. Language-aware projects still carry the checked request/profile
+and require preparation and matching synthesis identity; an attestation is not a freshness waiver.
+The copied assembler reads only repo-owned media/script hashes, pending state and opaque
+profile/seal identities, never the engine request schema. It refuses a pending round, an old
+unbound seal under a language profile, or a removed/mismatched profile. Do not delete the profile
+or use the assembler's unverified override as a repair; restore the checked profile and complete
+the prepare/synthesis/check/seal round. Legacy standalone attestations remain supported only
+without a new language binding.
 
 Only now assemble:
 
@@ -225,26 +288,36 @@ python3 ./voiceover.py --assemble-only    # places each section, pads to VIDEO_D
 The pad is not cosmetic: a voiceover shorter than the composition leaves the render with no audio
 for the trailing frames, and it may truncate.
 
-**When the engine is unavailable.** For a confirmed Kokoro voice, `npx hyperframes tts "<section text>" --voice
-<id> --output vo_section_NN.mp3` per section, then `--assemble-only`. Kokoro IDs read
-`<lang><gender>_<name>` (`af_nova` = American female "Nova"); `TTS_LOCAL` has the catalog.
+**When the engine is unavailable.** A confirmed Kokoro voice uses the same checked local path
+above, including explicit language and native result checks. An ElevenLabs choice is not silently
+replaced: obtain the engine/setup or user-supplied matching takes. Keep prepare/check/seal/assembly
+and the profile's language identity on every path.
 
 ### Verify timing (CRITICAL — do not skip!)
 
 Transcribe the **assembled** `voiceover.mp3`, not the per-line files: the engine's per-line `words[]`
 are relative to each line's own audio, while captions and this check need composition-absolute
-times. Pass `--model` explicitly here too.
+times. Use the checked `ASR_LANGUAGE`, a verified compatible `ASR_MODEL`, and an explicit supported
+ASR route per `TTS_LANGUAGE_DISCOVERY`. English-only `.en` models are not suitable for non-English
+speech; transcription and translation are different tasks (`TRANSCRIBE_MODEL_DEFAULT`).
 
 ```bash
-npx hyperframes transcribe voiceover.mp3 --model small.en        # known English
-# ... --model small --language <iso>                             # known non-English
-# ... --model small                                              # unknown language
+# Feature-detect --engine; do not assume --model controls an auto-selected backend.
+npx hyperframes transcribe voiceover.mp3 --engine whisper \
+  --model "$ASR_MODEL" --language "$ASR_LANGUAGE"
 python3 -m json.tool transcript.json | head -30
 ```
 
-Standalone `whisper` remains a fallback: use `--output_format json` (SRT is a presentation format,
-not a parsing target) plus `--word_timestamps True`, which writes `voiceover.json`. Sentence-level
-segments produce false positives in the overlap check.
+If that explicit route is unavailable, use the existing verified standalone Whisper fallback:
+
+```bash
+whisper voiceover.mp3 --model "$ASR_MODEL" --language "$ASR_LANGUAGE" \
+  --task transcribe --output_format json --word_timestamps True
+```
+
+Never use `--task translate`. Missing ASR/model support requires setup or explicit usable timing
+input, not a different language. JSON is the parsing source; sentence-only timing remains an
+approximation rather than exact word timing.
 
 **Small-model timestamps drift ±0.5s** — the model extends word boundaries into trailing silence.
 For exact per-section gaps use `silencedetect`:
@@ -763,6 +836,11 @@ speech alone: correct every spoken line, identify a speaker when the identity is
 include meaningful music/sound-effect cues. Mandatory in promo, showcase, and tutorial modes;
 burned-in tutorial captions remain a separate in-frame layer.
 
+Restore `NARRATION_LANGUAGE` from the checked profile's `narration.tag` in every fresh call; it is
+not `text.tag` or the native TTS/ASR token. New workflow calls always pass the expected locale.
+Canonical comparison never rewrites an approved manifest to make its language match: a mismatch
+requires correctly labelled, reviewed captions before approval or delivery can be written.
+
 ### 1. Create an audio-bound review draft
 
 ```bash
@@ -771,7 +849,8 @@ python3 "$SKILL_DIR/scripts/caption_gen.py" draft \
   --audio voiceover-with-music.mp3 \
   --manifest captions-review.json \
   --srt voiceover.srt \
-  --vtt voiceover.vtt
+  --vtt voiceover.vtt \
+  --language "$NARRATION_LANGUAGE"
 ```
 
 This writes backward-compatible ASR drafts plus `captions-review.json`, which records the final
@@ -780,6 +859,13 @@ soundtrack's SHA-256 and duration, starts with `reviewed: false`, and leaves `sp
 are never final captions. If it already exists, `draft` fails instead of overwriting review work:
 when the audio changed, preserve the prior manifest as `captions-review.previous.json`, and use
 `--force` only after the user explicitly approves replacing the canonical one.
+
+The skill-resident helper uses its sibling `scripts/language_tools.mjs` through the existing
+full-ICU Node dependency. Missing/unsupported Unicode segmentation fails explicitly, never to an
+English tokenizer. Draft grouping/wrapping uses word and grapheme boundaries, retains meaningful
+spacing, and does not insert spaces between CJK/Thai tokens. Width/rate ceilings count graphemes
+and are **not** per-language readability certification; review pronunciation, wording, line
+breaks, reading speed, script shaping and direction in the actual output.
 
 ### 2. Review the complete soundtrack
 
@@ -861,7 +947,8 @@ Only after the user's **Approve captions** answer, run the approval command:
 ```bash
 python3 "$SKILL_DIR/scripts/caption_gen.py" approve \
   --audio voiceover-with-music.mp3 \
-  --manifest captions-review.json
+  --manifest captions-review.json \
+  --expected-language "$NARRATION_LANGUAGE"
 ```
 
 It validates the three review decisions, sets `reviewed: true`, and fingerprints the exact audio,
@@ -877,19 +964,22 @@ python3 "$SKILL_DIR/scripts/caption_gen.py" finalize \
   --manifest captions-review.json \
   --srt out/final.srt \
   --vtt out/final.vtt \
-  --state .hve/captions-state.json
+  --state .hve/captions-state.json \
+  --expected-language "$NARRATION_LANGUAGE"
 
 python3 "$SKILL_DIR/scripts/caption_gen.py" validate \
   --audio voiceover-with-music.mp3 \
   --manifest captions-review.json \
   --srt out/final.srt \
   --vtt out/final.vtt \
-  --state .hve/captions-state.json
+  --state .hve/captions-state.json \
+  --expected-language "$NARRATION_LANGUAGE"
 ```
 
 `finalize` rejects unapproved or changed review content, missing speech/speaker/sound decisions,
-stale audio, overlapping or out-of-range cues, more than two lines, lines over 42 characters, and
-reading speed above 25 characters/second; it stages the sidecars and deterministic state before
+stale audio, a mismatched expected narration locale, overlapping or out-of-range cues, more than
+two lines, lines over 42 graphemes, and reading speed above 25 non-whitespace graphemes/second.
+These are global ceilings, not language-specific readability certification. It stages the sidecars and deterministic state before
 publication and restores the prior delivery set if any replacement fails. `validate` rechecks the
 state schema and regenerates expected state and sidecar content in memory; any soundtrack, manifest,
 state, or output change routes back to this step.
@@ -909,6 +999,12 @@ scene's first or last ~1s re-opens its seam, and a VO regeneration re-opens ever
 Resolve `SEAM_VERIFIER` the same way Phase 4 does (Step 4.5) and re-run it; if the tool is
 unavailable, say plainly that the seams went unverified rather than implying the gate passed.
 Skip only when no scene duration changed in this phase.
+
+If this project has an approved scenario contract and audio work changed scene timing, trims,
+speed, or content, reopen the affected **Assembled evidence** and repeat Phase 4's **Scenario
+Coverage backstop** before render approval. Its earlier timestamps are not proof of the revised
+film; requested options and results must still be visible. Legacy/non-scenario projects gain no
+new prerequisite, and this reuses the existing content review rather than adding a new gate.
 
 ```bash
 npx hyperframes check . --samples 10      # reruns lint (flags "audio element has no id")
@@ -939,7 +1035,8 @@ Finally, confirm the delivered captions still match the shipped soundtrack:
 python3 "$SKILL_DIR/scripts/caption_gen.py" validate \
   --audio voiceover-with-music.mp3 \
   --manifest captions-review.json \
-  --srt out/final.srt --vtt out/final.vtt --state .hve/captions-state.json
+  --srt out/final.srt --vtt out/final.vtt --state .hve/captions-state.json \
+  --expected-language "$NARRATION_LANGUAGE"
 ```
 
 ### Troubleshooting render failures

@@ -19,12 +19,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Every helper in scripts/ is pure standard library, so no pip install and
-      # no requirements file. Adding one here would silently permit a dependency
-      # the skill's own doctrine forbids.
+      # Python helpers use only the standard library; the shared Unicode helper
+      # uses Node's built-in Intl APIs. No pip install or requirements file.
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
 
       # ffmpeg/ffprobe are what the media tests probe for. They degrade
       # gracefully when absent, so installing them is the difference between
@@ -35,6 +38,7 @@ jobs:
       - name: Report the toolchain the suite will see
         run: |
           python3 --version
+          node --version
           ffmpeg -version | head -1
           ffprobe -version | head -1
 
@@ -185,11 +189,10 @@ jobs:
         with:
           python-version: "3.12"
 
-      # node runs the vendored storyboard parser in the round-trip half of the
-      # STORYBOARD_EXTRA_KEYS probe.
+      # Node runs the shared Unicode helper and the vendored storyboard parser.
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
 
       - name: Install ffmpeg
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg

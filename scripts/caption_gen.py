@@ -19,11 +19,12 @@ mixed-audio fingerprint, then emits delivery sidecars beside the video:
 Usage (from inside a generated project, after Phase 5 produced a transcript):
     python3 caption_gen.py                      # backward-compatible ASR drafts
     python3 caption_gen.py --input transcript.json
-    python3 caption_gen.py draft --audio voiceover-with-music.mp3
+    # NARRATION_LANGUAGE is the confirmed canonical locale in the checked profile.
+    python3 caption_gen.py draft --language "$NARRATION_LANGUAGE"
     # Review captions-review.json; add speakers/sounds; set review fields.
-    python3 caption_gen.py approve
-    python3 caption_gen.py finalize
-    python3 caption_gen.py validate
+    python3 caption_gen.py approve --expected-language "$NARRATION_LANGUAGE"
+    python3 caption_gen.py finalize --expected-language "$NARRATION_LANGUAGE"
+    python3 caption_gen.py validate --expected-language "$NARRATION_LANGUAGE"
 
 Input formats (both handled):
   - `transcript.json` from `npx hyperframes transcribe` — a FLAT list of word
@@ -42,6 +43,9 @@ Accessibility contract:
     reviewed manifest, outputs, and exact state before Phase 5 can complete.
 
 Pure standard library; final-audio duration is read with the required ffprobe.
+Unicode locale/word/grapheme handling uses the sibling language_tools.mjs with
+the already-required Node runtime. These ceilings do not certify readability
+in every language; the exact cues still need human review.
 """
 
 import argparse
@@ -51,12 +55,15 @@ import math
 import os
 import subprocess
 import sys
+import unicodedata
 import uuid
+from bisect import bisect_left
 from datetime import datetime, timezone
+from functools import lru_cache
 from pathlib import Path
 
 # ─── Cue grouping defaults ──────────────────────────────────────────────────
-MAX_CHARS = 42     # readable single-line width for video subtitles
+MAX_CHARS = 42     # grapheme ceiling, not a language-specific readability guarantee
 MAX_DURATION = 5.0  # seconds a single cue stays on screen
 MAX_GAP = 0.8      # a pause longer than this forces a new cue
 MAX_WORDS = 14     # hard cap on words per cue
@@ -74,7 +81,114 @@ DEFAULT_FINAL_VTT = "out/final.vtt"
 DEFAULT_STATE = ".hve/captions-state.json"
 
 
-def load_words(data):
+def _language_tool(operation: str, payload: object) -> object:
+    try:
+        result = subprocess.run(
+            ["node", str(Path(__file__).with_name("language_tools.mjs")), operation],
+            input=json.dumps(payload, ensure_ascii=True), encoding="utf-8",
+            capture_output=True, timeout=30,
+        )
+    except (OSError, subprocess.TimeoutExpired) as error:
+        raise ValueError(
+            f"caption language handling requires working Node/Intl support: {error}"
+        ) from error
+    if result.returncode:
+        raise ValueError(
+            f"caption language handling failed: {result.stderr.strip() or result.returncode}"
+        )
+    try:
+        return json.loads(result.stdout)
+    except (json.JSONDecodeError, UnicodeDecodeError) as error:
+        raise ValueError("language_tools.mjs returned invalid JSON") from error
+
+
+@lru_cache(maxsize=128)
+def _locale_info(language: str) -> dict:
+    data = _language_tool("locales", [language])
+    if (not isinstance(data, list) or len(data) != 1
+            or not isinstance(data[0], dict)
+            or not all(isinstance(data[0].get(key), str) and data[0][key]
+                       for key in ("tag", "language", "script"))
+            or data[0].get("direction") not in ("ltr", "rtl")
+            or data[0].get("word_separator") not in ("", " ")):
+        raise ValueError("language_tools.mjs returned invalid locale data")
+    return data[0]
+
+
+def _validate_language(language: str) -> str:
+    if not isinstance(language, str) or not language.strip():
+        raise ValueError("language must be a nonempty BCP 47 string")
+    return _locale_info(language)["tag"]
+
+
+class CaptionText:
+    """Batch ICU segmentation and cache it for one caption operation."""
+
+    def __init__(self, language: str) -> None:
+        self.language = _validate_language(language)
+        self.locale = _locale_info(self.language)
+        self._cache: dict[str, dict] = {}
+
+    def prime(self, texts: list[str]) -> None:
+        """Segment uncached text in one Node call; never fall back to English."""
+        missing = list(dict.fromkeys(text for text in texts if text not in self._cache))
+        if not missing:
+            return
+        result = _language_tool("segment", {"language": self.language, "texts": missing})
+        if (not isinstance(result, dict) or result.get("locale") != self.locale
+                or not isinstance(result.get("texts"), list)
+                or len(result["texts"]) != len(missing)):
+            raise ValueError("language_tools.mjs returned invalid segmentation data")
+        for text, entry in zip(missing, result["texts"]):
+            if not isinstance(entry, dict):
+                raise ValueError("language_tools.mjs returned an invalid text entry")
+            graphemes, words = entry.get("graphemes"), entry.get("words")
+            if (not isinstance(graphemes, list)
+                    or not all(isinstance(g, str) and g for g in graphemes)
+                    or "".join(graphemes) != text
+                    or not isinstance(words, list)
+                    or not all(isinstance(w, dict) and isinstance(w.get("text"), str)
+                               and w["text"] and isinstance(w.get("word"), bool)
+                               for w in words)
+                    or "".join(w["text"] for w in words) != text):
+                raise ValueError("language_tools.mjs did not preserve the input text")
+            self._cache[text] = entry
+
+    def segments(self, text: str) -> dict:
+        """Return exact grapheme and word segments for text."""
+        self.prime([text])
+        return self._cache[text]
+
+    def separator(self, left: str, right: str) -> str:
+        """Keep supplied spacing and grapheme joins; separate unspaced Latin words."""
+        if (not left or not right or left[-1].isspace() or right[0].isspace()
+                or left.endswith("\u200d") or right.startswith("\u200d")):
+            return ""
+        offset = 0
+        for grapheme in self.segments(left + right)["graphemes"]:
+            offset += len(grapheme)
+            if offset >= len(left):
+                if offset != len(left):
+                    return ""
+                break
+        if self.locale["word_separator"]:
+            return self.locale["word_separator"]
+        left_words = [w["text"] for w in self.segments(left)["words"] if w["word"]]
+        right_words = [w["text"] for w in self.segments(right)["words"] if w["word"]]
+        if left_words and right_words:
+            # ICU owns token boundaries; this only preserves Latin word spacing in
+            # mixed-script ASR whose main language does not separate words.
+            def latin_word(word):
+                letters = [char for char in word if char.isalpha()]
+                return bool(letters) and all(
+                    unicodedata.name(char, "").startswith("LATIN ") for char in letters
+                )
+            if latin_word(left_words[-1]) and latin_word(right_words[0]):
+                return " "
+        return ""
+
+
+def load_words(data, language="en", *, text_tools=None):
     """Normalize either transcript format to a flat list of {text, start, end}."""
     if isinstance(data, list):
         return _words_from_list(data)
@@ -82,12 +196,14 @@ def load_words(data):
     if isinstance(data, dict):
         segments = data.get("segments")
         if segments:
+            if not isinstance(segments, list) or not all(isinstance(seg, dict) for seg in segments):
+                raise ValueError("transcript segments must be a list of objects")
             if all(seg.get("words") for seg in segments):
                 words = []
                 for seg in segments:
                     words.extend(_words_from_list(seg["words"]))
                 return words
-            return _segments_to_words(segments)
+            return _segments_to_words(segments, text_tools or CaptionText(language))
         if data.get("words"):
             return _words_from_list(data["words"])
 
@@ -98,87 +214,194 @@ def load_words(data):
 
 
 def _words_from_list(items):
+    if not isinstance(items, list):
+        raise ValueError("transcript words must be a list")
     words = []
+    prefix = ""
     for w in items:
-        text = (w.get("text") or w.get("word") or "").strip()
+        if not isinstance(w, dict):
+            raise ValueError("every transcript word must be an object")
+        text = w.get("text") or w.get("word") or ""
+        if not isinstance(text, str):
+            raise ValueError("transcript text must be a string")
         if not text:
+            continue
+        if text.isspace():
+            if words:
+                words[-1]["text"] += text
+            else:
+                prefix += text
             continue
         start = float(w.get("start", 0.0))
         end = float(w.get("end", start))
-        words.append({"text": text, "start": start, "end": max(end, start)})
+        if not math.isfinite(start) or not math.isfinite(end):
+            raise ValueError("transcript word times must be finite")
+        words.append({"text": prefix + text, "start": start, "end": max(end, start)})
+        prefix = ""
     return words
 
 
-def _segments_to_words(segments):
+def _segments_to_words(segments, text_tools):
     """Synthesize word timings by distributing segment text over its duration."""
     words = []
-    for seg in segments:
-        text = (seg.get("text") or "").strip()
-        tokens = text.split()
+    texts = [seg.get("text") or "" for seg in segments]
+    if not all(isinstance(text, str) for text in texts):
+        raise ValueError("transcript segment text must be a string")
+    text_tools.prime(texts)
+    token_groups = []
+    for text in texts:
+        tokens = []
+        prefix = ""
+        for part in text_tools.segments(text)["words"]:
+            if part["word"]:
+                tokens.append(prefix + part["text"])
+                prefix = ""
+            elif tokens:
+                tokens[-1] += part["text"]
+            else:
+                prefix += part["text"]
+        if prefix:
+            tokens.append(prefix)
+        token_groups.append(tokens)
+    text_tools.prime([token for tokens in token_groups for token in tokens])
+    for seg, tokens in zip(segments, token_groups):
         if not tokens:
             continue
         start = float(seg.get("start", 0.0))
         end = float(seg.get("end", start))
+        if not math.isfinite(start) or not math.isfinite(end):
+            raise ValueError("transcript segment times must be finite")
         duration = max(end - start, 0.001)
-        char_total = sum(len(t) for t in tokens)
+        weights = [
+            sum(not g.isspace() for g in text_tools.segments(token)["graphemes"])
+            for token in tokens
+        ]
+        char_total = sum(weights)
         cursor = start
-        for token in tokens:
-            frac = (len(token) / char_total) if char_total else (1.0 / len(tokens))
+        for token, weight in zip(tokens, weights):
+            frac = (weight / char_total) if char_total else (1.0 / len(tokens))
             nxt = cursor + duration * frac
             words.append({"text": token, "start": cursor, "end": nxt})
             cursor = nxt
     return words
 
 
-def _wrap_caption(text, max_chars):
-    """Wrap text into lines of at most max_chars, breaking inside a token
-    only when the token alone exceeds the limit (a URL, a long identifier)."""
+def _wrap_caption(text, max_chars, language="en", *, text_tools=None):
+    """Wrap drafts at ICU words/whitespace, splitting only whole graphemes."""
+    if max_chars < 1:
+        raise ValueError("max_chars must be positive")
+    tools = text_tools or CaptionText(language)
+    source_lines = text.splitlines()
+    tools.prime(source_lines)
     lines = []
-    current = ""
-    for token in text.split():
-        while len(token) > max_chars:
-            if current:
-                lines.append(current)
-                current = ""
-            lines.append(token[:max_chars])
-            token = token[max_chars:]
-        if not token:
-            continue
-        if not current:
-            current = token
-        elif len(current) + 1 + len(token) <= max_chars:
-            current += " " + token
-        else:
-            lines.append(current)
-            current = token
-    if current:
-        lines.append(current)
+    for line in source_lines:
+        segmented = tools.segments(line)
+        graphemes = segmented["graphemes"]
+        boundaries = {0: 0}
+        offset = 0
+        for index, grapheme in enumerate(graphemes, 1):
+            offset += len(grapheme)
+            boundaries[offset] = index
+        breaks = {i for i, g in enumerate(graphemes) if g.isspace()}
+        if not tools.locale["word_separator"]:
+            offset = 0
+            for part in segmented["words"]:
+                if part["word"] and offset in boundaries:
+                    breaks.add(boundaries[offset])
+                offset += len(part["text"])
+        start = 0
+        while len(graphemes) - start > max_chars:
+            stop = max((i for i in breaks if start < i <= start + max_chars),
+                       default=start + max_chars)
+            end = stop
+            while end > start and graphemes[end - 1].isspace():
+                end -= 1
+            if end > start:
+                lines.append("".join(graphemes[start:end]))
+            start = stop
+            while start < len(graphemes) and graphemes[start].isspace():
+                start += 1
+        if start < len(graphemes):
+            lines.append("".join(graphemes[start:]))
     return "\n".join(lines)
 
 
 def group_cues(words, max_chars=MAX_CHARS, max_dur=MAX_DURATION,
-               max_gap=MAX_GAP, max_words=MAX_WORDS, audio_end=None):
-    """Group words into readable caption cues."""
+               max_gap=MAX_GAP, max_words=MAX_WORDS, audio_end=None,
+               *, language="en", text_tools=None):
+    """Group timed text with Unicode-safe boundaries; readability still needs review."""
+    if max_chars < 1 or max_words < 1:
+        raise ValueError("max_chars and max_words must be positive")
+    tools = text_tools or CaptionText(language)
+    if not words:
+        return []
+    texts = [w["text"] for w in words]
+    tools.prime(texts + [a + b for a, b in zip(texts, texts[1:])])
+    pieces, spans = [], []
+    offset = 0
+    for index, word in enumerate(words):
+        separator = tools.separator(texts[index - 1], word["text"]) if index else ""
+        pieces.extend((separator, word["text"]))
+        left = offset + len(separator)
+        offset = left + len(word["text"])
+        spans.append({**word, "_left": left, "_right": offset})
+    joined = "".join(pieces)
+    segmented = tools.segments(joined)
+    graphemes = segmented["graphemes"]
+    boundaries = [0]
+    for grapheme in graphemes:
+        boundaries.append(boundaries[-1] + len(grapheme))
+    word_starts = []
+    offset = 0
+    for part in segmented["words"]:
+        if part["word"]:
+            word_starts.append(offset)
+        offset += len(part["text"])
+
+    # An ASR token boundary is not necessarily a grapheme boundary (marks/ZWJ).
+    # Merge such tokens before any timing or width decision can split that cluster.
+    safe_words = []
+    boundary_set = set(boundaries)
+    for word in spans:
+        if safe_words and safe_words[-1]["_right"] not in boundary_set:
+            safe_words[-1]["_right"] = word["_right"]
+            safe_words[-1]["end"] = word["end"]
+        else:
+            safe_words.append(dict(word))
+    for word in safe_words:
+        lo = bisect_left(boundaries, word["_left"])
+        hi = bisect_left(boundaries, word["_right"])
+        while lo < hi and graphemes[lo].isspace():
+            lo += 1
+        while hi > lo and graphemes[hi - 1].isspace():
+            hi -= 1
+        word["_lo"], word["_hi"] = lo, hi
+
     cues = []
     current = []
 
+    def cue_for(start, end, lo, hi):
+        return {"start": start, "end": end, "_lo": lo, "_hi": hi,
+                "text": "".join(graphemes[lo:hi])}
+
     def flush():
         if current:
-            text = " ".join(w["text"] for w in current).strip()
-            cues.append({"start": current[0]["start"],
-                         "end": current[-1]["end"], "text": text})
+            cues.append(cue_for(current[0]["start"], current[-1]["end"],
+                                current[0]["_lo"], current[-1]["_hi"]))
             current.clear()
 
-    for word in words:
+    for word in safe_words:
         if current:
-            prospective_len = len(" ".join(w["text"] for w in current)) + 1 + len(word["text"])
+            lo, hi = current[0]["_lo"], word["_hi"]
+            count = (bisect_left(word_starts, boundaries[hi])
+                     - bisect_left(word_starts, boundaries[lo]))
             gap = word["start"] - current[-1]["end"]
             span = word["end"] - current[0]["start"]
-            if (prospective_len > max_chars or span > max_dur
-                    or gap > max_gap or len(current) >= max_words):
+            if (hi - lo > max_chars or span > max_dur
+                    or gap > max_gap or count > max_words):
                 flush()
         current.append(word)
-        if word["text"][-1] in ".!?":
+        if word["_hi"] > word["_lo"] and graphemes[word["_hi"] - 1] in ".!?。！？":
             flush()
     flush()
 
@@ -212,15 +435,13 @@ def group_cues(words, max_chars=MAX_CHARS, max_dur=MAX_DURATION,
     for cue in cues:
         if merged and merged[-1]["end"] - merged[-1]["start"] < MIN_DURATION:
             prev = merged[-1]
-            merged[-1] = {"start": prev["start"], "end": cue["end"],
-                          "text": f'{prev["text"]} {cue["text"]}'}
+            merged[-1] = cue_for(prev["start"], cue["end"], prev["_lo"], cue["_hi"])
         else:
             merged.append(dict(cue))
     if len(merged) >= 2 and merged[-1]["end"] - merged[-1]["start"] < MIN_DURATION:
         last = merged.pop()
         prev = merged[-1]
-        merged[-1] = {"start": prev["start"], "end": last["end"],
-                      "text": f'{prev["text"]} {last["text"]}'}
+        merged[-1] = cue_for(prev["start"], last["end"], prev["_lo"], last["_hi"])
     cues = merged
 
     # Last resort for a single degenerate cue with no neighbour to lean on.
@@ -229,10 +450,12 @@ def group_cues(words, max_chars=MAX_CHARS, max_dur=MAX_DURATION,
             cue["end"] = cue["start"] + MIN_DURATION
 
     # No line wider than the validator's cap.
+    tools.prime([line for cue in cues for line in cue["text"].splitlines()])
     for cue in cues:
-        if any(len(line) > max_chars for line in cue["text"].splitlines()):
-            cue["text"] = _wrap_caption(cue["text"], max_chars)
-    return cues
+        if any(len(tools.segments(line)["graphemes"]) > max_chars
+               for line in cue["text"].splitlines()):
+            cue["text"] = _wrap_caption(cue["text"], max_chars, text_tools=tools)
+    return [{key: cue[key] for key in ("start", "end", "text")} for cue in cues]
 
 
 def _fmt(t, sep):
@@ -417,23 +640,8 @@ def _json_content(value):
     return json.dumps(value, ensure_ascii=True, indent=2, sort_keys=True) + "\n"
 
 
-def _validate_language(language):
-    parts = language.split("-")
-    if (
-        not 2 <= len(parts[0]) <= 3
-        or not parts[0].isalpha()
-        or any(
-            not 2 <= len(part) <= 8 or not part.isalnum()
-            for part in parts[1:]
-        )
-    ):
-        raise ValueError(
-            "language must be a simple BCP 47 tag such as en, en-US, or fr"
-        )
-
-
 def _draft_manifest(cues, audio_path, duration, language):
-    _validate_language(language)
+    language = _validate_language(language)
     return {
         "schema_version": SCHEMA_VERSION,
         "language": language,
@@ -451,6 +659,7 @@ def _draft_manifest(cues, audio_path, duration, language):
             "Correct every spoken caption against the final soundtrack.",
             "Set speaker_review to single-obvious or included; add speaker labels when needed.",
             "Set sound_review to none-meaningful or included; add meaningful music/SFX cues.",
+            "Grapheme/rate ceilings do not certify readability in this language; review it.",
             "Run the approve command only after the user approves the complete cue list.",
         ],
         "cues": [
@@ -484,19 +693,20 @@ def create_review_draft(
         )
     if not Path(audio_path).is_file():
         raise ValueError(f"final mixed audio not found: {audio_path}")
+    tools = CaptionText(language)
     data = _load_json(input_path)
-    words = load_words(data)
+    words = load_words(data, text_tools=tools)
     if not words:
         raise ValueError(f"no word timings found in {input_path}")
     # Probe before grouping: the min-duration repair extends cues into gaps
     # and must know where the audio ends so it never extends past it.
     duration = _probe_audio_duration(audio_path)
-    cues = group_cues(words, max_chars=max_chars, audio_end=duration)
+    cues = group_cues(words, max_chars=max_chars, audio_end=duration, text_tools=tools)
     if cues and cues[-1]["end"] > duration + 0.05:
         raise ValueError(
             "transcript extends beyond the final mixed audio; regenerate the transcript"
         )
-    manifest = _draft_manifest(cues, audio_path, duration, language)
+    manifest = _draft_manifest(cues, audio_path, duration, tools.language)
     write_srt(cues, srt_path)
     write_vtt(cues, vtt_path)
     _write_json_atomic(manifest_path, manifest)
@@ -579,6 +789,7 @@ def validate_review_manifest(
     duration,
     *,
     require_approval=True,
+    expected_language=None,
 ):
     if not isinstance(manifest, dict):
         raise ValueError("caption review manifest must be a JSON object")
@@ -603,7 +814,13 @@ def validate_review_manifest(
     language = manifest.get("language")
     if not isinstance(language, str):
         raise ValueError("language must be a string")
-    _validate_language(language)
+    canonical_language = _validate_language(language)
+    if (expected_language is not None
+            and canonical_language != _validate_language(expected_language)):
+        raise ValueError(
+            f"caption language {language!r} does not match expected narration "
+            f"language {expected_language!r}; review the correctly labelled captions"
+        )
     reviewed = manifest.get("reviewed")
     if not isinstance(reviewed, bool):
         raise ValueError("reviewed must be a boolean")
@@ -714,22 +931,28 @@ def validate_review_manifest(
             )
         if any(not line.strip() for line in lines):
             raise ValueError(f"cue {index} contains a blank caption line")
-        if any(len(line) > MAX_CHARS for line in lines):
-            raise ValueError(
-                f"cue {index} exceeds {MAX_CHARS} characters on one line"
-            )
-        characters = sum(1 for char in rendered if not char.isspace())
-        cps = characters / (end - start)
-        if cps > MAX_CPS:
-            raise ValueError(
-                f"cue {index} reads at {cps:.1f} characters/s; "
-                f"maximum is {MAX_CPS:.1f}"
-            )
-
         has_speaker = has_speaker or bool(raw["speaker"].strip())
         has_sound = has_sound or bool(raw["sound"].strip())
         cues.append({"start": start, "end": end, "text": rendered})
         previous_end = end
+
+    tools = CaptionText(canonical_language)
+    tools.prime([line for cue in cues for line in cue["text"].splitlines()])
+    for index, cue in enumerate(cues, 1):
+        segmented_lines = [
+            tools.segments(line)["graphemes"] for line in cue["text"].splitlines()
+        ]
+        if any(len(line) > MAX_CHARS for line in segmented_lines):
+            raise ValueError(
+                f"cue {index} exceeds {MAX_CHARS} characters (graphemes) on one line"
+            )
+        characters = sum(not g.isspace() for line in segmented_lines for g in line)
+        cps = characters / (cue["end"] - cue["start"])
+        if cps > MAX_CPS:
+            raise ValueError(
+                f"cue {index} reads at {cps:.1f} characters/s (graphemes); "
+                f"maximum is {MAX_CPS:.1f}"
+            )
 
     if speaker_review == "included" and not has_speaker:
         raise ValueError(
@@ -751,7 +974,10 @@ def validate_review_manifest(
 def approve_reviewed_captions(
     audio_path=DEFAULT_AUDIO,
     manifest_path=DEFAULT_MANIFEST,
+    *,
+    expected_language=None,
 ):
+    """Bind explicit approval to unchanged cues in the expected narration locale."""
     if not Path(audio_path).is_file():
         raise ValueError(f"final mixed audio not found: {audio_path}")
     manifest = _load_json(manifest_path)
@@ -761,6 +987,7 @@ def approve_reviewed_captions(
         audio_path,
         duration,
         require_approval=False,
+        expected_language=expected_language,
     )
     manifest["reviewed"] = True
     manifest["approval"] = {
@@ -813,12 +1040,17 @@ def finalize_reviewed_captions(
     srt_path=DEFAULT_FINAL_SRT,
     vtt_path=DEFAULT_FINAL_VTT,
     state_path=DEFAULT_STATE,
+    *,
+    expected_language=None,
 ):
+    """Publish the reviewed delivery set only for the expected narration locale."""
     if not Path(audio_path).is_file():
         raise ValueError(f"final mixed audio not found: {audio_path}")
     manifest = _load_json(manifest_path)
     duration = _probe_audio_duration(audio_path)
-    cues = validate_review_manifest(manifest, audio_path, duration)
+    cues = validate_review_manifest(
+        manifest, audio_path, duration, expected_language=expected_language
+    )
     srt_content = _srt_content(cues)
     vtt_content = _vtt_content(cues)
     state = _delivery_state(
@@ -847,12 +1079,17 @@ def validate_final_captions(
     srt_path=DEFAULT_FINAL_SRT,
     vtt_path=DEFAULT_FINAL_VTT,
     state_path=DEFAULT_STATE,
+    *,
+    expected_language=None,
 ):
+    """Check exact delivery bytes, approval and the expected narration locale."""
     if not Path(audio_path).is_file():
         raise ValueError(f"final mixed audio not found: {audio_path}")
     manifest = _load_json(manifest_path)
     duration = _probe_audio_duration(audio_path)
-    cues = validate_review_manifest(manifest, audio_path, duration)
+    cues = validate_review_manifest(
+        manifest, audio_path, duration, expected_language=expected_language
+    )
     srt_content = _srt_content(cues)
     vtt_content = _vtt_content(cues)
     for label, path in (("SRT", srt_path), ("VTT", vtt_path)):
@@ -891,7 +1128,8 @@ def _legacy_main(argv):
     parser.add_argument("--input", help="Transcript JSON (default: auto-detect transcript.json, then voiceover.json).")
     parser.add_argument("--srt", default="voiceover.srt", help="Output SRT path (default: voiceover.srt).")
     parser.add_argument("--vtt", default="voiceover.vtt", help="Output VTT path (default: voiceover.vtt).")
-    parser.add_argument("--max-chars", type=int, default=MAX_CHARS, help="Max characters per cue.")
+    parser.add_argument("--max-chars", type=int, default=MAX_CHARS, help="Max graphemes per caption line.")
+    parser.add_argument("--language", default="en", help="Transcript BCP 47 locale (legacy default: en).")
     args = parser.parse_args(argv)
 
     input_path = args.input or _detect_input()
@@ -906,18 +1144,17 @@ def _legacy_main(argv):
 
     try:
         data = json.loads(Path(input_path).read_text(encoding="utf-8"))
-        words = load_words(data)
-    except (json.JSONDecodeError, ValueError) as exc:
+        tools = CaptionText(args.language)
+        words = load_words(data, text_tools=tools)
+        if not words:
+            raise ValueError("no word timings found")
+        cues = group_cues(words, max_chars=args.max_chars, text_tools=tools)
+        write_srt(cues, args.srt)
+        write_vtt(cues, args.vtt)
+    except (OSError, ValueError) as exc:
         print(f"Error reading {input_path}: {exc}", file=sys.stderr)
         return 1
 
-    if not words:
-        print(f"Error: no word timings found in {input_path}.", file=sys.stderr)
-        return 1
-
-    cues = group_cues(words, max_chars=args.max_chars)
-    write_srt(cues, args.srt)
-    write_vtt(cues, args.vtt)
     print(f"Wrote {len(cues)} caption cues from {input_path}:")
     print(f"  {args.srt}")
     print(f"  {args.vtt}")
@@ -957,6 +1194,7 @@ def _workflow_parser():
     )
     approve.add_argument("--audio", default=DEFAULT_AUDIO)
     approve.add_argument("--manifest", default=DEFAULT_MANIFEST)
+    approve.add_argument("--expected-language", help="Confirmed narration BCP 47 locale.")
 
     for name, help_text in (
         ("finalize", "Emit reviewed delivery sidecars and fingerprint state."),
@@ -968,6 +1206,7 @@ def _workflow_parser():
         command.add_argument("--srt", default=DEFAULT_FINAL_SRT)
         command.add_argument("--vtt", default=DEFAULT_FINAL_VTT)
         command.add_argument("--state", default=DEFAULT_STATE)
+        command.add_argument("--expected-language", help="Confirmed narration BCP 47 locale.")
     return parser
 
 
@@ -1006,6 +1245,7 @@ def _workflow_main(argv):
             manifest = approve_reviewed_captions(
                 audio_path=args.audio,
                 manifest_path=args.manifest,
+                expected_language=args.expected_language,
             )
             print(
                 "Approved exact caption review content for "
@@ -1020,6 +1260,7 @@ def _workflow_main(argv):
                 srt_path=args.srt,
                 vtt_path=args.vtt,
                 state_path=args.state,
+                expected_language=args.expected_language,
             )
             print(
                 f"Finalized reviewed {state['language']} captions bound to "
@@ -1035,6 +1276,7 @@ def _workflow_main(argv):
             srt_path=args.srt,
             vtt_path=args.vtt,
             state_path=args.state,
+            expected_language=args.expected_language,
         )
         print(
             f"Reviewed captions are current for {state['audio']['sha256']} "

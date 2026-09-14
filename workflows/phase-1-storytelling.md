@@ -19,6 +19,8 @@ Surface and record every lever in the exact `project-plan.md` Creative Brief tab
 | Duration | `duration` | Step 1.1 |
 | Theme | `theme` | Step 1.1 |
 | Aspect ratio | `aspect_ratio` | Step 1.1 |
+| Authored text language | `text_language` | Step 1.1a |
+| Narration / caption language | `narration_language` | Step 1.1a |
 | Identity / design system | `identity_strategy`, `identity_choice` | Step 1.2 |
 | Voice | `voice` | Step 1.3 |
 | Visual ceiling | `visual_ceiling` | Step 1.5 |
@@ -32,6 +34,20 @@ are in the table. If either is missing or still a placeholder (including on `con
 present that entry prompt again; do not reconstruct the answer from `context.md`.
 
 ## Step 1.1: Duration & Theme
+
+Read the **Requested Video** interpretation and any **Demonstration Scenario** inventory in
+`context.md` before recommending a duration. For a new scenario inventory, verify that the
+Phase-0 checkpoint approved its scope/requirement IDs in the Decision Log or explicit user
+answers; a proposed or changed inventory must return to that approval, not silently become
+mandatory content. Legacy projects without this contract keep the existing workflow.
+
+Duration options below are examples, not a maximum or a reason to skip requested detail. Accept
+the user's custom duration through the native freeform path. Recommend enough time for the
+approved actions/options and readable results, without selecting it. If duration and coverage
+conflict, ask whether to extend the duration, explicitly narrow scope, or change presentation.
+Never silently drop steps, rush through controls, or replace a complete demo with highlights.
+Revisit the conflict after real capture timings are known; a timing estimate is not permission
+to override the requested scenario.
 
 ```json
 {
@@ -73,6 +89,91 @@ present that entry prompt again; do not reconstruct the answer from `context.md`
 Record `duration`, `theme`, and `aspect_ratio` in the Creative Brief table. Phase 3 scene
 templates and the Phase 4 root composition use these dimensions for `data-width` / `data-height`.
 Once chosen, the canvas size is locked; changing it later stales every Phase 1–5 stamp.
+
+## Step 1.1a: Video Language
+
+Language is a core brief choice, **not a fixed English/French shortlist and not a property inferred
+from the voice**. Read `TTS_LANGUAGE_DISCOVERY` and `TTS_PROVIDER_ADAPTER` through
+`compat/ecosystem.md`. Obtain current capabilities for the providers/models actually available to
+this pipeline, without selecting a provider from credentials. Keep language support distinct from
+account access, installed backend readiness, and eventual audio/render quality.
+
+Import native metadata with the installed validator. For ElevenLabs, the input is the active
+model's model-list response; `--voices` is native voice metadata (a list, a `voices` envelope, or
+the selected voice's response). Never save credentials or unrelated voice samples.
+
+```bash
+python3 "$SKILL_DIR/scripts/validate_brief.py" --project-dir "$PROJECT_DIR" language-catalog \
+  --provider elevenlabs --model "<actual model from TTS_PROVIDER_ADAPTER>" \
+  --input .hve/elevenlabs-models.json --voices .hve/elevenlabs-voices.json \
+  --source "current provider model and voice metadata" --json
+```
+
+For Kokoro, collect the native voice-list JSON and the **full supported `--lang` code list** into
+a JSON array. The curated voice list is not the full language or voice inventory; verify
+non-curated voices from the active model's full inventory before including their metadata.
+
+```bash
+python3 "$SKILL_DIR/scripts/validate_brief.py" --project-dir "$PROJECT_DIR" language-catalog \
+  --provider kokoro --model "<actual local model>" \
+  --input .hve/kokoro-voices.json --languages .hve/kokoro-languages.json \
+  --source "current local CLI and model inventory" --json
+python3 "$SKILL_DIR/scripts/validate_brief.py" --project-dir "$PROJECT_DIR" language-options --json
+```
+
+Run these from the video workspace with the source/skill bindings restored. Missing or failed
+catalog retrieval/import is not success: explain setup/export needs or unavailable routes, never
+reuse a failed refresh as current evidence or invent a fallback language list. The imported
+catalogs are capability data, not user consent and not a promise that every font/voice is qualified.
+
+Present readable names from the returned catalog, grouping/paging larger sets within the native
+four-option limit. Keep every supported language reachable; a preferred page is not a whitelist.
+Offer custom locale entry, resolving a readable name to a canonical BCP 47 tag from the data.
+An unavailable/ambiguous locale must be explained and changed only by the user.
+
+```json
+{
+  "questions": [{
+    "question": "Which language should the video use?",
+    "header": "Language",
+    "options": [
+      { "label": "<catalog language 1>", "description": "<supporting provider/model>" },
+      { "label": "<catalog language 2>", "description": "<supporting provider/model>" },
+      { "label": "Browse languages", "description": "Choose from the remaining provider-supported languages." },
+      { "label": "Other locale", "description": "Enter a language/locale; verify a compatible generation route before proceeding." }
+    ],
+    "multiSelect": false
+  }]
+}
+```
+
+After that choice, require this explicit application decision. Do not write either language as a
+confirmed answer before the user chooses how it applies:
+
+```json
+{
+  "questions": [{
+    "question": "How should the selected language apply?",
+    "header": "Text/speech",
+    "options": [
+      { "label": "Use for both", "description": "Recommended - matching on-screen text and narration is usually easiest to follow." },
+      { "label": "Different narration language", "description": "Keep this text language and explicitly choose another supported spoken language." },
+      { "label": "Change video language", "description": "Return to the language selector." }
+    ],
+    "multiSelect": false
+  }]
+}
+```
+
+**Use for both** records the same actual locale in `text_language` and `narration_language`.
+**Different narration language** asks a second catalog/custom selector and records the two actual
+values independently. Show the resolved pair now and again in the full story summary. Matching is
+a recommendation, not a preselected answer. Captions follow narration; translated subtitles are
+not inferred from the text-language choice. Captured UI, code, and product names stay as recorded.
+
+Before synthesis, the chosen route must support the spoken language, its actual native token,
+and exact voice. A region/script-specific request is not silently replaced by another locale.
+Keep source-language transcription and font/script readiness in the later phase checks.
 
 ## Step 1.2: Visual Identity
 
@@ -292,7 +393,13 @@ Ask the user for the exact custom identity or `DESIGN.md` source. Record
 
 ## Step 1.3: Voice Selection
 
-Choose the provider first. Availability may shape a recommendation but never changes the answer:
+Choose a provider compatible with the confirmed **narration language**, then its exact voice.
+Show only verified compatible routes as available; explain unsupported or setup-needed routes.
+Even when one route fits, the user chooses it or changes language. Never substitute a provider.
+Native-language/accent metadata informs quality recommendations, not an invented ban on a voice
+speaking another model-supported language (`TTS_LANGUAGE_DISCOVERY`).
+
+Availability may shape a recommendation but never changes the answer:
 
 ```json
 {
@@ -331,7 +438,9 @@ The runtime's freeform/custom answer may supply another ElevenLabs name and voic
 `elevenlabs:Matilda:XrExE9yKIg1WjnnlVkGX`). If the API key is unavailable, stop and let the user
 configure it or return to the provider prompt; never substitute Kokoro.
 
-If Kokoro was chosen, present a starter set:
+If Kokoro was chosen, recommend voices appropriate to the spoken locale from the verified
+inventory. Use the starter set below for English only; for other languages fill that page from
+the matching inventory. It is a preferred page, not a language/voice support limit:
 
 ```json
 {
@@ -349,12 +458,32 @@ If Kokoro was chosen, present a starter set:
 }
 ```
 
-For **Browse exact ID**, run `npx hyperframes tts --list` and present its real results in pages of
-at most three voices plus **More voices**. Record `voice` as `kokoro:<voice-id>` (for example
+For **Browse exact ID**, use the native catalog and full model inventory described in
+`TTS_LANGUAGE_DISCOVERY`; present pages of at most three voices plus **More voices**. Do not treat
+the curated CLI list as exhaustive. Record `voice` as `kokoro:<voice-id>` (for example
 `kokoro:af_nova`). Never infer a voice from the product category, and never switch providers after
 confirmation.
 
+Refresh/import the exact chosen voice's metadata when needed, then check the selected pair:
+
+```bash
+python3 "$SKILL_DIR/scripts/validate_brief.py" --project-dir "$PROJECT_DIR" language-profile --json
+```
+
+A nonzero result means the language/voice/model combination is unsupported, ambiguous, or not
+verified. Resolve the named issue or ask for an explicit alternative; never silently fall back.
+The profile separates canonical text/speech locales, direction/script, native TTS code, ASR code,
+and actual model. This compatibility result is not story approval; the full brief is confirmed
+below. Changing either language reopens story approval and Phase 1–5 freshness.
+
 ## Step 1.4: Narrative Structure
+
+**The request determines scope; the confirmed mode determines presentation.** Build the narrative
+from the approved subject, depth, and expected result in `context.md`. A detailed XYZ scenario
+follows its real task order through setup, configuration/actions, and the result; use existing
+`chapter`, `step_label`, and `goal` fields where appropriate. A short teaser can stay short.
+Do not add unrelated features to meet the example promo's feature count, or select a generic
+product tour just because the user called the video a "demo".
 
 **The real product on screen is the spine.** In every mode below, the backbone of the video
 is real captures of the product (Phase-2 screenshots/clips) framed with depth; the text / stat
@@ -617,6 +746,8 @@ Present one concise summary containing every story-owned field:
 | Duration | `duration` |
 | Theme | `theme` |
 | Aspect | `aspect_ratio` |
+| Authored text language | `text_language` |
+| Narration / caption language | `narration_language` |
 | Identity | `identity_strategy` + `identity_choice` |
 | Visual ceiling | `visual_ceiling` |
 | Voice | `voice` |
@@ -682,6 +813,18 @@ For each frame, write:
 | Capture binding | `screenshot` / `clip`, plus the capture keys below |
 | Director keys | the keys derived in Step 1.4b, as ordinary bullets in the same block |
 | Visual + choreography | the free prose under the bullets: what is on screen, how elements enter, why the beat earns its seconds |
+
+Author titles, callouts, step labels, and closing copy in `text_language`; write each `voiceover`
+in `narration_language` from the start, not as a post-production translation. Machine syntax stays
+unchanged: `## Frame N` (its title may be localized), metadata keys, statuses, paths, and enum
+values are not translated. Preserve literal code, URLs, and product names.
+
+For a scenario frame, include its required controls/options, demonstrated action/value, and
+observable state in **that frame's own narrative**, alongside a plain `Coverage: R1, R2` reference
+to the approved inventory. These IDs are production notes, **not on-screen copy**. A builder sees
+this one frame, not `context.md` or the film-wide coverage table, so IDs alone are insufficient.
+Do not add a coverage metadata bullet, a director key, or a sixth packet item. Multiple options
+may share a readable frame; one option per frame is not a rule.
 
 Exit motion belongs to the *next* frame's seam, so never write one into a frame's prose — the
 closing frame is the only exception.
@@ -750,6 +893,11 @@ command existed nothing compared them. The mismatch surfaced in Phase 5 instead 
 had been synthesized and paid for, where the only repair is rewriting lines the user already
 approved. On one real 40-frame film the accepted narration ran **619s against a 540s composition**,
 and 34 of 40 lines had to be cut.
+
+The estimator is calibrated for English only. If it reports the selected narration language as
+**unmeasurable**, do not interpret a missing total as zero speech or apply English rate/band
+assumptions to it. Review language-appropriate pacing and allow measured TTS duration to decide
+fit in Phase 5. This limitation never authorizes shortening approved narration.
 
 Read two things out of the report, and treat them differently:
 
@@ -862,6 +1010,41 @@ path. For supplied footage, define the exact destination path.
 When `product_surface: none` and no frame requests any capture, explicitly record the frontmatter
 `capture_plan: none — skip Phase 2` rather than inventing an app URL.
 
+### Scenario Coverage (scenario projects only)
+
+When Phase 0 produced an approved **Demonstration Scenario** inventory, append one
+`## Scenario Coverage` section **after the last frame** in `storyboard.md`. It is ordinary prose,
+not frontmatter or a frame metadata key. This is the single requirement-to-frame-to-evidence map;
+the inventory in `context.md` remains the owner of what the user asked to cover.
+
+| Requirement ID | Frames | Planned evidence | Captured evidence | Assembled evidence |
+|---|---|---|---|---|
+| R1 | {1-based frame numbers} | {bound artifact and the action/control/state it must show} | pending | pending |
+
+Add one row for every approved requirement ID, including the final result. Each row must name
+real planned frames, their existing `screenshot` / `clip` bindings or a documented authored scene,
+and what viewers must see. An explicitly illustrative requirement may use authored visuals; those
+are not evidence that a real product action occurred. Required real controls/results need real
+captures or an authored terminal grounded in actual command output, never a fabricated mock UI.
+Never call source-code knowledge captured evidence.
+
+Before storyboard approval, compare the inventory and map: every approved ID is present, none is
+silently dropped or broadened, and every row has a concrete frame and evidence plan. Unknown
+controls or missing planned coverage are unresolved work, not completion; obtain the missing
+evidence or an explicit user-approved scope change. Record changes in the Decision Log and
+reconcile the inventory/map before approval. `pending` captured/assembled evidence is expected
+at this planning stage; it does not mean the capture or film has been reviewed.
+
+Phase 2 fills **Captured evidence** with actual artifacts and moments. Phase 4 fills **Assembled
+evidence** after inspecting those moments in the composition. Reuse this table, not separate
+coverage ledgers. Changing a capture, frame binding, trim, speed, or timing reopens the affected
+evidence for review; stale notes must not count as proof.
+
+Without a scenario inventory, omit this section. In particular, do not manufacture requirement
+IDs or require this table merely to resume a legacy project or create a short promo. If a
+recorded new scenario approval exists but its inventory/map is missing or inconsistent, repair
+that contract rather than treating the project as legacy.
+
 **Structured review feedback.** A reviewer working the board in HyperFrames Studio submits comments
 to `.hyperframes/frame-comments.json` beside the storyboard. If that file is present at this
 checkpoint, it is the round's feedback: revise exactly the frames it names, delete it, and present
@@ -881,6 +1064,9 @@ Do not advance if stamping fails; a failed stamp means the story confirmation ch
 ## Checkpoint
 
 > "Storyboard complete. [N] frames, [duration]s total, [M] capture artifacts planned.
+>
+> [For a scenario contract: show the requirement-to-frame coverage and duration trade-offs.
+> Do not claim the plan is complete with an unresolved approved requirement.]
 >
 > [If M > 0: Ready to move to Phase 2: Capture?]
 > [If M = 0 and Product surface is none: Capture is intentionally skipped; ready for Phase 3: Design?]"

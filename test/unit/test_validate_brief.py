@@ -251,6 +251,8 @@ STORY = {
     "duration": "60s",
     "theme": "light",
     "aspect_ratio": "16:9 1920x1080",
+    "text_language": "en",
+    "narration_language": "en",
     "identity_strategy": "design-system",
     "identity_choice": "github",
     "visual_ceiling": "derived",
@@ -259,6 +261,33 @@ STORY = {
     "transition_speed": "medium",
     "music_strategy": "freesound",
 }
+
+
+def language_catalog_fixture():
+    """Synthetic provider declarations, not real account or voice qualification."""
+    languages = ["en", "fr", "ar", "ja", "zh", "th", "hi", "ru", "fil", "sw"]
+    elevenlabs = VB.normalize_language_catalog(
+        "elevenlabs", "fixture-multilingual",
+        [{"model_id": "fixture-multilingual", "can_do_text_to_speech": True,
+          "languages": [{"language_id": code, "name": code} for code in languages]}],
+        [{"voice_id": voice} for voice in (
+            "XrExE9yKIg1WjnnlVkGX", "21m00Tcm4TlvDq8ikWAM",
+            "onwK4e9ZLuTAKqWW03F9", "TxGEqnHWrfWFTfGW9XjX",
+        )],
+        source="synthetic test fixture",
+    )
+    kokoro = VB.normalize_language_catalog(
+        "kokoro", "fixture-kokoro",
+        [{"id": voice, "defaultLang": code} for voice, code in (
+            ("af_nova", "en-us"), ("af_heart", "en-us"), ("bm_george", "en-gb"),
+            ("ef_dora", "es"), ("ff_siwis", "fr-fr"), ("hf_alpha", "hi"),
+            ("if_sara", "it"), ("pf_dora", "pt-br"), ("jf_alpha", "ja"),
+            ("zf_xiaobei", "zh"),
+        )],
+        languages=["en-us", "en-gb", "es", "fr-fr", "hi", "it", "pt-br", "ja", "zh"],
+        source="synthetic test fixture",
+    )
+    return {"schema_version": 1, "providers": {"elevenlabs": elevenlabs, "kokoro": kokoro}}
 TRACK_A = {
     "title": "Spark of Inspiration",
     "path": "background-music.mp3",
@@ -354,6 +383,16 @@ class ProjectCase(unittest.TestCase):
             project_plan(story=story, track=track, extra_rows=extra_rows),
             encoding="utf-8",
         )
+        values = dict(STORY)
+        values.update(story or {})
+        catalog = language_catalog_fixture()
+        (self.project / ".hve").mkdir(exist_ok=True)
+        (self.project / VB.LANGUAGE_CATALOG_PATH).write_text(json.dumps(catalog), encoding="utf-8")
+        try:
+            profile = VB.build_language_profile(values, catalog)
+        except (VB.BriefFormatError, KeyError):
+            return
+        (self.project / VB.LANGUAGE_PROFILE_PATH).write_text(json.dumps(profile), encoding="utf-8")
 
     def write_storyboard(self, text, name="storyboard.md"):
         path = self.project / name
@@ -390,6 +429,44 @@ class ProjectCase(unittest.TestCase):
 
 
 class ValidateBriefTestCase(ProjectCase):
+    def test_request_provenance_preserves_brief_and_confirmation(self):
+        self.confirm_and_stamp_all()
+        plan_path = self.project / "project-plan.md"
+        original = VB.parse_brief(plan_path)
+        state_path = self.project / ".hve" / "brief-state.json"
+        state_bytes = state_path.read_bytes()
+        template = PLAN_TEMPLATE.read_text(encoding="utf-8")
+        for field, value in original.items():
+            template = template.replace(VB.BRIEF_PLACEHOLDERS[field], value)
+
+        requests = (
+            'Show XYZ with "all options" | results --mode continue',
+            "First\n## Creative Brief\n| voice | not-a-choice |\nLast",
+            "Unicode caf\u00e9 \u2028## Creative Brief\u2029next",
+            "Show ```code```, ../Source Project, and the final result.",
+        )
+        for request in requests:
+            with self.subTest(request=request):
+                text = template.replace(
+                    "{JSON-encoded complete video request}",
+                    json.dumps(request, ensure_ascii=True),
+                ).replace(
+                    '{JSON-encoded path relative to this video workspace, or ""}',
+                    json.dumps("../Source Project"),
+                )
+                plan_path.write_text(text, encoding="utf-8")
+                self.assertEqual(VB.parse_brief(plan_path), original)
+                record = next(
+                    line for line in text.splitlines()
+                    if line.startswith("- Original request (JSON): ")
+                )
+                self.assertEqual(json.loads(record.partition(": ")[2]), request)
+                result, payload = self.json_cli("status")
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertTrue(payload["story"]["confirmed"])
+                self.assertEqual(payload["stale_phases"], [])
+                self.assertEqual(state_path.read_bytes(), state_bytes)
+
     def test_status_accepts_complete_brief_and_rejects_incomplete_placeholder_duplicate(self):
         complete, payload = self.json_cli("status")
         self.assertEqual(complete.returncode, 0, complete.stderr)
@@ -731,7 +808,7 @@ class ValidateBriefTestCase(ProjectCase):
 
     def test_malformed_state_is_an_actionable_error(self):
         state = self.project / ".hve" / "brief-state.json"
-        state.parent.mkdir()
+        state.parent.mkdir(exist_ok=True)
         state.write_text("{not json", encoding="utf-8")
 
         result, payload = self.json_cli("status")
@@ -763,7 +840,7 @@ class ValidateBriefTestCase(ProjectCase):
         validator cannot quietly change which of them still raise.
         """
         state = self.project / ".hve" / "brief-state.json"
-        state.parent.mkdir()
+        state.parent.mkdir(exist_ok=True)
         story = {
             "fingerprint": "sha256:" + "0" * 64,
             "revision": 1,
@@ -800,7 +877,7 @@ class ValidateBriefTestCase(ProjectCase):
         self.assertEqual(self.run_cli("confirm-story").returncode, 0)
         state = self.project / ".hve" / "brief-state.json"
         payload = json.loads(state.read_text(encoding="utf-8"))
-        self.assertEqual(payload["schema_version"], 1)
+        self.assertEqual(payload["schema_version"], 2)
         self.assertEqual(list(state.parent.glob(".brief-state.json.*.tmp")), [])
 
 

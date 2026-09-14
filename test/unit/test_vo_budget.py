@@ -134,6 +134,18 @@ class LabelledExampleRun(unittest.TestCase):
 class VoBudgetCommand(ProjectCase):
     """The subcommand reports; it never blocks and never rewrites."""
 
+    def test_selected_non_english_language_never_uses_english_timing(self):
+        for language in ("fr", "ar", "ja"):
+            with self.subTest(language=language):
+                self.write_plan(story={"narration_language": language})
+                self.write_storyboard(storyboard_with([(6, "API and several other words.")]))
+                result, payload = self.json_cli("vo-budget")
+                self.assertEqual(result.returncode, 0)
+                self.assertEqual(payload["frames"][0]["tier"], "UNMEASURABLE")
+                self.assertIsNone(payload["frames"][0]["estimate_seconds"])
+                self.assertIsNone(payload["estimated_total_seconds"])
+                self.assertIn("measured synthesized audio", payload["message"])
+
     def test_a_film_that_cannot_be_spoken_is_reported_with_a_total(self):
         # 5s slots against lines that plainly cannot be said in 5s.
         long_line = ("Extraordinary infrastructure orchestrates deployment "

@@ -21,7 +21,7 @@ format untouched.
 3. One value per bullet, on one line. A multi-line `voiceover` collapses to a single line.
 
 **The Creative Brief stays authoritative.** `project-plan.md` owns every user-confirmed lever
-(mode, duration, theme, aspect ratio, identity, voice, transitions, music). Frontmatter restates a
+(mode, duration, theme, aspect ratio, text/narration languages, identity, voice, transitions, music). Frontmatter restates a
 few of them so the storyboard reads on its own; when the two disagree the brief wins and the
 storyboard is what gets corrected. This file is a description of the film — **never** a consent
 record, and never a place to record an answer the user did not give.
@@ -38,10 +38,13 @@ Phase 4 root `index.html` references them via `data-composition-src`.
 > pauses both move it. When a line overruns its slot, drop commas before dropping words.
 > `validate_brief.py vo-budget` estimates this per frame and film-wide, and owns the numbers;
 > Phase 1 § "Check the narration fits before anyone approves it" runs it before approval.
+> Its heuristic is English-only; other narration languages report an unmeasurable estimate,
+> not an English timing guarantee. Actual synthesized timing and user review remain necessary.
 
-> **Pronunciation:** TTS models render space-separated capital letters as a phonetic blob ("H V E"
-> → "Sage V E"). Write acronyms phonetically ("Aitch Vee Ee") to force letter-by-letter
-> pronunciation. See `workflows/phase-5-audio.md` § "Pronouncing acronyms".
+> **Pronunciation:** review acronyms with the chosen voice in `narration_language`.
+> "Aitch Vee Ee" is an English pronunciation example, not a substitution to copy into another
+> language. Preserve literal product/code spellings on screen; approve any spoken rewrite and
+> listen to a first take before batching. See `workflows/phase-5-audio.md` § "Write the aligned script".
 
 ---
 
