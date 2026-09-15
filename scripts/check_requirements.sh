@@ -212,6 +212,34 @@ if ! capture_line SKILL_ROOT git rev-parse --show-toplevel 2>/dev/null; then
 fi
 SKILL_HOMES="$HOME/.claude/skills|$HOME/.copilot/skills|$HOME/.agents/skills|$HOME/.pi/agent/skills|$HOME/.config/opencode/skills|$HOME/.cursor/skills|$HOME/.codex/skills|/etc/codex/skills|.claude/skills|.github/skills|.agents/skills|.pi/skills|.opencode/skills|.cursor/skills|.codex/skills|$SKILL_ROOT/.claude/skills|$SKILL_ROOT/.github/skills|$SKILL_ROOT/.agents/skills|$SKILL_ROOT/.pi/skills|$SKILL_ROOT/.opencode/skills|$SKILL_ROOT/.cursor/skills|$SKILL_ROOT/.codex/skills"
 
+# The sibling language helper is the authority on what the language layer needs,
+# so the Node gate runs it rather than restating its Intl requirements and
+# drifting from them. Resolved from this file rather than $PWD, by parameter
+# expansion rather than `dirname`: the gate has to survive the broken PATH it
+# exists to report, and the script never changes directory.
+case "${BASH_SOURCE[0]}" in
+  */*) LANGUAGE_TOOL="${BASH_SOURCE[0]%/*}/language_tools.mjs" ;;
+  *) LANGUAGE_TOOL="./language_tools.mjs" ;;
+esac
+LANGUAGE_PROBE_REASON=""
+
+probe_language_runtime() {
+  # Arabic exercises every piece the helper depends on in one call: likely-subtag
+  # script resolution, text direction, display names and ICU segmentation. A
+  # small-icu Node passes `node --version` and fails here.
+  LANGUAGE_PROBE_REASON=""
+  if [ ! -f "$LANGUAGE_TOOL" ]; then
+    LANGUAGE_PROBE_REASON="scripts/language_tools.mjs is missing; reinstall the skill"
+    return 1
+  fi
+  if ! printf '%s' '{"language":"ar","texts":["a b"]}' \
+    | node "$LANGUAGE_TOOL" segment >/dev/null 2>&1; then
+    LANGUAGE_PROBE_REASON="this Node cannot resolve full-ICU locale data (small-icu build?)"
+    return 1
+  fi
+  return 0
+}
+
 find_skill_home() {
   local name="$1" home old_ifs="$IFS"
   IFS='|'
@@ -606,11 +634,21 @@ collect_checks() {
   if command -v node >/dev/null 2>&1; then
     capture_line raw node --version 2>/dev/null || raw=""
     version="${raw#v}"
-    if [ -n "$version" ] && ver_ge "$version" 22 12; then
+    if [ -n "$version" ] && ver_ge "$version" 22 12 && probe_language_runtime; then
       add_check node "Node.js" required ready "1,2,3,4,5" \
-        "meets the >= 22.12 runtime requirement" "$version" manual-download "" \
-        "Install Node.js >= 22.12 from https://nodejs.org/" Required \
+        "meets the >= 22.12 runtime requirement and resolves full-ICU locale data" \
+        "$version" manual-download "" \
+        "Install Node.js >= 22.12 with full ICU from https://nodejs.org/" Required \
         "Node.js $version"
+    elif [ -n "$version" ] && ver_ge "$version" 22 12; then
+      # Version is fine; the language layer is not. validate_brief.py status,
+      # language-catalog/-profile and every caption_gen.py command go through the
+      # helper, so reporting this ready would green-light a Phase 1 failure.
+      add_check node "Node.js" required blocked "1,2,3,4,5" \
+        "meets >= 22.12 but $LANGUAGE_PROBE_REASON" "$version" manual-download "" \
+        "Install an official full-ICU Node.js >= 22.12 build from https://nodejs.org/ (distro small-icu builds omit the locale data)" \
+        Required \
+        "Node.js $version — $LANGUAGE_PROBE_REASON"
     else
       add_check node "Node.js" required blocked "1,2,3,4,5" \
         "need >= 22.12 (hyperframes needs >= 22; chrome-devtools-mcp needs ^20.19 || ^22.12 || >=23)" \

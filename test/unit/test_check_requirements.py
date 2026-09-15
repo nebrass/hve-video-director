@@ -155,6 +155,49 @@ class RequirementsCheckerTestCase(unittest.TestCase):
         self.assertEqual(present["npx"]["phases"], absent["npx"]["phases"])
         self.assertFalse(self.log.exists(), "reporting dependencies must not invoke online npx")
 
+    def test_small_icu_node_blocks_because_the_language_layer_needs_full_icu(self):
+        self.install_required_shims()
+        self.install_skills()
+        # Clears `node --version` and then fails the way language_tools.mjs fails
+        # on a small-icu build. Phase -1 called this ready until the gate probed
+        # the helper, so the run died later at the first language-catalog call.
+        self.write_executable(
+            "node",
+            'if [ "$1" = "--version" ]; then printf "v22.14.0\\n"; exit 0; fi\n'
+            'printf "Language error: cannot resolve script/direction for ar\\n" >&2\n'
+            "exit 2",
+        )
+        result, checks = self.json_checks()
+        self.assertEqual(result.returncode, 1)
+        self.assertEqual(checks["node"]["state"], "blocked")
+        self.assertEqual(checks["node"]["version"], "22.14.0")
+        self.assertIn("full-ICU", checks["node"]["detail"])
+        self.assertIn("nodejs.org", checks["node"]["fixability"]["command"])
+        self.assertFalse(self.log.exists(), "the ICU probe must stay offline")
+
+    def test_missing_language_helper_blocks_instead_of_reporting_node_ready(self):
+        # The helper is resolved from the script's own directory, not $PWD, so a
+        # copy without its sibling is a partial install — report it, never assume
+        # the language layer works because `node --version` answered.
+        self.install_required_shims()
+        self.install_skills()
+        orphan = self.work / "orphan"
+        orphan.mkdir()
+        copied = orphan / SCRIPT.name
+        shutil.copy(SCRIPT, copied)
+        result = subprocess.run(
+            ["/bin/bash", str(copied), "--json"],
+            cwd=self.sandbox,
+            env=self.environment(),
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        checks = {check["id"]: check for check in json.loads(result.stdout)["checks"]}
+        self.assertEqual(result.returncode, 1)
+        self.assertEqual(checks["node"]["state"], "blocked")
+        self.assertIn("language_tools.mjs", checks["node"]["detail"])
+
     def assert_companion_skill_degrades(self, name, check_id, phases):
         """A recommended companion skill: present -> ready, absent -> degraded.
 
