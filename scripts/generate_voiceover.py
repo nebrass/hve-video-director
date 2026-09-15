@@ -44,12 +44,15 @@ Pitfalls handled (each one a real failure mode you'd otherwise hit silently):
   - Word count is a poor proxy for spoken duration — syllable density and comma
     pauses both inflate it. When a section overruns its slot, drop commas before
     dropping words. `validate_brief.py vo-budget` owns the estimate and its
-    numbers; Phase 1 runs it before the storyboard is approved.
+    numbers; Phase 1 runs it before the storyboard is approved. Its heuristic
+    is English-only: other narration languages need measured audio, not an
+    inferred English speaking rate.
 """
 
 import hashlib
 import json
 import os
+import re
 import sys
 import subprocess
 import tempfile
@@ -235,27 +238,71 @@ def verify_sections_are_fresh(section_files):
     is therefore not evidence. `verify_vo_sections.py seal` records the bytes that
     were actually produced for this script; this compares against that record.
 
-    Deliberately narrow: a sha256 against a manifest whose schema this repo owns.
+    Deliberately narrow: hashes and opaque identities in schemas this repo owns.
     This file is copied into every project and edited there, so it must never learn
     the engine's formats — that knowledge lives in the skill-resident verifier.
 
     Returns a list of complaints; empty means every section is accounted for.
     """
+    if MANIFEST.with_name("vo-sections.pending.json").exists():
+        return ["narration preparation is pending — complete check/seal before assembly"]
     if not MANIFEST.is_file():
         return ["no .hve/vo-sections.json — run `verify_vo_sections.py seal` first"]
     try:
-        recorded = json.loads(MANIFEST.read_text(encoding="utf-8")).get("sections", {})
-    except (json.JSONDecodeError, OSError) as error:
+        manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
+    except (ValueError, OSError) as error:
         return [f"unreadable .hve/vo-sections.json ({error})"]
+    if (not isinstance(manifest, dict) or type(manifest.get("schema_version")) is not int
+            or manifest["schema_version"] not in (1, 2)
+            or not isinstance(manifest.get("sections"), dict)):
+        return ["invalid .hve/vo-sections.json — prepare and seal the sections again"]
+    recorded = manifest["sections"]
 
     problems = []
+    profile_path = MANIFEST.with_name("language-profile.json")
+    bound_speech = manifest.get("speech_fingerprint")
+    if profile_path.exists():
+        try:
+            profile = json.loads(profile_path.read_text(encoding="utf-8"))
+        except (ValueError, OSError) as error:
+            return [f"unreadable language-profile.json ({error})"]
+        if (not isinstance(profile, dict) or type(profile.get("schema_version")) is not int
+                or profile["schema_version"] != 1
+                or not isinstance(profile.get("speech_fingerprint"), str)
+                or not re.fullmatch(r"sha256:[0-9a-f]{64}", profile["speech_fingerprint"])):
+            return ["invalid language-profile.json speech identity; recheck the language profile"]
+        if manifest["schema_version"] != 2 or bound_speech != profile["speech_fingerprint"]:
+            problems.append(
+                "section seal is unbound or does not match the current speech profile — "
+                "full prepare/synthesis/seal is required"
+            )
+        if (not isinstance(manifest.get("script_sha256"), dict)
+                or set(manifest["script_sha256"]) != set(recorded)
+                or any(not isinstance(manifest.get(key), str)
+                       or not re.fullmatch(r"[0-9a-f]{64}", manifest[key])
+                       for key in ("synthesis_sha256", "request_fingerprint"))):
+            problems.append("language-aware seal has no complete request/script proof")
+    elif bound_speech is not None:
+        problems.append(
+            "language-profile.json is missing but this seal was language-bound — "
+            "restore and recheck the profile; deletion cannot downgrade the proof"
+        )
     for i, (_, path) in enumerate(section_files):
         section_id = f"{i:02d}"
         entry = recorded.get(section_id)
-        if not entry:
+        if not isinstance(entry, dict):
             problems.append(f"section {section_id} is not in the manifest")
             continue
-        digest = hashlib.sha256(Path(path).read_bytes()).hexdigest()
+        if profile_path.exists() and (
+            not isinstance(entry.get("request_sha256"), str)
+            or not re.fullmatch(r"[0-9a-f]{64}", entry["request_sha256"])
+        ):
+            problems.append(f"section {section_id} has no language-aware request proof")
+        try:
+            digest = hashlib.sha256(Path(path).read_bytes()).hexdigest()
+        except OSError as error:
+            problems.append(f"cannot read section {section_id}: {error}")
+            continue
         if digest != entry.get("audio_sha256"):
             problems.append(
                 f"section {section_id} does not match the sealed bytes — it is a "
@@ -272,25 +319,30 @@ def verify_script_unchanged():
     re-synthesizing and the old take still matches the old manifest, so assembly would
     succeed with narration the script no longer asks for.
 
-    Compared sections-to-sections, never sections-to-request. Those two legitimately
-    diverge — a retry synthesizes from a filtered request file, so `audio_request.json`
-    can describe text that is no longer what was spoken, and binding to it would fail
-    closed on a normal recovery. The hash is recorded on the first verified assembly
-    after a seal and re-checked afterwards; `seal` rewrites the manifest, which clears
-    it, so a genuine re-synthesis re-anchors instead of tripping.
+    Compared only to repo-owned script hashes, never to an engine request. New seals
+    already carry those hashes. Historical standalone seals anchor on their first
+    verified assembly; a language-aware seal may never acquire that weaker proof.
     """
+    if MANIFEST.with_name("vo-sections.pending.json").exists():
+        return ["narration preparation is pending; the script cannot be anchored yet"]
     if not MANIFEST.is_file():
         return []
     try:
         manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError):
-        return []
+    except (ValueError, OSError) as error:
+        return [f"unreadable .hve/vo-sections.json ({error})"]
+    if not isinstance(manifest, dict):
+        return ["invalid .hve/vo-sections.json"]
     current = {
         f"{i:02d}": hashlib.sha256(text.encode("utf-8")).hexdigest()
         for i, (_, text) in enumerate(sections)
     }
     recorded = manifest.get("script_sha256")
     if recorded is None:
+        if (manifest.get("speech_fingerprint") is not None
+                or MANIFEST.with_name("language-profile.json").exists()
+                or manifest.get("synthesis_sha256") is not None):
+            return ["section seal is missing its script proof; prepare/synthesize/seal again"]
         # Anchoring happens on an ORDINARY assembly, so this write must not be
         # able to truncate the seal it is annotating: publish via tmp + rename.
         manifest["script_sha256"] = current
@@ -317,6 +369,10 @@ def verify_script_unchanged():
                 pass
             raise
         return []
+    if not isinstance(recorded, dict):
+        return ["invalid script hash record in .hve/vo-sections.json"]
+    if set(recorded) != set(current):
+        return ["configured section set differs from the sealed narration script"]
     changed = [k for k, v in current.items() if recorded.get(k) != v]
     if not changed:
         return []
@@ -366,7 +422,8 @@ def main(argv=None):
         return 1
 
     problems = verify_sections_are_fresh(section_files)
-    problems += verify_script_unchanged()
+    if not problems:
+        problems = verify_script_unchanged()
     if problems:
         if allow_unverified:
             print("\n  WARNING: assembling UNVERIFIED sections —", file=sys.stderr)
@@ -381,11 +438,12 @@ def main(argv=None):
             print(
                 "\nThe TTS engine leaves a failed line's previous audio in place, so "
                 "an existing section file is not evidence it is the right take.\n"
-                "Run:  python3 \"$SKILL_DIR/scripts/verify_vo_sections.py\" "
-                "--project-dir . seal\n"
+                "Run `verify_vo_sections.py prepare` before synthesis, then check "
+                "and seal the completed sections.\n"
                 "For narration this engine did not make (a confirmed local voice, or "
                 "your own recording), seal it with --attest local-tts or "
-                "--attest user-supplied.\n"
+                "--attest user-supplied. Language-aware takes still require the "
+                "checked request/profile and preparation proof.\n"
                 "To assemble anyway, pass --allow-unverified.",
                 file=sys.stderr,
             )

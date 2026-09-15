@@ -5,8 +5,12 @@ OpenCode, Pi, Codex, and Cursor can discover the same Agent Skill; their full Ph
 pipeline remains unverified.
 
 ```
-/hve-video-director
+/hve-video-director Demonstrate feature XYZ in a typical end-to-end scenario, showing every option and the final results.
 ```
+
+Start in the source project and describe the video you want. The request drives the subject,
+scenario, depth, and result; the skill confirms a separate output location before creating it.
+Bare invocation still works and asks what video to make.
 
 > **Renamed in v0.1.0** — this skill was previously `hve-spielberg`. `npx skills update` does
 > **not** complete the rename: it installs the new skill *alongside* the old one and leaves the
@@ -76,7 +80,7 @@ hve-video-director is an Agent Skill that orchestrates end-to-end video producti
 3. **Captures your app** automatically via Chrome DevTools, including an explicitly selected already-authenticated Chrome tab
 4. **Builds one HTML scene per storyboard frame**, matching your brand DNA — pick from [10 curated design systems](design-systems/) (Stripe, Linear, Apple, Notion, Vercel, Airbnb, GitHub, Cal, Arc, Bento), 8 HyperFrames named styles, or derive from screenshots. Shipped HyperFrames registry blocks are installed before anything is hand-authored, and each scene is built from that one frame's brief rather than from the whole film
 5. **Produces the video** in HyperFrames (HTML + GSAP, headless-Chromium rendered)
-6. **Adds voiceover, music, SFX, and reviewed closed captions** through the `media-use` audio engine — the explicitly chosen voice (ElevenLabs or local Kokoro-82M), a music bed whose exact track you confirm before any mix, caption timing from `npx hyperframes transcribe` over the assembled voiceover, and audio-fingerprinted SRT/VTT delivery
+6. **Adds voiceover, music, SFX, and reviewed closed captions** using the `media-use` mechanisms — delegated ElevenLabs or explicitly chosen local Kokoro narration, a music bed whose exact track you confirm before any mix, caption timing from source-language transcription over the assembled voiceover, and language/audio-bound SRT/VTT delivery
 
 ### Three Modes
 
@@ -143,7 +147,7 @@ less check_requirements.sh && bash check_requirements.sh --plan
 
 | Tool | Required | Installation |
 |------|----------|-------------|
-| Node.js 22.12+ | Yes | [nodejs.org](https://nodejs.org) |
+| Node.js 22.12+ with full ICU | Yes | [nodejs.org](https://nodejs.org) — the existing platform dependency also runs `scripts/language_tools.mjs` for canonical locales and Unicode word/grapheme segmentation; no extra package |
 | Python 3.10+ | Yes | [python.org](https://python.org) |
 | ffmpeg | Yes | `brew install ffmpeg` / `apt install ffmpeg` |
 | HyperFrames CLI | Yes | `npm install --global hyperframes` (the checker never fetches it during report modes) |
@@ -153,7 +157,7 @@ less check_requirements.sh && bash check_requirements.sh --plan
 | HeyGen credential | Recommended | `heygen auth login --oauth` (or `HEYGEN_API_KEY`) — lets the `media-use` engine retrieve catalog sound effects and a catalog music bed instead of generating them or falling back to its bundled library; either route is recorded in the brief as `music_strategy: delegated` with a provenance URI (see [Music Strategy](#music-strategy)). It does **not** change the voice: the brief's `voice` vocabulary is `elevenlabs:…` or `kokoro:…` only (enforced by [`scripts/validate_brief.py`](scripts/validate_brief.py)), so the engine's HeyGen voice route is not selectable through this skill's vocabulary. The checker reports it as `heygen-credential` and degrades gracefully without it; Phase 5 never prompts for sign-in and never substitutes a confirmed provider. |
 | `ELEVENLABS_API_KEY` | For an ElevenLabs voice | [elevenlabs.io](https://elevenlabs.io) — required when the confirmed voice uses ElevenLabs. It is consumed by the `media-use` engine's ElevenLabs route, the only path that reads it. Choose Kokoro explicitly for no-key local TTS; providers are never substituted automatically. |
 | Whisper | Recommended | `pip install openai-whisper` — voiceover timing verification when `npx hyperframes transcribe` is unavailable. The engine's per-line word timings never substitute for it: they are relative to each line's own audio, while captions need composition-absolute times over the assembled voiceover. |
-| `espeak-ng` | Optional | `brew install espeak-ng` / `apt install espeak-ng` — only needed for non-English voiceover via a confirmed Kokoro voice |
+| `espeak-ng` | When the selected local backend requires it | `brew install espeak-ng` / `apt install espeak-ng` — check the selected language's requirements through TTS_LOCAL; one installed phonemizer is not proof that every language/backend is ready |
 | `--experimentalScreencast` (chrome-devtools MCP) | No | Enables `screencast` web-clip capture; without it, web scenes fall back to screenshots, and recorded-flow clip frames degrade to stills at each range's end. |
 | `asciinema` + `agg` | No | Optional true terminal-clip recording for CLI scenes; without them, CLI scenes use the authored-terminal path. Install: `brew install asciinema agg` (macOS) · `apt install asciinema && cargo install --git https://github.com/asciinema/agg` (Debian/Ubuntu). See [`patterns/cli-terminal-capture.md`](patterns/cli-terminal-capture.md) for the full recording workflow. |
 | `wf-recorder` | Wayland native capture only | Feature-detected by `scripts/capture_screen.py`. Without it, use the desktop recorder and normalize the result with `scripts/stitch_clip.py`; generic FFmpeg PipeWire capture is not assumed. |
@@ -249,16 +253,25 @@ cue list. Finalization writes same-basename sidecars beside the video and finger
 manifest, and outputs:
 
 ```bash
-python3 scripts/caption_gen.py draft --audio voiceover-with-music.mp3
+# NARRATION_LANGUAGE comes from the checked language profile, not the on-screen text locale.
+python3 scripts/caption_gen.py draft --audio voiceover-with-music.mp3 --language "$NARRATION_LANGUAGE"
 # Review captions-review.json; set speech_review/speaker_review/sound_review.
-python3 scripts/caption_gen.py approve  # only after the user approves these exact cues
-python3 scripts/caption_gen.py finalize
-python3 scripts/caption_gen.py validate
+python3 scripts/caption_gen.py approve --expected-language "$NARRATION_LANGUAGE"  # after user approval
+python3 scripts/caption_gen.py finalize --expected-language "$NARRATION_LANGUAGE"
+python3 scripts/caption_gen.py validate --expected-language "$NARRATION_LANGUAGE"
 ```
 
 Final delivery is `out/final.mp4` + `out/final.srt` + `out/final.vtt`. Any soundtrack, manifest,
 state, or sidecar edit makes validation fail and routes back to Phase 5. Editing a cue after
 approval also invalidates its content-bound approval fingerprint.
+
+The helper canonicalizes new draft locales and compares expected locales without rewriting
+reviewed cues or their language label. A mismatch fails before approval or delivery writes.
+ICU segmentation preserves combining marks/emoji clusters and avoids invented spaces in CJK/Thai
+captions. Width and rate ceilings count graphemes, not code points; they do **not** certify
+readability for every language. Human language, speaker/sound, timing and line-break review remains
+mandatory. The optional expected-language flag preserves legacy standalone inspection; new
+workflow calls always supply it.
 
 ### Required Skills
 
@@ -268,7 +281,7 @@ hve-video-director depends on the **HyperFrames companion agent skills** plus th
 |-----------|------|---------|---------|
 | `hyperframes` skill | Agent skill | The intent **router**: it dispatches to whichever domain skill owns the topic. Load it first; it is no longer a monolith that carries the authoring rules itself. | `npx skills add heygen-com/hyperframes` |
 | `hyperframes-core`, `hyperframes-animation`, `hyperframes-creative`, `hyperframes-cli`, `hyperframes-registry` | Agent skills | The domain family the router points at — composition contract and `data-*` timing (core), GSAP choreography such as eases, timelines, stagger and the transition catalog (animation), visual style/typography/data-in-motion (creative), gates and render commands (cli), catalog blocks (registry). Loaded on demand across Phases 3–5, never wholesale. | Installed by the same `npx skills add heygen-com/hyperframes` |
-| `media-use`, `motion-doctrine` | Agent skills | **`media-use` owns Phase-5 audio generation today** — one engine producing voiceover, music bed and SFX from a single request, plus transcription and caption data. This skill keeps only the governance around it: the exact-track confirmation, caption review, the verified mix, and render approval. `motion-doctrine` owns the seam/transition law that supersedes local transition guidance where the two disagree (Phase 4). | Installed by the same `npx skills add heygen-com/hyperframes` |
+| `media-use`, `motion-doctrine` | Agent skills | **`media-use` owns the audio generation mechanisms** — its engine handles ElevenLabs narration and delegated music/SFX; confirmed Kokoro narration uses its TTS_LOCAL route directly with the selected native language. This skill retains exact-track confirmation, caption review, the verified mix, and render approval. `motion-doctrine` owns the seam/transition law that supersedes local transition guidance where the two disagree (Phase 4). | Installed by the same `npx skills add heygen-com/hyperframes` |
 | `hyperframes` npm package | CLI | `init`, `add` (pull catalog blocks — scenes in Phase 3, seams and furniture in Phase 4), `lint` (fast iteration), `preview`, `check` (the required final gate — `inspect`, `validate` and `layout` are deprecated aliases it subsumes), `render`, `doctor` (render diagnostics), `transcribe` (Phase 5's preferred timing verifier, with standalone Whisper as fallback), `tts` (confirmed local Kokoro voices) | `npx hyperframes <command>` (auto-fetches; package: [`hyperframes`](https://www.npmjs.com/package/hyperframes), repo: [github.com/heygen-com/hyperframes](https://github.com/heygen-com/hyperframes)) |
 
 Skill *names* are the ecosystem's stable API; the file paths *inside* them churn, so every path this
@@ -367,11 +380,19 @@ existing skill directories for `SKILL.md` changes; other agents may require a re
 
 2. **Start the skill:**
    ```
-   /hve-video-director
+   /hve-video-director Show feature XYZ in a typical end-to-end scenario, covering its granular options and final results.
    ```
    This slash form works on Claude Code, GitHub Copilot CLI, and Cursor. Pi uses
    `/skill:hve-video-director`; Codex uses `/skills` or `$hve-video-director`; OpenCode loads the skill
-   by intent. Append arguments in the same prompt (for example, `--mode continue`).
+   by intent. The current directory supplies source context; a directory argument is not required.
+
+   A different request produces a different scope, for example:
+   ```
+   /hve-video-director Create a 30-second promo focused on the benefit of feature XYZ.
+   ```
+   A granular demo stays a scenario walkthrough; a short promo does not automatically become a
+   tutorial. The word "demo" alone does not select a mode. Required brief confirmations and phase
+   approvals still apply, including when a duration or other choice was stated in the request.
 
 3. **Complete guided setup on the first `new` run.** Before creating `project-plan.md`, Phase -1
    reads the checker's JSON report, explains what is ready/degraded/blocked and which phases are
@@ -383,7 +404,8 @@ existing skill directories for `SKILL.md` changes; other agents may require a re
    - **Mode**: Promo, Showcase, or Tutorial
    - **Duration + theme + aspect ratio**: 30s/60s/90s, light/dark, 16:9/9:16/1:1/4:5
    - **Visual identity strategy**: pick a [vendored brand](design-systems/), pick a HyperFrames named style, derive from screenshots, or provide a custom identity
-   - **Voice provider + exact voice**: Matilda / Rachel / Daniel / Josh (ElevenLabs), or any of 54 Kokoro voices; the confirmed provider is never replaced automatically
+   - **Languages**: choose from the actual provider/model's capabilities, explicitly confirm using it for both on-screen text and narration, or choose a separate spoken language
+   - **Voice provider + exact voice**: Matilda / Rachel / Daniel / Josh (ElevenLabs), or a verified Kokoro voice from the current catalog; the confirmed provider is never replaced automatically
    - **Transitions + music strategy**: explicitly chosen before storyboarding
    - **Complete story-brief confirmation** before `storyboard.md` is created
    - **Exact music-track confirmation** (title/path/source/license, or explicit no music) before mixing/render
@@ -407,11 +429,60 @@ existing skill directories for `SKILL.md` changes; other agents may require a re
 
 | Mode | Command | When |
 |------|---------|------|
-| `new` (default) | `hve-video-director` | Run guided Phase -1 setup, then start a fresh video |
-| `continue` | `hve-video-director --mode continue` | Resume where you left off |
-| `jump` | `hve-video-director --mode jump --phase 3` | Jump to a specific phase (1–5) |
+| `new` (default) | `hve-video-director <video request>` | Collect the request, run guided setup, and create a confirmed output workspace |
+| `continue` | `hve-video-director --mode continue --output-dir "./my-video"` | Resume that generated workspace |
+| `jump` | `hve-video-director --mode jump --phase 3 --output-dir "./my-video"` | Request a phase (0–5); existing prerequisites and freshness checks still apply |
 
 Use the invocation syntax from the compatibility table above.
+
+Optional `--source-dir` and `--output-dir` distinguish the product source from generated video
+artifacts. Controls must lead the request; `--` ends them explicitly:
+
+```text
+/hve-video-director --source-dir "../product" --output-dir "./XYZ demo" -- Show XYZ end to end.
+```
+
+Everything after the start of the description remains request text, including quoted paths and
+flag examples. Bare `new` asks for the description. Ambiguous legacy directory-first input asks
+for clarification; its directory still means output, never source. Continue/jump without an
+unambiguous workspace ask which one to resume, rather than choosing the latest folder.
+
+## Prompt-driven scenarios
+
+For a scenario request, discovery focuses on the named feature and grounds its steps/options and
+expected result in code, documentation, or your explanation. You approve the proposed scenario.
+Storytelling then maps every approved requirement to frames and planned evidence in the
+storyboard's **Scenario Coverage** section; capture and composition review fill in what was
+actually shown. An unresolved option is not complete coverage, and a duration conflict requires
+your choice rather than silently dropping details.
+
+The original request is stored as a lossless JSON string in `project-plan.md` outside the Creative
+Brief. `context.md` holds the researched interpretation and approved scenario, not an inferred set
+of creative choices. Existing projects without this metadata remain resumable; an artifact-only
+late-phase resume does not require the source unless source-dependent work is needed.
+
+## Languages
+
+Language choices come from the **actual generation provider/model's current capabilities**, not
+an English/French shortlist or a frozen marketing count. Phase 1 imports native model/voice data,
+presents the supported choices, and asks whether to use the selected language for both text and
+speech or to override the spoken language. The Creative Brief records separate `text_language`
+and `narration_language` values; `.hve/language-profile.json` binds those canonical locales to the
+verified voice/model and their native TTS and ASR codes. Catalog access or an authoritative export
+is a runtime prerequisite: unavailable data is an explicit setup issue, never an English fallback.
+
+Authored text follows the text locale; narration and captions follow the spoken locale. Captured
+UI, code and literal product names are not automatically translated. There is no separate
+translated-subtitle or batch-localization mode. Script/font shaping, direction, actual speech and
+ASR readiness still need review: provider support is not end-to-end pronunciation/render
+qualification, and the English `vo-budget` heuristic reports non-English timing as unmeasurable.
+
+Changing either language stales the affected phases without deleting prior artifacts.
+Historical schema-1 projects remain inspectable under their original consent; new generation
+requires an explicitly approved language upgrade, never an inferred English answer. Synthesis
+reuse binds the exact lines and settings to the profile's **speech** fingerprint, so a text-only
+locale edit does not force new narration. Language/voice/model/settings changes require a full
+prepare/synthesis/seal round; subset retries cannot carry old takes into a new speech identity.
 
 ## Voices
 
@@ -429,7 +500,15 @@ Caption timing does not come from the voice route at all, on any provider:
 Phase 5 transcribes the *assembled* `voiceover.mp3` with `npx hyperframes transcribe`, because
 that is the only place the times are composition-absolute.
 
-**Local option (Kokoro-82M):** choose Kokoro during Phase 1 for no-key local TTS with 54 voices across 8 languages (e.g. `af_nova`, `af_heart`). List them with `npx hyperframes tts --list`; the full catalog is the `media-use` skill's TTS_LOCAL capability (resolved through [`compat/ecosystem.md`](compat/ecosystem.md)). A missing ElevenLabs key never changes a confirmed provider — and neither does the presence or absence of a HeyGen sign-in.
+**Local option (Kokoro):** choose a verified voice during Phase 1 for no-key local TTS
+(e.g. `af_nova`, `af_heart`). `npx hyperframes tts --list --json` is a curated voice list,
+**not the full language set**. TTS_LOCAL and TTS_LANGUAGE_DISCOVERY, resolved through
+[`compat/ecosystem.md`](compat/ecosystem.md), own current model/language discovery and native
+prerequisites. Phase 5 calls the existing local TTS CLI directly with the checked native language,
+accepts only an applied-language result, and transcribes the assembled audio with the separate ASR
+code. A missing ElevenLabs key never changes a confirmed provider — and neither does a HeyGen
+sign-in. Local and user-supplied takes still need request/profile/preparation proofs in
+language-aware projects; an origin attestation cannot waive freshness.
 
 ## Music Strategy
 
@@ -551,6 +630,8 @@ my-video-project/
 ├── project-plan.md           # Stable Creative Brief + phase tracker + decision log
 ├── .hve/
 │   ├── brief-state.json      # Atomic confirmation fingerprints + phase freshness stamps
+│   ├── language-profile.json # Checked text/narration locales + opaque speech identity
+│   ├── vo-sections.json      # Settings/line/media seal; pending marker exists during synthesis
 │   └── captions-state.json   # Final-audio/review/output caption fingerprints
 ├── context.md                # Product context from Phase 0
 ├── storyboard.md             # Frame-by-frame plan from Phase 1, in the official
@@ -625,9 +706,11 @@ hve-video-director/
 │   └── …                          # notion, vercel, airbnb, github, cal, arc, bento
 ├── sub-agents/
 │   └── scene-builder-delta.md     # the builder role shipped inside every frame packet
-├── scripts/                       # all pure stdlib — no pip install, no network
+├── scripts/                       # stdlib/platform-tool helpers, no Python packages
 │   ├── generate_voiceover.py      # voiceover-section assembly (used by both audio paths)
+│   ├── verify_vo_sections.py      # exact-request preparation + settings/profile/media seal
 │   ├── caption_gen.py             # ASR drafts → reviewed, audio-bound final caption sidecars
+│   ├── language_tools.mjs         # existing Node/ICU locale, grapheme and word operations
 │   ├── capture_screen.py          # native screen/region capture orchestrator (silent)
 │   ├── stitch_clip.py             # normalize/stitch captures to the CFR30 clip contract
 │   ├── mix_clip_audio.py          # mix one clip's own audio into the soundtrack + duck the VO
@@ -648,7 +731,9 @@ hve-video-director/
 **Q: Can I use this without ElevenLabs?**
 A: Yes — explicitly choose a Kokoro voice in Phase 1. Phase 5 then uses `npx hyperframes tts`
 locally with no API key, even if an ElevenLabs key exists. For non-English narration, install
-`espeak-ng`. The skill never silently switches providers.
+the language/backend prerequisites identified through TTS_LOCAL (including `espeak-ng` when
+required). The skill never silently switches providers or assumes a curated voice list is the
+full language catalog.
 
 **Q: Can I skip the screenshot capture phase?**
 A: Yes, when the confirmed product surface is `none` and the storyboard requests no capture.

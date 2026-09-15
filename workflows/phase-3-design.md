@@ -19,6 +19,10 @@ python3 "$SKILL_DIR/scripts/validate_brief.py" \
 
 A nonzero exit routes to the earliest stale prior phase even when capture files exist.
 
+Read the checked `.hve/language-profile.json` after restoring the project/skill bindings. If it
+does not match the current brief, return to Phase 1's language-profile check rather than infer
+English or a font/direction from the voice.
+
 ## Reading the storyboard
 
 Every frame value this phase needs — `src`, `duration`, `screenshot`, `clip`, `clip_in`,
@@ -50,6 +54,23 @@ and browser/terminal chrome tokens for that mode. Do not leave dual light/dark a
 the final contract. If the selected identity cannot produce the confirmed theme, return to Phase 1
 instead of improvising or overriding the user.
 
+**Confirmed languages apply to every design path below.** Add a **Confirmed Languages** section
+to `DESIGN.md` carrying the profile's text and narration/caption locale, script, and direction.
+Specify fonts/fallbacks that cover the actual selected text and caption strings, line-breaking
+and expansion allowances, and any shaping constraints. This reaches builders through the
+existing design-spec packet item, not an extra packet or a film-wide storyboard copy.
+
+Preserve Unicode and joining scripts: use whole joined words/runs for their animation, not
+independent character boxes that break shaping. Give authored copy and captions their own
+`lang`/`dir`; captions follow narration even when the authored text uses another language.
+Isolate code, URLs and opposite-direction names appropriately. Never reverse strings, mirror
+captured UI, or translate screenshots to simulate RTL support.
+
+Use `TYPOGRAPHY`, `DESIGN_SPEC`, and `CAPTIONS_AUTHORING` for the owning mechanisms. Inspect actual
+rendered glyphs, shaping, line fit and legibility before synthesis; a locale tag or font-loading
+success alone is not glyph coverage. If an explicit brand font cannot serve the selected script,
+ask for a compatible font/identity decision rather than silently changing language.
+
 ### Path A — Curated design system
 
 **If Phase 1 recorded `identity_strategy: design-system` and `identity_choice: <slug>`** in
@@ -60,7 +81,8 @@ project root:
 ```bash
 # $SKILL_HOMES is the canonical home list defined in SKILL.md § Runtime Compatibility.
 # Keep this line identical to that definition; edit it there, not here.
-SKILL_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+SKILL_SEARCH_DIR=$(cd "${SOURCE_DIR:-.}" && pwd -P) || exit 2
+SKILL_ROOT=$(git -C "$SKILL_SEARCH_DIR" rev-parse --show-toplevel 2>/dev/null || printf '%s\n' "$SKILL_SEARCH_DIR")
 SKILL_HOMES="$HOME/.claude/skills|$HOME/.copilot/skills|$HOME/.agents/skills|$HOME/.pi/agent/skills|$HOME/.config/opencode/skills|$HOME/.cursor/skills|$HOME/.codex/skills|/etc/codex/skills|.claude/skills|.github/skills|.agents/skills|.pi/skills|.opencode/skills|.cursor/skills|.codex/skills|$SKILL_ROOT/.claude/skills|$SKILL_ROOT/.github/skills|$SKILL_ROOT/.agents/skills|$SKILL_ROOT/.pi/skills|$SKILL_ROOT/.opencode/skills|$SKILL_ROOT/.cursor/skills|$SKILL_ROOT/.codex/skills"
 # zsh does not word-split unquoted $SKILL_HOMES and makes an unmatched glob fatal;
 # both make this loop silently resolve to nothing. No-ops in bash/dash/sh.
@@ -69,6 +91,7 @@ SKILL_DIR=$(
   OLD_IFS=$IFS
   IFS='|'
   for h in $SKILL_HOMES; do
+    case "$h" in /*) ;; *) h="$SKILL_SEARCH_DIR/$h";; esac
     [ -d "$h/hve-video-director" ] && { echo "$h/hve-video-director"; break; }
     # Fallback: a clone left under a pre-v0.1.0 directory name. Match the skill's
     # declared frontmatter identity, not its directory name or file layout, so a
@@ -394,6 +417,8 @@ replayed clips — the user's per-run choice (ADR-001, via Phase 2 Step 2.1b).
 
 When content-mode is `tutorial`, author one caption sub-comp per footage scene from the
 Phase-5 `transcript.json` (word-level), then wire it over the scene window in Phase 4.
+Use the narration/caption locale, direction and fonts from **Confirmed Languages** for this
+layer, not the authored-text language inherited from the host.
 Mechanism per `media-use` → `CAPTIONS_AUTHORING` (path in `compat/ecosystem.md`) — invoke `Skill(media-use)` and read it. Skeleton
 (deterministic, fully seekable — no `Math.random()`/`Date.now()`):
 

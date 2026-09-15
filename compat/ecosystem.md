@@ -39,7 +39,7 @@ Every path below was confirmed to exist on disk at authoring time, and is re-ass
 pointer-validity suite on every `bash test/run.sh` where the ecosystem is installed
 (§ `SKILL_SPLIT_TOPOLOGY`).
 
-### `hyperframes-core` — the runtime contract
+### `hyperframes-core` + `hyperframes` — runtime and workflow contracts
 
 | Symbol | Owning skill | Skill-relative path | What it is | Used by |
 |---|---|---|---|---|
@@ -48,11 +48,11 @@ pointer-validity suite on every `bash test/run.sh` where the ecosystem is instal
 | `TRACKS_AND_CLIPS` | `hyperframes-core` | `references/tracks-and-clips.md` | Track/clip timing rules — unique `data-track-index` for overlapping scenes, clip windows | Phase 4 Step 4.4 (scene overlap during a transition) |
 | `SUB_COMPOSITIONS` | `hyperframes-core` | `references/sub-compositions.md` | Mechanics of a `<template>`-wrapped sub-composition file loaded via `data-composition-src` | Phase 3 (every `scenes/*.html` is a sub-comp) |
 | `COMPOSITION_ARCHITECTURE` | `hyperframes-core` | `references/composition-patterns.md` | **Architecture**: monolithic vs modular, and the thin *Modular Orchestrator* `index.html` that declares slots, mounts audio, and registers a near-empty root timeline | Phase 4 root `index.html` wiring — this repo is always modular |
-| `STORYBOARD_FORMAT` | `hyperframes-core` | `references/storyboard-format.md` | `STORYBOARD.md` shape + the `StoryboardManifest` it parses into; unknown `- key: value` bullets are preserved under `extra` | **Adopted at M4** — this repo's `storyboard.md` *is* this shape (frontmatter, `## Frame N — Title`, `- key: value` bullets), so the upstream parser, the Studio board review and the `.hyperframes/frame-comments.json` sidecar all apply to it. Everything the official key set has no home for — the M1 director keys, the capture bindings, this skill's own frontmatter fields — rides in `extra`, which is what the `STORYBOARD_EXTRA_KEYS` probe guards. Phase 1 writes it; `templates/storyboard.md` is the local shape doc |
-| `FRAME_WORKER_CORE` | `hyperframes-core` | `references/frame-worker-core.md` | The workflow-agnostic frame-builder role: reveal paced across the frame's **full** duration (front-loading is the "PowerPoint slide" failure), the exit ban, and what `scene`/`voiceover`/`duration` mean to a builder | M1 `grammar/motion.md` (Reveal, Progressive disclosure, Exit discipline); Phase 3 scene direction |
+| `STORYBOARD_FORMAT` | `hyperframes` | `references/storyboard-format.md` | `STORYBOARD.md` shape + the `StoryboardManifest` it parses into; unknown `- key: value` bullets are preserved under `extra` | **Adopted at M4** — this repo's `storyboard.md` *is* this shape (frontmatter, `## Frame N — Title`, `- key: value` bullets), so the upstream parser, the Studio board review and the `.hyperframes/frame-comments.json` sidecar all apply to it. Everything the official key set has no home for — the M1 director keys, the capture bindings, this skill's own frontmatter fields — rides in `extra`, which is what the `STORYBOARD_EXTRA_KEYS` probe guards. Phase 1 writes it; `templates/storyboard.md` is the local shape doc |
+| `FRAME_WORKER_CORE` | `hyperframes` | `references/frame-worker-core.md` | The workflow-agnostic frame-builder role: reveal paced across the frame's **full** duration (front-loading is the "PowerPoint slide" failure), the exit ban, and what `scene`/`voiceover`/`duration` mean to a builder | M1 `grammar/motion.md` (Reveal, Progressive disclosure, Exit discipline); Phase 3 scene direction |
 | `FULL_SCREEN_MOTION` | `hyperframes-core` | `references/full-screen-motion.md` | One shared continuous background layer + transparent timed content layers, instead of stacked opaque per-scene backgrounds | **Not wired, and unclaimed** — no module cites it. Registered so a continuous-background need resolves to this name instead of re-deriving a path. An earlier note said to drop the row if M2 brought no caller; M2–M6 shipped without one and the row was kept anyway, because a name that resolves costs one line and a duplicate costs a divergence. Kept as a reservation, not as a pending decision |
-| `BRIEF_FORMAT` | `hyperframes-core` | `references/brief-format.md` | `BRIEF.md` — the ecosystem's confirmed-intent document | **Deliberately NOT adopted — decided at M4, on ADR-001.** `project-plan.md` stays this skill's Creative Brief and the single record of the levers the user owns; `validate_brief.py` is not re-pointed at `BRIEF.md`. Registered so the name resolves here rather than being re-derived, and so the decision is found before someone "finishes the job". The reason is `BRIEF_CONTRACT` |
-| `BRIEF_CONTRACT` | `hyperframes-core` | `references/brief-contract.md` | Collaborative/autonomous run-shape derivation; skips questions the request already answers | **The reason `BRIEF_FORMAT` is not adopted.** Deriving a run shape and skipping questions the request already answers is the opposite of this skill's consent doctrine — recommend, never preselect; never infer an answer the user did not give (ADR-001). Adopting the brief would import a contract that contradicts the skill's central promise, which is why M4 adopted the *storyboard* (a description of the film) and not the brief (a consent record). **Not wired** — and its interaction `mode` is the one official storyboard frontmatter key this repo never writes |
+| `BRIEF_FORMAT` | `hyperframes` | `references/brief-format.md` | `BRIEF.md` — the ecosystem's confirmed-intent document | **Deliberately NOT adopted — decided at M4, on ADR-001.** `project-plan.md` stays this skill's Creative Brief and the single record of the levers the user owns; `validate_brief.py` is not re-pointed at `BRIEF.md`. Registered so the name resolves here rather than being re-derived, and so the decision is found before someone "finishes the job". The reason is `BRIEF_CONTRACT` |
+| `BRIEF_CONTRACT` | `hyperframes` | `references/brief-contract.md` | Collaborative/autonomous run-shape derivation; skips questions the request already answers | **The reason `BRIEF_FORMAT` is not adopted.** Deriving a run shape and skipping questions the request already answers is the opposite of this skill's consent doctrine — recommend, never preselect; never infer an answer the user did not give (ADR-001). Adopting the brief would import a contract that contradicts the skill's central promise, which is why M4 adopted the *storyboard* (a description of the film) and not the brief (a consent record). **Not wired** — and its interaction `mode` is the one official storyboard frontmatter key this repo never writes |
 
 ### `hyperframes-animation` — motion recipes and transitions
 
@@ -125,10 +125,11 @@ pointer-validity suite on every `bash test/run.sh` where the ecosystem is instal
 | `CAPTIONS_AUTHORING` | `media-use` | `audio/references/captions/authoring.md` | The on-screen caption mechanism (GROUPS) + its `[caption-lint]` self-check | Phase 3 caption-track scene; Phase 5 caption verification |
 | `TRANSCRIPT_HANDLING` | `media-use` | `audio/references/captions/transcript-handling.md` | Turning a word-level transcript into caption cues | Phase 5, alongside `CAPTIONS_AUTHORING` |
 | `CAPTIONS_MOTION` | `media-use` | `audio/references/captions/motion.md` | Audio-reactive caption styling — karaoke, beat-sync emphasis | High-energy spots only |
-| `TRANSCRIBE` | `media-use` | `audio/references/transcribe.md` | Word-level timestamps; **always pass `--model` explicitly** (the CLI default `small.en` silently translates non-English audio) | Phase 5 voiceover-timing verification |
-| `TTS_LOCAL` | `media-use` | `audio/references/tts.md` | Local Kokoro-82M TTS — 54 voices, 8 languages | Phase 5 fallback when no `ELEVENLABS_API_KEY`, on explicit user confirmation |
+| `TRANSCRIBE` | `media-use` | `audio/references/transcribe.md` | Word-level timestamps; use explicit compatible language/model/backend. See `TRANSCRIBE_MODEL_DEFAULT` for the English-only-versus-translation correction | Phase 5 voiceover-timing verification |
+| `TTS_LOCAL` | `media-use` | `audio/references/tts.md` | Local Kokoro TTS and its native voice/language/backend requirements; discover current capability rather than freezing a language count | Phase 5 for an explicitly confirmed Kokoro voice, including when the delegated engine is absent |
 | `AUDIO_REQUIREMENTS` | `media-use` | `audio/references/requirements.md` | Local prerequisites for the audio paths | `patterns/INDEX.md` § Reaching past the local patterns only, as a parenthetical beside `TTS_LOCAL`. No workflow cites it directly |
 | `AUDIO_ENGINE` | `media-use` | `audio/scripts/audio.mjs` | The shared TTS + BGM + SFX engine — one implementation for every official video workflow | Phase 5 narration + music bed + SFX (M2). Local audio scripts are `scripts/generate_voiceover.py --assemble-only` (section assembly, used by both paths) and `scripts/verify_vo_sections.py` (freshness of this engine's output — see the `AUDIO_ENGINE_PARTIAL_FAILURE` probe); M6 retired the acquisition fallbacks |
+| `TTS_PROVIDER_ADAPTER` | `media-use` | `audio/scripts/lib/tts.mjs` | The active provider/model and native TTS argument contract; inspect it rather than assuming a request field overrides the model | Phase 1 language catalog selection; Phase 5 actual-model/profile agreement |
 | `BGM` | `media-use` | `audio/references/bgm.md` | One music bed per composition, produced by `AUDIO_ENGINE` | Phase 5 (M2) — see `AUDIO_ENGINE` |
 | `SFX` | `media-use` | `audio/references/sfx.md` | Named sound effects, provider-gated by `AUDIO_ENGINE`'s single switch | Phase 5 (M2) — see `AUDIO_ENGINE` |
 
@@ -315,8 +316,8 @@ condition — see Behavior probes.
 | `snapshot` | Capture still PNGs (hero frames, zoomed crops) | `.`, `--at <t,t,…>` | Not deprecated; the standalone still-capture utility. `check --snapshots` covers the gate's own needs |
 | `render` | Render to MP4/WebM/MOV/GIF/PNG-seq | `.`, `--output`, `--docker`, `--no-low-memory-mode` | Phase 5. Also available: `-c/--composition`, `-f/--fps`, `-q/--quality`, `-w/--workers`, `--format`, `--gpu`, `--browser-gpu`/`--no-browser-gpu` |
 | `doctor` | Render-environment diagnostics | `--json` | Phase 5. ADR-003: troubleshooting defers here |
-| `transcribe` | Word-level timestamps from audio/video | `<file>`, `--model` | Phase 5 voiceover-timing verification, preferred over standalone Whisper. **Always pass `--model`** (default `small.en` silently translates non-English audio) |
-| `tts` | Local Kokoro-82M speech | `--list`, `-v/--voice`, `--text-file`, `--output` | Phase 5 fallback, only on explicit user confirmation |
+| `transcribe` | Word-level timestamps from audio/video | `<file>`, `--model`, `--language`; feature-detect `--engine whisper` | Phase 5 assembled-track timing with an explicit compatible source-language ASR route; `.en` models are English-only, not translation mode (`TRANSCRIBE_MODEL_DEFAULT`) |
+| `tts` | Local Kokoro speech | `<UTF-8-text-file>`, `--list`, `-v/--voice`, `--lang`, `--output`, `--json` | Phase 5 direct local route for an explicitly confirmed Kokoro voice; native language/result checks are `TTS_LANGUAGE_DISCOVERY` |
 | `skills` | Install / check / update HyperFrames skills | `check`, `update` | Pin maintenance — see below |
 | ~~`validate`~~ ~~`inspect`~~ ~~`layout`~~ | **DEPRECATED aliases of `check`** | `--json` | All three still run, print a deprecation notice on **stderr**, and set `_meta.deprecated: true` in `--json`. Do not add them to any workflow; keep them only as a documented fallback if `check` is ever unavailable |
 
@@ -327,6 +328,50 @@ condition — see Behavior probes.
 Load-bearing upstream **behaviors** — the things that would break this skill without any path
 changing and without any gate turning red. Each names its probe and whether that probe is
 automated.
+
+### `TTS_LANGUAGE_DISCOVERY` — provider capabilities are not a fixed language shortlist
+
+- **Local text.** `scripts/validate_brief.py` (catalog/profile commands),
+  `scripts/language_tools.mjs` (canonical locale data), `scripts/caption_gen.py`
+  (expected-language/Unicode checks), `workflows/phase-1-storytelling.md`,
+  `workflows/phase-3-design.md`, `workflows/phase-4-production.md`, `workflows/phase-5-audio.md`,
+  `README.md`, `SKILL.md`, `CLAUDE.md`, `.github/copilot-instructions.md`.
+- **Exit.** retain the local consent/profile checks; retire token workarounds only after a real
+  run proves an upstream replacement.
+- **What.** Language choices come from the actual provider/model's current capabilities. The
+  current ElevenLabs branch in `TTS_PROVIDER_ADAPTER` fixes `eleven_multilingual_v2`; adding a
+  request `model` field does not change it. That model does not support `language_code`
+  enforcement; do not promise enforcement by adding an ignored field.
+- **Catalog sources.** ElevenLabs [List models](https://elevenlabs.io/docs/api-reference/models/list)
+  returns `model_id`, `can_do_text_to_speech`, and `languages[].language_id/name`. Select the actual
+  model, not the union of unrelated vendor models. [Get voice](https://elevenlabs.io/docs/api-reference/voices/get)
+  or the paginated voice catalog verifies the chosen ID; optional native/accent metadata is
+  quality guidance, not a prohibition on a voice speaking another supported language.
+  Use authorized API access or a current authoritative export. A failed fetch is not an empty
+  successful catalog, and credentials/sample data must not be written into project profiles.
+- **Local catalog sources.** `npx hyperframes tts --list --json` returns a **curated array** of
+  voice rows with `id`, `label`, `language`, `gender`, and `defaultLang`. It omits some of the
+  model's languages/voices. Obtain the full supported `--lang` list from the current CLI/model
+  contract, and non-curated voices from the [model inventory](https://huggingface.co/hexgrad/Kokoro-82M/blob/main/VOICES.md).
+  Do not infer all supported languages from the curated voice page or guess a voice's default.
+- **Native token boundary.** Kokoro's phonemizer codes and ASR language codes differ (for example
+  `fr-fr` versus `fr`, `pt-br` versus `pt`). The engine forwards a single `lang` to both, so this
+  skill uses `TTS_LOCAL` directly for a confirmed Kokoro voice and transcribes the assembled audio
+  separately. The local CLI permits voice/language mismatch as stylization; native defaults are
+  recommendations, not hard voice-language bans. Verify language-specific G2P prerequisites and
+  the active backend's language-argument support before generation; require the native JSON
+  `ok`, `lang`, and `langApplied` result to agree before accepting a take.
+- **ASR boundary.** Force the compatible Whisper route when the CLI exposes `--engine whisper`;
+  `--model` alone may leave an auto-selected backend. Use the explicit standalone Whisper
+  fallback when needed, with `--task transcribe`, never `translate`. Canonical `fil` maps to
+  Whisper `tl`, and `nb`/`nn` to `no`; other language/model availability must be verified rather
+  than inferred from TTS support.
+- **Why it matters.** A valid locale or a provider's marketing language count is not evidence
+  that the selected backend/voice, caption transcription, or font can honor the request.
+- **Probe.** Import catalogs with non-Latin and non-curated languages, reject unsupported or
+  unverified selections, verify native TTS/ASR mapping, and inspect actual script/font output.
+  Re-read the native adapter/catalog contracts on updates. Structural fixtures do not certify
+  real provider access, pronunciation, glyphs or rendering.
 
 ### `AUDIO_ENGINE_PARTIAL_FAILURE` — a failed line is silent, and its stale audio survives
 
@@ -346,9 +391,16 @@ automated.
   leaves the metadata describing 2). `scripts/verify_vo_sections.py` therefore establishes freshness
   by **absence** — clearing targets before synthesis — rather than by anything the engine reports.
   ADR-009 records the decision.
-- **What we read, and how narrowly.** Only `audio_request.json`'s `lines[].id` and `lines[].text`
-  are load-bearing. `audio_meta.json` and its anomalies are **advisory diagnostics only**: an
-  upstream schema change degrades the check to "no explanation printed", never to a false green.
+- **What we read, and how narrowly.** The skill-resident verifier hashes every complete
+  `audio_request.json` line and all non-BGM/SFX settings, including provider/voice/actual model,
+  native language, narration locale and speed. Preparation binds the complete canonical request
+  and prepared IDs; edited-after-prepare requests fail sealing. Language-aware seals also bind
+  `.hve/language-profile.json`'s opaque speech fingerprint. Old text-only proofs need a full
+  prepare/synthesis replacement; changed settings cannot reuse unchanged-text sections through a
+  subset retry or an origin attestation. The copied assembler knows only repo-owned opaque
+  identities, media/script hashes and pending state, never the upstream request schema.
+  `audio_meta.json` and its anomalies remain **advisory diagnostics only**: an upstream schema
+  change degrades the check to "no explanation printed", never to a false green.
 - **Probe — manual.** If upstream starts clearing the destination before synthesis, or exits
   nonzero on a partial failure, the local pre-clear becomes redundant. Per ADR-006's retirement rule
   it is **not** removed until a real end-to-end run has passed on the fixed engine — the scar M6's
@@ -750,25 +802,25 @@ automated.
   `CONTRAST_REPORT` (`hyperframes-creative`) and `SEAM_VERIFIER` / `SEAM_STAMP`
   (`motion-doctrine`) — all three are skill-resident scripts with no CLI surface.
 
-### `TRANSCRIBE_MODEL_DEFAULT` — the default model translates
+### `TRANSCRIBE_MODEL_DEFAULT` — English-only recognition is not translation
 
-> Sweep note (2026-08-09): the stated probe — "`--model` explicit at every `transcribe` call site
-> in `workflows/`" — cannot see the path this repo actually depends on most. The **engine's
-> internal** transcription takes no `--model`; it derives one from `audio_request.lang`
-> (`lang === "en" ? "small.en" : "small"`). Phase 5 already relies on that ("`lang` is
-> load-bearing"), so the probe must also assert `audio_request.lang` matches the narration
-> language — a wrong `lang` silently selects the translating model on the one route no call-site
-> grep covers.
-
-- **Local text.** `workflows/phase-5-audio.md` — the always-pass-`--model` rule, which is a
-  narrowing constraint on a documented flag rather than a restatement of it.
-- **Exit.** not yet filed — a default that silently translates is worth a flag change upstream
-- **What.** `transcribe`'s default model is `small.en`, which silently *translates* non-English
-  audio into English rather than transcribing it.
-- **Why it matters.** A non-English voiceover produces plausible-looking English captions and
-  every gate passes. Silent, and wrong in a user-visible artifact.
-- **Probe.** Manual: `--model` must be explicit at every `transcribe` call site in `workflows/`.
-- **Status: manual.** Documented upstream in `TRANSCRIBE`.
+- **Local text.** `workflows/phase-5-audio.md` — explicit source-language ASR with a compatible
+  model/backend, never an English fallback.
+- **Exit.** retain the language/route check; correct upstream prose that calls every `.en`
+  result a translation.
+- **What.** `.en` models are English-only. Whisper's `transcribe` task is source-language
+  recognition and `translate` is a separate task. The earlier blanket assertion that `.en`
+  models translate foreign speech was not technically accurate. See the authoritative
+  [Whisper implementation](https://github.com/openai/whisper/blob/86098128c0b4f24f0e2aa2994de830614b474227/whisper/transcribe.py)
+  and [whisper.cpp CLI](https://github.com/ggml-org/whisper.cpp/blob/1da4dc82fa7996d4edda05890dca65aeceaafd6d/examples/cli/cli.cpp).
+  Engine-internal per-line ASR also cannot replace the assembled-track check.
+- **Why it matters.** English-looking or incorrect recognition can still yield plausible
+  captions. The selected spoken language and actual ASR backend/model must agree.
+- **Probe.** Inspect actual flags/backend; pass the checked ASR code, a compatible model and
+  source-language transcription explicitly. Test non-English output against the reviewed
+  narration. A static flag check is not audio-language verification.
+- **Status: manual.** `TRANSCRIBE` remains the owner; `TTS_LANGUAGE_DISCOVERY` records the
+  cross-provider namespace and current explicit-backend requirements.
 
 ### `SKILL_SPLIT_TOPOLOGY` — the registry itself
 

@@ -93,6 +93,10 @@ Three things make autonomous recording reliable:
 The single autonomous sequence (also reproduced in
 `workflows/phase-2-capture.md` — edit BOTH together):
 
+Run it from the generated `PROJECT_DIR` with an available absolute `SOURCE_DIR`. The recorded
+command runs in the source project; only its recording subshell changes cwd. PTY fallbacks and
+authored terminal commands use the same source binding, while generated artifacts stay in output.
+
 ```bash
 # Record — non-interactive, PTY-isolated, timeout-bounded.
 # LANG must survive the env scrub — asciinema 2.x (Python) aborts without a
@@ -102,7 +106,10 @@ The single autonomous sequence (also reproduced in
 # keeps wide output (kubectl get, docker ps) from wrapping — size it to the scene.
 # RECORD_TIMEOUT = storyboard `Record timeout` (default scene_duration + 2s).
 RECORD_TIMEOUT="${RECORD_TIMEOUT:-60}"
-WORK_DIR=$(mktemp -d "${TMPDIR:-/tmp}/hve-terminal-clip.XXXXXX")
+[ -n "${SOURCE_DIR:-}" ] && [ -d "$SOURCE_DIR" ] ||
+  { echo "source directory unavailable — reselect it before terminal capture" >&2; exit 2; }
+WORK_DIR=$(mktemp -d "${TMPDIR:-/tmp}/hve-terminal-clip.XXXXXX") || exit 2
+WORK_DIR=$(cd "$WORK_DIR" && pwd -P) || exit 2
 CAST_TMP="$WORK_DIR/scene.cast"
 GIF_TMP="$WORK_DIR/scene.gif"
 MP4_TMP="$WORK_DIR/scene.mp4"
@@ -118,11 +125,14 @@ mkdir -p public/clips
   { echo "cannot quarantine previous MP4 — aborting terminal capture" >&2; exit 1; }
 
 record_ok=
-if timeout "${RECORD_TIMEOUT}s" env -i HOME="$HOME" PATH="$PATH" SHELL=/bin/bash TERM=xterm-256color \
-  LANG="${LANG:-C.UTF-8}" COLUMNS=175 LINES=32 PS1='$ ' \
-  asciinema rec --idle-time-limit 1.5 \
-    --command "<cmd-from-storyboard>" \
-    "$CAST_TMP"; then
+if (
+  cd "$SOURCE_DIR" || exit 2
+  timeout "${RECORD_TIMEOUT}s" env -i HOME="$HOME" PATH="$PATH" SHELL=/bin/bash TERM=xterm-256color \
+    LANG="${LANG:-C.UTF-8}" COLUMNS=175 LINES=32 PS1='$ ' \
+    asciinema rec --idle-time-limit 1.5 \
+      --command "<cmd-from-storyboard>" \
+      "$CAST_TMP"
+); then
   record_ok=1
 else
   status=$?

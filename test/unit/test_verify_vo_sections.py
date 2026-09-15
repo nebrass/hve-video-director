@@ -65,6 +65,35 @@ def write_section(project, section_id, body=b"fresh-audio"):
     (project / "assets" / "voice" / f"{section_id}.wav").write_bytes(body)
 
 
+def write_language_profile(project, *, text_language="en"):
+    """Synthetic repo-owned identity, not evidence of a real provider capability."""
+    request = json.loads((project / "audio_request.json").read_text(encoding="utf-8"))
+    speech = {
+        "provider": request["provider"], "voice": request["voice"], "model": request["model"],
+        "narration_language": request["narration_language"],
+        "tts_language": request["lang"], "asr_language": request["narration_language"].split("-")[0],
+    }
+    profile = {
+        "schema_version": 1,
+        "text": {"tag": text_language},
+        "narration": {"tag": request["narration_language"]},
+        "speech": speech, "speech_fingerprint": f"sha256:{VV.sha256_json(speech)}",
+    }
+    (project / ".hve").mkdir(exist_ok=True)
+    (project / ".hve" / "language-profile.json").write_text(json.dumps(profile), encoding="utf-8")
+    return profile
+
+
+def make_language_project(tmp):
+    project = make_project(tmp)
+    path = project / "audio_request.json"
+    request = json.loads(path.read_text(encoding="utf-8"))
+    request.update(model="synthetic-model-v1", narration_language="en")
+    path.write_text(json.dumps(request), encoding="utf-8")
+    write_language_profile(project)
+    return project
+
+
 class PrepareClearsBothLayers(unittest.TestCase):
     """Absence is the only unforgeable freshness signal, so clearing must be complete."""
 
@@ -336,7 +365,10 @@ class AssemblerRefusesStaleSections(unittest.TestCase):
             os.chdir(tmp)
             try:
                 m1 = load("generate_voiceover")
-                setattr(m1, "sections", [(0.0, "Original line.")])
+                requested_text = json.loads(
+                    (project / "audio_request.json").read_text(encoding="utf-8")
+                )["lines"][0]["text"]
+                setattr(m1, "sections", [(0.0, requested_text)])
                 with mock.patch.object(m1, "get_audio_duration", return_value=1.0), \
                      mock.patch.object(m1, "assemble_voiceover"):
                     self.assertEqual(m1.main(["--assemble-only"]), 0)
@@ -369,6 +401,313 @@ class AssemblerRefusesStaleSections(unittest.TestCase):
         audio = (ROOT / "workflows" / "phase-5-audio.md").read_text(encoding="utf-8")
         self.assertIn("python3 ./voiceover.py --assemble-only", audio)
         self.assertNotIn("--assemble-only --allow-unverified", audio)
+
+
+class SynthesisIdentityTest(unittest.TestCase):
+    def run_command(self, project, *args):
+        return VV.main(["--project-dir", str(project), *args])
+
+    def synthesize_and_seal(self, project, attest="engine"):
+        self.assertEqual(self.run_command(project, "prepare"), 0)
+        write_section(project, "00", b"same-00")
+        write_section(project, "01", b"same-01")
+        self.assertEqual(self.run_command(project, "seal", "--attest", attest), 0)
+        return json.loads((project / ".hve" / "vo-sections.json").read_text(encoding="utf-8"))
+
+    def test_all_synthesis_settings_invalidate_unchanged_text_subset_reuse(self):
+        for label, changes in (
+            ("provider", {"provider": "kokoro"}),
+            ("voice", {"voice": "other-voice"}),
+            ("model", {"model": "synthetic-model-v2"}),
+            ("language", {"lang": "ja", "narration_language": "ja"}),
+            ("native-code", {"lang": "en-us"}),
+            ("locale", {"narration_language": "en-US"}),
+            ("speed", {"speed": 1.25}),
+            ("voice-settings", {"voice_settings": {"stability": 0.4}}),
+            ("other-tts-data", {"seed": 79, "normalization": {"numbers": False}}),
+        ):
+            with self.subTest(setting=label), tempfile.TemporaryDirectory() as tmp:
+                project = make_language_project(tmp)
+                original = self.synthesize_and_seal(project)
+                path = project / "audio_request.json"
+                request = json.loads(path.read_text(encoding="utf-8"))
+                request.update(changes)
+                path.write_text(json.dumps(request), encoding="utf-8")
+                write_language_profile(project)
+                manifest = project / ".hve" / "vo-sections.json"
+                before = manifest.read_bytes()
+                self.assertEqual(self.run_command(project, "prepare", "01"), 2)
+                self.assertEqual(before, manifest.read_bytes())
+                self.assertEqual((project / "vo_section_01.mp3").read_bytes(), b"same-01")
+                self.assertEqual((project / "assets" / "voice" / "01.wav").read_bytes(), b"same-01")
+                self.assertFalse((project / ".hve" / "vo-sections.pending.json").exists())
+                replacement = self.synthesize_and_seal(project)
+                self.assertNotEqual(original["synthesis_sha256"], replacement["synthesis_sha256"])
+                self.assertNotEqual(original["sections"]["00"]["request_sha256"],
+                                    replacement["sections"]["00"]["request_sha256"])
+                self.assertEqual(original["script_sha256"], replacement["script_sha256"])
+
+    def test_bgm_sfx_and_text_only_locale_changes_do_not_force_narration_regeneration(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            project = make_language_project(tmp)
+            original = self.synthesize_and_seal(project)
+            path = project / "audio_request.json"
+            request = json.loads(path.read_text(encoding="utf-8"))
+            request.update(bgm={"query": "a different music bed"}, sfx=[{"at": 1, "query": "tap"}])
+            path.write_text(json.dumps(request), encoding="utf-8")
+            write_language_profile(project, text_language="ar")
+            self.assertEqual(self.run_command(project, "prepare", "01"), 0)
+            self.assertEqual((project / "vo_section_00.mp3").read_bytes(), b"same-00")
+            write_section(project, "01", b"retake-01")
+            self.assertEqual(self.run_command(project, "seal"), 0)
+            replacement = json.loads((project / ".hve" / "vo-sections.json").read_text())
+            self.assertEqual(original["synthesis_sha256"], replacement["synthesis_sha256"])
+            self.assertEqual(original["speech_fingerprint"], replacement["speech_fingerprint"])
+            self.assertEqual(original["sections"]["00"], replacement["sections"]["00"])
+
+    def test_edited_after_prepare_fails_check_and_seal_without_publishing(self):
+        for change in ("text", "line-setting", "speed", "model", "line-order", "line-removed"):
+            with self.subTest(change=change), tempfile.TemporaryDirectory() as tmp:
+                project = make_language_project(tmp)
+                self.synthesize_and_seal(project)
+                self.assertEqual(self.run_command(project, "prepare"), 0)
+                write_section(project, "00")
+                write_section(project, "01")
+                path = project / "audio_request.json"
+                request = json.loads(path.read_text(encoding="utf-8"))
+                if change == "text":
+                    request["lines"][0]["text"] += " "
+                elif change == "line-setting":
+                    request["lines"][0]["style"] = "quiet"
+                elif change == "line-order":
+                    request["lines"].reverse()
+                elif change == "line-removed":
+                    request["lines"].pop()
+                else:
+                    request[change] = 1.1 if change == "speed" else "synthetic-model-v2"
+                path.write_text(json.dumps(request), encoding="utf-8")
+                write_language_profile(project)
+                proof = project / ".hve" / "vo-sections.json"
+                pending = project / ".hve" / "vo-sections.pending.json"
+                before = {p: p.read_bytes() for p in (proof, pending)}
+                self.assertEqual(self.run_command(project, "check"), 2)
+                self.assertEqual(self.run_command(project, "seal"), 2)
+                self.assertEqual(before, {p: p.read_bytes() for p in before})
+                self.assertFalse((project / "audio_request.retry.json").exists())
+
+    def test_prepared_id_hashes_are_checked_even_when_global_request_hash_matches(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            project = make_language_project(tmp)
+            self.assertEqual(self.run_command(project, "prepare"), 0)
+            write_section(project, "00")
+            write_section(project, "01")
+            path = project / ".hve" / "vo-sections.pending.json"
+            pending = json.loads(path.read_text())
+            pending["request_sha256"]["00"] = "0" * 64
+            path.write_text(json.dumps(pending), encoding="utf-8")
+            self.assertEqual(self.run_command(project, "seal"), 2)
+            self.assertFalse((project / ".hve" / "vo-sections.json").exists())
+
+    def test_retry_preserves_complete_line_metadata_and_current_round_proofs(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            project = make_language_project(tmp)
+            path = project / "audio_request.json"
+            request = json.loads(path.read_text())
+            request["lines"][1]["pronunciation"] = {"API": "user-reviewed pronunciation"}
+            request["voice_settings"] = {"stability": 0.5}
+            path.write_text(json.dumps(request), encoding="utf-8")
+            self.assertEqual(self.run_command(project, "prepare"), 0)
+            write_section(project, "00")
+            self.assertEqual(self.run_command(project, "check"), 1)
+            retry = json.loads((project / "audio_request.retry.json").read_text())
+            self.assertEqual(retry, {**request, "lines": [request["lines"][1]]})
+            self.assertEqual(self.run_command(project, "prepare", "01"), 0)
+            write_section(project, "01")
+            self.assertEqual(self.run_command(project, "seal"), 0)
+
+    def test_retry_after_a_full_settings_change_ignores_the_obsolete_prior_seal(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            project = make_language_project(tmp)
+            self.synthesize_and_seal(project)
+            path = project / "audio_request.json"
+            request = json.loads(path.read_text())
+            request["speed"] = 1.1
+            path.write_text(json.dumps(request), encoding="utf-8")
+            self.assertEqual(self.run_command(project, "prepare"), 0)
+            write_section(project, "00")
+            self.assertEqual(self.run_command(project, "check"), 1)
+            self.assertEqual(self.run_command(project, "prepare", "01"), 0)
+            write_section(project, "01")
+            self.assertEqual(self.run_command(project, "seal"), 0)
+
+    def test_changed_line_metadata_requires_preparing_that_line_not_just_other_ids(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            project = make_language_project(tmp)
+            self.synthesize_and_seal(project)
+            path = project / "audio_request.json"
+            request = json.loads(path.read_text())
+            request["lines"][0]["style"] = "quiet"
+            path.write_text(json.dumps(request), encoding="utf-8")
+            self.assertEqual(self.run_command(project, "prepare", "01"), 0)
+            write_section(project, "01")
+            self.assertEqual(self.run_command(project, "seal"), 1)
+            self.assertEqual(self.run_command(project, "prepare", "00"), 0)
+            write_section(project, "00")
+            self.assertEqual(self.run_command(project, "seal"), 0)
+
+    def test_edited_pending_line_cannot_be_laundered_by_preparing_another_id(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            project = make_language_project(tmp)
+            self.assertEqual(self.run_command(project, "prepare"), 0)
+            write_section(project, "00")
+            write_section(project, "01", b"do-not-delete")
+            path = project / "audio_request.json"
+            request = json.loads(path.read_text())
+            request["lines"][0]["text"] = "Changed."
+            path.write_text(json.dumps(request), encoding="utf-8")
+            self.assertEqual(self.run_command(project, "prepare", "01"), 2)
+            self.assertEqual((project / "vo_section_01.mp3").read_bytes(), b"do-not-delete")
+            self.assertEqual(self.run_command(project, "prepare", "00"), 0)
+            write_section(project, "00")
+            self.assertEqual(self.run_command(project, "seal"), 0)
+
+    def test_legacy_text_only_proofs_need_full_prepare_before_new_reuse(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            project = make_language_project(tmp)
+            request = json.loads((project / "audio_request.json").read_text())
+            for line in request["lines"]:
+                write_section(project, line["id"])
+            path = project / ".hve" / "vo-sections.json"
+            path.write_text(json.dumps({
+                "schema_version": 1, "attest": "engine", "sections": {
+                    line["id"]: {"audio_sha256": VV.sha256_text("fresh-audio"),
+                                 "request_sha256": VV.sha256_text(line["text"])}
+                    for line in request["lines"]
+                },
+            }), encoding="utf-8")
+            before = path.read_bytes()
+            self.assertEqual(self.run_command(project, "prepare", "01"), 2)
+            self.assertEqual(path.read_bytes(), before)
+            replacement = self.synthesize_and_seal(project)
+            self.assertEqual(replacement["schema_version"], 2)
+            self.assertIsNotNone(replacement["speech_fingerprint"])
+
+    def test_request_and_profile_errors_are_rejected_before_clearing_any_media(self):
+        for kind in ("mismatch", "missing", "bad-fingerprint", "bad-schema"):
+            with self.subTest(kind=kind), tempfile.TemporaryDirectory() as tmp:
+                project = make_language_project(tmp)
+                write_section(project, "00", b"keep")
+                profile_path = project / ".hve" / "language-profile.json"
+                profile = json.loads(profile_path.read_text())
+                if kind == "missing":
+                    profile_path.unlink()
+                else:
+                    if kind == "mismatch":
+                        profile["speech"]["voice"] = "another-voice"
+                        profile["speech_fingerprint"] = f"sha256:{VV.sha256_json(profile['speech'])}"
+                    elif kind == "bad-fingerprint":
+                        profile["speech_fingerprint"] = "sha256:" + "0" * 64
+                    else:
+                        profile["schema_version"] = True
+                    profile_path.write_text(json.dumps(profile), encoding="utf-8")
+                self.assertEqual(self.run_command(project, "prepare"), 2)
+                self.assertEqual((project / "vo_section_00.mp3").read_bytes(), b"keep")
+                self.assertEqual((project / "assets" / "voice" / "00.wav").read_bytes(), b"keep")
+
+    def test_malformed_requests_do_not_delete_or_create_proofs(self):
+        for value in (
+            [], {"lines": []}, {"lines": [{"id": "../00", "text": "unsafe"}]},
+            {"lines": [{"id": "00", "text": {"not": "text"}}]},
+            {"lines": [{"id": "00", "text": "x"}, {"id": "00", "text": "y"}]},
+            {"lines": [{"id": "00", "text": "x"}], "speed": float("nan")},
+            {"lines": [{"id": "00", "text": "x"}], "speed": False},
+            {"lines": [{"id": "00", "text": "x"}], "voice": []},
+        ):
+            with self.subTest(value=value), tempfile.TemporaryDirectory() as tmp:
+                project = make_project(tmp)
+                write_section(project, "00", b"keep")
+                (project / "audio_request.json").write_text(json.dumps(value), encoding="utf-8")
+                self.assertEqual(self.run_command(project, "prepare"), 2)
+                self.assertEqual((project / "vo_section_00.mp3").read_bytes(), b"keep")
+                self.assertEqual((project / "assets" / "voice" / "00.wav").read_bytes(), b"keep")
+                self.assertFalse((project / ".hve" / "vo-sections.pending.json").exists())
+
+    def test_language_aware_attestations_require_the_same_preparation_proof(self):
+        for attest in ("local-tts", "user-supplied"):
+            with self.subTest(attest=attest), tempfile.TemporaryDirectory() as tmp:
+                project = make_language_project(tmp)
+                write_section(project, "00")
+                write_section(project, "01")
+                self.assertEqual(self.run_command(project, "seal", "--attest", attest), 2)
+                manifest = self.synthesize_and_seal(project, attest)
+                self.assertEqual(manifest["attest"], attest)
+                self.assertIn("script_sha256", manifest)
+                self.assertIsNotNone(manifest["speech_fingerprint"])
+                (project / ".hve" / "language-profile.json").unlink()
+                request_path = project / "audio_request.json"
+                request = json.loads(request_path.read_text())
+                del request["narration_language"]
+                request_path.write_text(json.dumps(request), encoding="utf-8")
+                self.assertEqual(self.run_command(project, "prepare"), 2)
+                self.assertEqual(self.run_command(project, "seal", "--attest", attest), 2)
+
+    def test_language_aware_attestations_reject_settings_edited_after_prepare(self):
+        for attest in ("local-tts", "user-supplied"):
+            with self.subTest(attest=attest), tempfile.TemporaryDirectory() as tmp:
+                project = make_language_project(tmp)
+                self.assertEqual(self.run_command(project, "prepare"), 0)
+                write_section(project, "00")
+                write_section(project, "01")
+                path = project / "audio_request.json"
+                request = json.loads(path.read_text())
+                request["voice"] = "another-confirmed-voice"
+                path.write_text(json.dumps(request), encoding="utf-8")
+                write_language_profile(project)
+                self.assertEqual(self.run_command(project, "seal", "--attest", attest), 2)
+                self.assertFalse((project / ".hve" / "vo-sections.json").exists())
+
+    def test_real_verifier_seal_is_consumed_by_schema_independent_assembler(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            project = make_language_project(tmp)
+            request_path = project / "audio_request.json"
+            request = json.loads(request_path.read_text())
+            request["lines"][0]["text"] = "Cafe\u0301 API."
+            request["lines"][1]["text"] = "مرحبا بالعالم"
+            request_path.write_text(json.dumps(request), encoding="utf-8")
+            self.synthesize_and_seal(project)
+            assembler = load("generate_voiceover")
+            assembler.sections = [(float(i * 2), line["text"])
+                                  for i, line in enumerate(request["lines"])]
+            old_cwd = os.getcwd()
+            os.chdir(project)
+            try:
+                with (
+                    mock.patch.object(assembler, "get_audio_duration", return_value=1.0),
+                    mock.patch.object(assembler, "assemble_voiceover") as assemble,
+                ):
+                    self.assertEqual(assembler.main(["--assemble-only"]), 0)
+                    request.update(lang="ar", narration_language="ar")
+                    request_path.write_text(json.dumps(request), encoding="utf-8")
+                    write_language_profile(project)
+                    self.assertEqual(assembler.main(["--assemble-only"]), 2)
+                    self.assertEqual(assemble.call_count, 1)
+                    self.synthesize_and_seal(project)
+                    self.assertEqual(assembler.main(["--assemble-only"]), 0)
+                    self.assertEqual(assemble.call_count, 2)
+            finally:
+                os.chdir(old_cwd)
+
+    def test_corrupt_pending_state_and_empty_outputs_are_explicit_failures(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            project = make_language_project(tmp)
+            self.assertEqual(self.run_command(project, "prepare"), 0)
+            write_section(project, "00", b"")
+            write_section(project, "01")
+            self.assertEqual(self.run_command(project, "check"), 1)
+            pending = project / ".hve" / "vo-sections.pending.json"
+            pending.write_text("{ not json", encoding="utf-8")
+            self.assertEqual(self.run_command(project, "prepare", "01"), 2)
+            self.assertTrue((project / "vo_section_01.mp3").exists())
 
 
 if __name__ == "__main__":

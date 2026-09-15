@@ -91,29 +91,48 @@ def available_shells():
 class ResolverShellPortability(unittest.TestCase):
     """Each embedded resolver resolves in every shell an agent might hand it."""
 
-    def _run(self, shell: str, doc: Path, var: str, skill: str) -> tuple:
+    def _run(self, shell: str, doc: Path, var: str, skill: str, *,
+             location="global", nested_source=False) -> tuple:
         block = extract_block(doc, var)
         with tempfile.TemporaryDirectory() as td:
             fake_home = Path(td) / "home dir with spaces"  # paths may contain spaces
-            skills_home = fake_home / FIXTURE_HOME_SUFFIX
-            skills_home.mkdir(parents=True)
-            expected = make_skill(skills_home, skill)
+            fake_home.mkdir()
+            cwd = Path(td) / "video output"
+            cwd.mkdir()
+            source = None
+            if location in {"source", "both"}:
+                source = Path(td) / "source project"
+                source.mkdir()
+                expected = make_skill(source / ".github" / "skills", skill)
+                if nested_source:
+                    subprocess.run(
+                        ["git", "init", "--quiet", str(source)],
+                        capture_output=True, text=True, check=True,
+                    )
+                    source = source / "packages" / "feature"
+                    source.mkdir(parents=True)
+            if location in {"global", "both"}:
+                expected = make_skill(fake_home / FIXTURE_HOME_SUFFIX, skill)
 
             # The blocks legitimately run other commands (`node --version`), so the
             # resolved value is fenced by a sentinel rather than read off raw stdout.
             script = Path(td) / "probe.sh"
             script.write_text(
-                block + f'\nprintf "\\n__RESOLVED__%s__END__" "${var}"\n',
+                block + f'\nprintf "\\n__RESOLVED__%s__END__" "${var}"\n'
+                + 'printf "\\n__CWD__%s__END__" "$(pwd -P)"\n',
                 encoding="utf-8",
             )
 
             env = dict(os.environ, HOME=str(fake_home))
             env.pop("ZSH_VERSION", None)  # never inherit; each shell sets its own
+            env.pop("SOURCE_DIR", None)
+            if source is not None:
+                env["SOURCE_DIR"] = str(source)
             proc = subprocess.run(
                 [shell, str(script)],
                 capture_output=True,
                 text=True,
-                cwd=td,  # not a git repo, so SKILL_ROOT falls back to pwd
+                cwd=cwd,
                 env=env,
             )
             self.assertEqual(
@@ -121,10 +140,14 @@ class ResolverShellPortability(unittest.TestCase):
                 0,
                 f"{shell} aborted on {doc.name}:{var}\nstderr: {proc.stderr}",
             )
-            m = re.search(r"__RESOLVED__(.*)__END__", proc.stdout, re.S)
+            m = re.search(r"__RESOLVED__(.*?)__END__", proc.stdout, re.S)
             if m is None:
                 self.fail(f"{shell} produced no sentinel for {doc.name}:{var}")
-            return m.group(1), str(expected)
+            self.assertTrue(Path(m.group(1)).is_absolute(), m.group(1))
+            after = re.search(r"__CWD__(.*?)__END__", proc.stdout, re.S)
+            self.assertIsNotNone(after, proc.stdout)
+            self.assertEqual(after.group(1), str(cwd.resolve()))
+            return str(Path(m.group(1)).resolve()), str(expected.resolve())
 
     def test_every_resolver_resolves_in_every_shell(self):
         shells = available_shells()
@@ -140,6 +163,43 @@ class ResolverShellPortability(unittest.TestCase):
                         f"expected {expected!r}. An empty value is the silent-degrade "
                         f"failure: the workflow reads it as 'skill not installed'.",
                     )
+
+    def test_source_local_install_resolves_from_sibling_output(self):
+        for shell in available_shells():
+            for doc, var, skill in RESOLVERS:
+                with self.subTest(shell=shell, doc=doc.name, var=var):
+                    got, expected = self._run(
+                        shell, doc, var, skill, location="source",
+                    )
+                    self.assertEqual(got, expected)
+                    self.assertTrue(Path(got).is_absolute())
+
+    def test_source_git_root_install_resolves_from_package_directory(self):
+        for doc, var, skill in RESOLVERS:
+            with self.subTest(doc=doc.name, var=var):
+                got, expected = self._run(
+                    "bash", doc, var, skill, location="source", nested_source=True,
+                )
+                self.assertEqual(got, expected)
+
+    def test_global_home_precedence_is_unchanged(self):
+        for doc, var, skill in RESOLVERS:
+            with self.subTest(doc=doc.name, var=var):
+                got, expected = self._run("bash", doc, var, skill, location="both")
+                self.assertEqual(got, expected)
+
+    def test_explicit_missing_source_is_not_silently_replaced(self):
+        with tempfile.TemporaryDirectory() as td:
+            env = dict(os.environ, HOME=td, SOURCE_DIR=str(Path(td) / "missing-source"))
+            env.pop("ZSH_VERSION", None)
+            for doc, var, _ in RESOLVERS:
+                with self.subTest(doc=doc.name, var=var):
+                    proc = subprocess.run(
+                        ["bash"], input=extract_block(doc, var), cwd=td,
+                        env=env, text=True, capture_output=True,
+                    )
+                    self.assertEqual(proc.returncode, 2)
+                    self.assertIn("missing-source", proc.stderr)
 
     def test_zsh_is_actually_exercised(self):
         """Guard against the coverage gap that let this ship.

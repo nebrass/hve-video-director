@@ -24,7 +24,7 @@ user change `theme`; never capture the opposite theme and silently recolor it.
 
 ## Phase 2 routing
 
-Everything this phase reads from `storyboard.md` is either a frontmatter key (`product_surface`,
+Routing fields in `storyboard.md` are either frontmatter keys (`product_surface`,
 `capture_plan`, `web_capture_source`, `replay_pointer`) or a `- key: value` bullet in a frame's
 metadata block (`capture`, `screenshot`, `clip`, `capture_duration`, `capture_region`,
 `recording`, `recording_steps`, `command`, `record_timeout`). Read `product_surface` and every
@@ -46,6 +46,16 @@ frame's `capture` bullet before asking for a web source:
 - If `product_surface: ui` but no real product artifact is bound to a frame (web capture,
   native screen recording, or supplied screenshot/clip), return to Phase 1 and repair the
   capture plan; the real product cannot be the spine without a bound artifact.
+
+For an approved **Demonstration Scenario** inventory, also read the storyboard's ordinary-prose
+**Scenario Coverage** table from Phase 1. It adds no routing or director keys. Use its planned
+actions/options and observable results to prepare the capture, not just a generic screenshot of
+the feature. A legacy project without this contract gets no new inventory or prerequisite.
+
+Before a retake or binding change, reset the affected **Captured evidence** and **Assembled
+evidence** cells to `pending`; old notes cannot prove a new attempt. After capture, complete the
+scenario review in Step 2.3 below. An intentional no-capture skip may mark explicitly illustrative
+rows `n/a - authored illustration`, never captured; their visible proof still belongs to Phase 4.
 
 ## Capture artifacts: stills and clips
 
@@ -320,8 +330,10 @@ CLI tools cannot be screencast (no DOM page). Two paths — pick by the
 storyboard's intent and what's installed.
 
 **Default — authored terminal scene (deterministic, no dependency):**
-1. Run the real command and capture its stdout (a Bash run, trimmed to the salient lines).
-2. Author a scene from `templates/scene-terminal.html` into `scenes/{NN}-terminal.html`,
+1. Run the real command in the bound `SOURCE_DIR` and capture its stdout (trimmed to the salient
+   lines). If the source is unavailable, ask for re-selection; never run the command in the video
+   workspace instead. The freeform video request is not a shell command.
+2. Author a scene from `templates/scene-terminal.html` into `PROJECT_DIR`'s `scenes/{NN}-terminal.html`,
    replacing `CMD` with the real command and the `.oline` rows with the real output. Replace the
    template palette with a readable palette in the confirmed theme.
 3. This is an authored **scene** (not a clip) — it composes like any Phase-3 scene; no
@@ -341,7 +353,7 @@ its own PTY, runs the command headless, captures stdout/stderr/timing,
 and exits when the command exits. Wrap in `timeout` so a runaway or
 non-terminating command (`htop`, dev server) can't stall the phase.
 
-Preconditions (silently fall back to the authored-terminal path if any fail —
+Preconditions (fall back to the authored-terminal path and report it if any fail —
 and when falling back, rewrite that frame's `capture` bullet to `terminal`
 so downstream phases don't expect a clip that was never recorded):
 - `command -v asciinema && command -v agg` both succeed
@@ -350,7 +362,9 @@ so downstream phases don't expect a clip that was never recorded):
 - The frame's metadata block has `capture: terminal-clip` AND a `command` bullet
   carrying the exact shell command to record
 
-Autonomous sequence the skill executes (no user input between steps):
+Run the following sequence from `PROJECT_DIR` with an available absolute `SOURCE_DIR`.
+Only recording changes cwd in a subshell; all generated destinations stay in the video workspace.
+The same source binding applies to PTY fallbacks and the authored-terminal path.
 
 ```bash
 # (Canonical copy: patterns/cli-terminal-capture.md § Recording mode — autonomous.
@@ -366,7 +380,10 @@ Autonomous sequence the skill executes (no user input between steps):
 #    RECORD_TIMEOUT comes from the frame's `record_timeout` bullet (default the
 #    frame's duration + 2s) — bounds non-terminating commands to the frame's slot.
 RECORD_TIMEOUT="${RECORD_TIMEOUT:-60}"   # seconds, from the frame's `record_timeout`
-WORK_DIR=$(mktemp -d "${TMPDIR:-/tmp}/hve-terminal-clip.XXXXXX")
+[ -n "${SOURCE_DIR:-}" ] && [ -d "$SOURCE_DIR" ] ||
+  { echo "source directory unavailable — reselect it before terminal capture" >&2; exit 2; }
+WORK_DIR=$(mktemp -d "${TMPDIR:-/tmp}/hve-terminal-clip.XXXXXX") || exit 2
+WORK_DIR=$(cd "$WORK_DIR" && pwd -P) || exit 2
 CAST_TMP="$WORK_DIR/scene.cast"
 GIF_TMP="$WORK_DIR/scene.gif"
 MP4_TMP="$WORK_DIR/scene.mp4"
@@ -382,11 +399,14 @@ mkdir -p public/clips
   { echo "cannot quarantine previous MP4 — aborting terminal capture" >&2; exit 1; }
 
 record_ok=
-if timeout "${RECORD_TIMEOUT}s" env -i HOME="$HOME" PATH="$PATH" SHELL=/bin/bash TERM=xterm-256color \
-  LANG="${LANG:-C.UTF-8}" COLUMNS=175 LINES=32 PS1='$ ' \
-  asciinema rec --idle-time-limit 1.5 \
-    --command "<cmd-from-storyboard>" \
-    "$CAST_TMP"; then
+if (
+  cd "$SOURCE_DIR" || exit 2
+  timeout "${RECORD_TIMEOUT}s" env -i HOME="$HOME" PATH="$PATH" SHELL=/bin/bash TERM=xterm-256color \
+    LANG="${LANG:-C.UTF-8}" COLUMNS=175 LINES=32 PS1='$ ' \
+    asciinema rec --idle-time-limit 1.5 \
+      --command "<cmd-from-storyboard>" \
+      "$CAST_TMP"
+); then
   record_ok=1
 else
   status=$?
@@ -718,6 +738,24 @@ Before accepting any recorded clip, check (retake if it fails):
 In the Phase-2 gallery review, present each clip and prompt the user to **accept or retake**.
 A rejected clip falls back to a screenshot or a re-record.
 
+### Scenario evidence review
+
+For a project with the approved scenario contract, compare each planned requirement with the
+actual accepted capture. In the existing Scenario Coverage table, fill **Captured evidence** with
+the bound artifact and the moment(s) showing the action, option list/selected value, intermediate
+state, or final result. Clip moments are local to that actual clip; a still names its visible
+state. Authored terminal evidence names the real command/output and scene. Do not create a
+second coverage ledger or substitute file existence for observed content.
+
+Show this coverage alongside the gallery. Inspect transient controls, not only the settled final
+screen. A missing approved capture requirement is unresolved work: recapture, provide the missing
+input, or return for an explicit scope change. It cannot be called complete because other views
+look good. An approved still fallback may show the required states, but must not be described as
+filmed interaction; this adds no hard clip requirement.
+
+Keep **Assembled evidence** pending for Phase 4. Explicitly illustrative authored scenes can have
+`n/a - authored illustration` in Captured evidence, never an invented capture or result.
+
 ## Capture Tips
 
 - **Wait for animations** — Use `wait_for` to ensure page is fully loaded before capturing
@@ -759,6 +797,10 @@ authored terminal scenes under `scenes/`.
 
 ## Checkpoint
 
+For a scenario contract, complete the scenario evidence review first. Do not stamp requested
+capture work complete while an approved capture requirement remains unresolved. Legacy and
+intentional no-capture paths retain their existing behavior.
+
 After the user accepts the capture set (or the intentional no-capture skip), stamp Phase 2:
 
 ```bash
@@ -770,5 +812,8 @@ Do not advance on a nonzero exit.
 
 > "Capture phase complete. [N] bound artifacts are ready ([S] screenshots, [C] clips,
 > [T] authored terminal scenes).
+>
+> [For a scenario contract: summarize the actual option/action/result evidence and any accepted
+> fallback. Unresolved approved capture requirements mean capture is not complete.]
 >
 > Ready to move to Phase 3: Design?"

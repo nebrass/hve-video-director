@@ -34,6 +34,7 @@ import hashlib
 import json
 import os
 import re
+import subprocess
 import sys
 import uuid
 from datetime import datetime, timezone
@@ -42,9 +43,11 @@ from typing import Any
 from urllib.parse import parse_qs, urlparse
 
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 PLAN_NAME = "project-plan.md"
 STATE_RELATIVE_PATH = Path(".hve") / "brief-state.json"
+LANGUAGE_CATALOG_PATH = Path(".hve") / "language-catalog.json"
+LANGUAGE_PROFILE_PATH = Path(".hve") / "language-profile.json"
 
 STORY_FIELDS = (
     "mode",
@@ -52,6 +55,8 @@ STORY_FIELDS = (
     "duration",
     "theme",
     "aspect_ratio",
+    "text_language",
+    "narration_language",
     "identity_strategy",
     "identity_choice",
     "visual_ceiling",
@@ -59,6 +64,13 @@ STORY_FIELDS = (
     "transition_style",
     "transition_speed",
     "music_strategy",
+)
+LANGUAGE_FIELDS = ("text_language", "narration_language")
+# Historical fingerprints must not grow when a later brief adds fields.
+LEGACY_STORY_FIELDS = (
+    "mode", "product_surface", "duration", "theme", "aspect_ratio",
+    "identity_strategy", "identity_choice", "visual_ceiling", "voice",
+    "transition_style", "transition_speed", "music_strategy",
 )
 ALL_FIELDS = (*STORY_FIELDS, "final_music_track")
 PHASES = tuple(f"phase-{number}" for number in range(1, 6))
@@ -71,6 +83,8 @@ BRIEF_PLACEHOLDERS = {
         "{16:9 1920x1080, 9:16 1080x1920, 1:1 1080x1080, "
         "or 4:5 1080x1350}"
     ),
+    "text_language": "{confirmed BCP 47 locale for authored on-screen text}",
+    "narration_language": "{confirmed BCP 47 locale for speech and captions}",
     "identity_strategy": (
         "{design-system, hyperframes-style, screenshots, or custom}"
     ),
@@ -137,6 +151,7 @@ TRANSITION_STYLES = {
     "slide-from-bottom",
 }
 MUSIC_STRATEGIES = {"freesound", "delegated", "user-provided", "none"}
+VOICE_PATTERN = re.compile(r"(?:elevenlabs:[^:]+:[A-Za-z0-9_-]+|kokoro:[a-z]{2}_[a-z0-9_-]+)")
 # A delegated provenance URI: `<skill-name>:<capability>?mode=…&query=…#sha256=…`.
 DELEGATED_TOKEN = re.compile(r"[a-z][a-z0-9]*(?:-[a-z0-9]+)*")
 DELEGATED_DIGEST = re.compile(r"sha256=[0-9a-f]{64}")
@@ -165,6 +180,349 @@ class LegacyBriefRequired(BriefFormatError):
 
 class StateFormatError(ValueError):
     """The state file cannot be parsed safely."""
+
+
+def language_tool(operation: str, payload: Any) -> Any:
+    try:
+        result = subprocess.run(
+            ["node", str(Path(__file__).with_name("language_tools.mjs")), operation],
+            input=json.dumps(payload, ensure_ascii=True), encoding="utf-8",
+            capture_output=True, timeout=30,
+        )
+    except (OSError, subprocess.TimeoutExpired) as error:
+        raise BriefFormatError(f"language handling needs working Node/Intl support: {error}") from error
+    if result.returncode:
+        raise BriefFormatError(result.stderr.strip() or "Node language handling failed")
+    try:
+        return json.loads(result.stdout)
+    except json.JSONDecodeError as error:
+        raise BriefFormatError("Node language helper returned invalid JSON") from error
+
+
+_LOCALE_CACHE: dict[str, dict[str, Any]] = {}
+
+
+def locale_infos(tags: list[str]) -> list[dict[str, Any]]:
+    if not all(isinstance(tag, str) for tag in tags):
+        raise BriefFormatError("language tags must be strings")
+    missing = list(dict.fromkeys(tag for tag in tags if tag not in _LOCALE_CACHE))
+    if missing:
+        result = language_tool("locales", missing)
+        if not isinstance(result, list) or len(result) != len(missing):
+            raise BriefFormatError("Node language helper returned invalid locale records")
+        for tag, info in zip(missing, result):
+            if not isinstance(info, dict) or not all(
+                isinstance(info.get(key), str) and info[key]
+                for key in ("tag", "language", "script", "direction", "name")
+            ):
+                raise BriefFormatError("Node language helper returned incomplete locale information")
+            if info["direction"] not in {"ltr", "rtl"} or info.get("word_separator") not in {"", " "}:
+                raise BriefFormatError("Node language helper returned an invalid script profile")
+            _LOCALE_CACHE[tag] = info
+            _LOCALE_CACHE[info["tag"]] = info
+    return [_LOCALE_CACHE[tag] for tag in tags]
+
+
+def locale_info(tag: str) -> dict[str, Any]:
+    return locale_infos([tag])[0]
+
+
+def read_language_json(path: Path) -> Any:
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        raise BriefFormatError(f"cannot read language data at {path}: {error}") from error
+
+
+def voice_metadata_rows(data: Any) -> list[Any]:
+    if isinstance(data, dict):
+        data = data.get("voices", [data])
+    if not isinstance(data, list):
+        raise BriefFormatError("voice metadata must be a voice object or an array")
+    return data
+
+
+def normalize_language_catalog(
+    provider: str, model: str, data: Any, voices: Any = None,
+    languages: Any = None, source: str = "",
+) -> dict[str, Any]:
+    if not isinstance(model, str) or not re.fullmatch(r"[A-Za-z0-9_.-]+", model):
+        raise BriefFormatError("model must identify the actual TTS model")
+    codes: list[tuple[str, str]] = []
+    if provider == "elevenlabs":
+        models = data if isinstance(data, list) else [data]
+        matches = [item for item in models if isinstance(item, dict) and item.get("model_id") == model]
+        if len(matches) != 1 or matches[0].get("can_do_text_to_speech") is not True:
+            raise BriefFormatError(f"{model}: catalog must identify one TTS-capable model")
+        rows = matches[0].get("languages")
+        if not isinstance(rows, list) or not rows:
+            raise BriefFormatError(f"{model}: no supported languages in the provider catalog")
+        for row in rows:
+            if not isinstance(row, dict) or not isinstance(row.get("language_id"), str):
+                raise BriefFormatError("ElevenLabs language entries need language_id")
+            codes.append((row["language_id"], row.get("name", "")))
+        voice_rows = voice_metadata_rows(voices) if voices is not None else []
+    elif provider == "kokoro":
+        if not isinstance(languages, list) or not languages or not all(
+            isinstance(code, str) and code for code in languages
+        ):
+            raise BriefFormatError(
+                "Kokoro requires its full supported --lang code list; "
+                "the curated --list voice output is not the language catalog"
+            )
+        codes = [(code.lower(), "") for code in languages]
+        voice_rows = list(voice_metadata_rows(data))
+        if voices is not None:
+            voice_rows.extend(voice_metadata_rows(voices))
+    else:
+        raise BriefFormatError("provider must be elevenlabs or kokoro")
+
+    entries = []
+    seen_codes: set[str] = set()
+    locale_infos([code.replace("_", "-") for code, _ in codes])
+    for code, name in codes:
+        if not code or code != code.strip() or code in seen_codes:
+            raise BriefFormatError("provider language codes must be nonempty and unique")
+        seen_codes.add(code)
+        info = locale_info(code.replace("_", "-"))
+        entries.append({
+            "code": code, "tag": info["tag"], "language": info["language"],
+            "name": name if isinstance(name, str) and name else info["name"],
+        })
+    normalized_voices = {}
+    for row in voice_rows:
+        if not isinstance(row, dict):
+            raise BriefFormatError("voice metadata entries must be objects")
+        voice_id = row.get("voice_id") if provider == "elevenlabs" else row.get("id")
+        if not isinstance(voice_id, str) or not re.fullmatch(r"[A-Za-z0-9_-]+", voice_id):
+            raise BriefFormatError("voice metadata needs a valid native voice ID")
+        default_code = row.get("defaultLang") if provider == "kokoro" else None
+        if isinstance(default_code, str):
+            default_code = default_code.lower()
+        if provider == "kokoro" and default_code not in seen_codes:
+            raise BriefFormatError(
+                f"{voice_id}: verify defaultLang from the full model voice inventory"
+            )
+        name = row.get("name") or row.get("label")
+        if name is not None and not isinstance(name, str):
+            raise BriefFormatError(f"{voice_id}: voice display name must be a string")
+        prior = normalized_voices.get(voice_id)
+        if prior and prior["default_code"] != default_code:
+            raise BriefFormatError(f"conflicting metadata for voice {voice_id}")
+        record = {"name": name or (prior["name"] if prior else voice_id),
+                  "default_code": default_code}
+        normalized_voices[voice_id] = record
+    return {
+        "provider": provider, "model": model, "source": source,
+        "languages": entries, "voices": normalized_voices,
+    }
+
+
+def validate_catalog_entry(provider: str, entry: Any) -> None:
+    if provider not in {"elevenlabs", "kokoro"} or not isinstance(entry, dict) or entry.get("provider") != provider:
+        raise BriefFormatError("provider catalog identity is invalid")
+    model = entry.get("model")
+    voices = entry.get("voices")
+    languages = entry.get("languages")
+    if (not isinstance(model, str) or not re.fullmatch(r"[A-Za-z0-9_.-]+", model)
+            or not isinstance(voices, dict) or not isinstance(languages, list) or not languages):
+        raise BriefFormatError("provider catalog is incomplete; re-import it")
+    if not all(
+        isinstance(row, dict)
+        and all(isinstance(row.get(key), str) and row[key] for key in ("code", "tag", "language", "name"))
+        for row in languages
+    ):
+        raise BriefFormatError("provider catalog has invalid language entries")
+    codes = [row["code"] for row in languages]
+    if len(set(codes)) != len(codes) or any(code != code.strip() for code in codes):
+        raise BriefFormatError("provider catalog language codes must be unique and unpadded")
+    if provider == "kokoro" and any(code != code.lower() for code in codes):
+        raise BriefFormatError("Kokoro catalog codes must use the native lowercase form")
+    for row, native in zip(languages, locale_infos([code.replace("_", "-") for code in codes])):
+        if row["tag"] != native["tag"] or row["language"] != native["language"]:
+            raise BriefFormatError("provider language tag/code mapping is inconsistent; re-import the catalog")
+    for voice_id, voice in voices.items():
+        if (not isinstance(voice_id, str) or not re.fullmatch(r"[A-Za-z0-9_-]+", voice_id)
+                or not isinstance(voice, dict) or not isinstance(voice.get("name"), str)
+                or not voice["name"]):
+            raise BriefFormatError("provider catalog has invalid voice metadata")
+        if provider == "kokoro" and voice.get("default_code") not in codes:
+            raise BriefFormatError(f"{voice_id}: invalid native default language; refresh voice metadata")
+
+
+def load_language_catalog(project_dir: Path) -> dict[str, Any]:
+    data = read_language_json(project_dir / LANGUAGE_CATALOG_PATH)
+    if (not isinstance(data, dict) or type(data.get("schema_version")) is not int
+            or data["schema_version"] != 1 or not isinstance(data.get("providers"), dict)):
+        raise BriefFormatError("language catalog schema is invalid; re-import native capabilities")
+    for provider, entry in data["providers"].items():
+        validate_catalog_entry(provider, entry)
+    return data
+
+
+def build_language_profile(values: dict[str, str], catalog: dict[str, Any]) -> dict[str, Any]:
+    text = locale_info(values["text_language"])
+    narration = locale_info(values["narration_language"])
+    if not isinstance(values.get("voice"), str) or not VOICE_PATTERN.fullmatch(values["voice"]):
+        raise BriefFormatError("voice must use its confirmed provider-qualified form")
+    parts = values["voice"].split(":")
+    provider = parts[0]
+    if (provider == "elevenlabs" and len(parts) != 3) or (
+        provider == "kokoro" and len(parts) != 2
+    ):
+        raise BriefFormatError("voice must use its confirmed provider-qualified form")
+    if provider not in {"elevenlabs", "kokoro"}:
+        raise BriefFormatError("unsupported voice provider")
+    entry = catalog["providers"].get(provider)
+    if not isinstance(entry, dict) or entry.get("provider") != provider:
+        raise BriefFormatError(f"import the actual {provider} model/voice catalog first")
+    validate_catalog_entry(provider, entry)
+    model = entry.get("model")
+    voices = entry.get("voices")
+    languages = entry.get("languages")
+    voice_id = parts[-1]
+    voice = voices.get(voice_id)
+    if not isinstance(voice, dict):
+        raise BriefFormatError(
+            f"{voice_id}: voice is not verified in this catalog; "
+            "refresh its native metadata, including non-curated voices"
+        )
+    matches = [row for row in languages if row["tag"] == narration["tag"]]
+    if not matches:
+        matches = [row for row in languages if row["tag"] == narration["language"]]
+    if not matches and narration["tag"] == narration["language"]:
+        matches = [row for row in languages if row["language"] == narration["language"]]
+        preferred = [row for row in matches if row["code"] == voice.get("default_code")]
+        if preferred:
+            matches = preferred
+    if len(matches) != 1:
+        choices = ", ".join(sorted({row["tag"] for row in languages}))
+        raise BriefFormatError(
+            f"{narration['tag']}: unsupported or ambiguous for {provider}/{model}; "
+            f"choose a verified locale ({choices}) or explicitly change provider"
+        )
+    tts_code = matches[0]["code"]
+    # Canonical CLDR language names differ from the Whisper code namespace here.
+    asr_code = {"fil": "tl", "nb": "no", "nn": "no"}.get(
+        narration["language"], narration["language"]
+    )
+    locale_keys = ("tag", "language", "script", "direction", "word_separator")
+    speech = {
+        "provider": provider, "model": model, "voice": voice_id,
+        "narration_language": narration["tag"],
+        "tts_language": tts_code, "asr_language": asr_code,
+    }
+    return {
+        "schema_version": 1,
+        "text": {key: text[key] for key in locale_keys},
+        "narration": {key: narration[key] for key in locale_keys},
+        "speech": speech,
+        "speech_fingerprint": fingerprint(speech),
+    }
+
+
+def language_profile_errors(project_dir: Path, values: dict[str, str]) -> list[str]:
+    try:
+        catalog = load_language_catalog(project_dir)
+        expected = build_language_profile(values, catalog)
+        actual = read_language_json(project_dir / LANGUAGE_PROFILE_PATH)
+    except (BriefFormatError, KeyError) as error:
+        return [f"language support: {error}; run language-catalog and language-profile before confirmation"]
+    if (not isinstance(actual, dict) or type(actual.get("schema_version")) is not int
+            or actual["schema_version"] != 1):
+        return ["language support: profile schema is invalid; regenerate it with language-profile"]
+    if actual != expected:
+        return ["language support: profile is stale; recheck the current languages, voice and actual model"]
+    return []
+
+
+def audio_value(
+    project_dir: Path, story_fingerprint: str, track: dict[str, str] | str,
+    *, legacy: bool = False,
+) -> dict[str, Any]:
+    value = {"story_fingerprint": story_fingerprint, "final_music_track": track}
+    if not legacy:
+        profile = read_language_json(project_dir / LANGUAGE_PROFILE_PATH)
+        value["speech_fingerprint"] = profile["speech_fingerprint"]
+    return value
+
+
+def command_language_catalog(
+    project_dir: Path, provider: str, model: str, input_path: Path,
+    voices_path: Path | None, languages_path: Path | None, source: str, as_json: bool,
+) -> int:
+    try:
+        entry = normalize_language_catalog(
+            provider, model, read_language_json(input_path),
+            read_language_json(voices_path) if voices_path else None,
+            read_language_json(languages_path) if languages_path else None,
+            source,
+        )
+        path = project_dir / LANGUAGE_CATALOG_PATH
+        catalog = load_language_catalog(project_dir) if path.exists() else {
+            "schema_version": 1, "providers": {},
+        }
+        catalog["providers"][provider] = entry
+        write_text_atomic(path, json.dumps(catalog, ensure_ascii=True, indent=2) + "\n", BriefFormatError)
+        emit({"complete": True, "provider": provider, "model": model,
+              "languages": entry["languages"], "voice_count": len(entry["voices"]),
+              "message": "Imported provider/model capabilities; this does not confirm a creative choice."}, as_json)
+    except BriefFormatError as error:
+        emit(error_payload(str(error)), as_json, stream=sys.stdout if as_json else sys.stderr)
+        return 2
+    return 0
+
+
+def command_language_options(project_dir: Path, as_json: bool) -> int:
+    # One tuple guards and builds the row: a key present in only one of the two
+    # raises KeyError past the BriefFormatError handler and prints a traceback.
+    fields = ("tag", "name", "code", "language")
+    try:
+        catalog = load_language_catalog(project_dir)
+        options = []
+        for provider, entry in catalog["providers"].items():
+            if not isinstance(entry, dict) or not isinstance(entry.get("languages"), list):
+                raise BriefFormatError("provider catalog is malformed")
+            for row in entry["languages"]:
+                if not isinstance(row, dict) or not all(key in row for key in fields):
+                    raise BriefFormatError("provider language entry is malformed")
+                options.append({
+                    **{key: row[key] for key in fields},
+                    "provider": provider, "model": entry["model"],
+                })
+        if not options:
+            raise BriefFormatError("no provider-supported languages have been imported")
+        summary = "\n".join(
+            f"{row['name']} ({row['tag']}) - {row['provider']}/{row['model']}"
+            for row in options
+        )
+        emit({"complete": True, "languages": options, "message": summary}, as_json)
+    except BriefFormatError as error:
+        emit(error_payload(str(error)), as_json, stream=sys.stdout if as_json else sys.stderr)
+        return 2
+    return 0
+
+
+def command_language_profile(project_dir: Path, as_json: bool) -> int:
+    try:
+        values = parse_brief(project_dir / PLAN_NAME)
+        if not all(values.get(field) and not is_placeholder(values[field])
+                   for field in ("text_language", "narration_language", "voice")):
+            raise BriefFormatError("choose both languages and the exact voice before language-profile")
+        profile = build_language_profile(values, load_language_catalog(project_dir))
+        write_text_atomic(
+            project_dir / LANGUAGE_PROFILE_PATH,
+            json.dumps(profile, ensure_ascii=True, indent=2) + "\n", BriefFormatError,
+        )
+        emit({"complete": True, "profile": profile,
+              "message": f"Text: {profile['text']['tag']}; narration/captions: "
+                         f"{profile['narration']['tag']}; TTS: {profile['speech']['tts_language']}; "
+                         f"ASR: {profile['speech']['asr_language']}. "
+                         "Confirm the full story brief separately."}, as_json)
+    except (BriefFormatError, KeyError) as error:
+        emit(error_payload(str(error)), as_json, stream=sys.stdout if as_json else sys.stderr)
+        return 2
+    return 0
 
 
 def now_utc() -> str:
@@ -289,15 +647,22 @@ def parse_brief(plan_path: Path) -> dict[str, str]:
     return values
 
 
-def validate_story(values: dict[str, str]) -> list[str]:
+def validate_story(values: dict[str, str], *, legacy: bool = False) -> list[str]:
     errors: list[str] = []
-    for field in STORY_FIELDS:
+    for field in LEGACY_STORY_FIELDS if legacy else STORY_FIELDS:
         if field not in values or not values[field].strip():
             errors.append(f"{field}: value is missing")
         elif is_placeholder(values[field]):
             errors.append(f"{field}: placeholder values are not allowed")
     if errors:
         return errors
+
+    if not legacy:
+        for field in LANGUAGE_FIELDS:
+            try:
+                locale_info(values[field])
+            except BriefFormatError as error:
+                errors.append(f"{field}: {error}")
 
     if values["mode"] not in {"promo", "showcase", "tutorial"}:
         errors.append("mode: expected promo, showcase, or tutorial")
@@ -352,10 +717,7 @@ def validate_story(values: dict[str, str]) -> list[str]:
         errors.append("visual_ceiling: expected derived or flat")
 
     voice = values["voice"]
-    if not (
-        re.fullmatch(r"elevenlabs:[^:]+:[A-Za-z0-9_-]+", voice)
-        or re.fullmatch(r"kokoro:[a-z]{2}_[a-z0-9_-]+", voice)
-    ):
+    if not VOICE_PATTERN.fullmatch(voice):
         errors.append(
             "voice: expected elevenlabs:<name>:<voice-id> or kokoro:<voice-id>"
         )
@@ -511,9 +873,13 @@ def parse_final_track(
     return (normalized if not errors else None), errors
 
 
-def story_value(values: dict[str, str]) -> dict[str, str]:
-    result = {field: values[field].strip() for field in STORY_FIELDS}
+def story_value(values: dict[str, str], *, legacy: bool = False) -> dict[str, str]:
+    fields = LEGACY_STORY_FIELDS if legacy else STORY_FIELDS
+    result = {field: values[field].strip() for field in fields}
     result["aspect_ratio"] = result["aspect_ratio"].replace("\u00d7", "x")
+    if not legacy:
+        for field in LANGUAGE_FIELDS:
+            result[field] = locale_info(result[field])["tag"]
     return result
 
 
@@ -542,10 +908,10 @@ def load_state(state_path: Path) -> dict[str, Any]:
 
     if not isinstance(state, dict):
         raise StateFormatError(f"{STATE_RELATIVE_PATH} must contain a JSON object")
-    if state.get("schema_version") != SCHEMA_VERSION:
+    if type(state.get("schema_version")) is not int or state["schema_version"] not in {1, SCHEMA_VERSION}:
         raise StateFormatError(
             f"{STATE_RELATIVE_PATH} has unsupported schema_version "
-            f"{state.get('schema_version')!r}; expected {SCHEMA_VERSION}"
+            f"{state.get('schema_version')!r}; expected 1 or {SCHEMA_VERSION}"
         )
     if state.get("story") is not None and not isinstance(state["story"], dict):
         raise StateFormatError(f"{STATE_RELATIVE_PATH} story must be an object or null")
@@ -643,7 +1009,7 @@ def write_text_atomic(
         f".{path.name}.{os.getpid()}.{uuid.uuid4().hex}.tmp"
     )
     try:
-        with temporary.open("x", encoding="utf-8") as handle:
+        with temporary.open("x", encoding="utf-8", newline="") as handle:
             handle.write(content)
             handle.flush()
             os.fsync(handle.fileno())
@@ -1511,15 +1877,22 @@ def current_status(
     project_dir: Path,
 ) -> tuple[dict[str, Any], dict[str, Any], dict[str, str]]:
     values = parse_brief(project_dir / PLAN_NAME)
-    story_errors = validate_story(values)
+    state_path = project_dir / STATE_RELATIVE_PATH
+    state = load_state(state_path)
+    legacy_languages = (
+        not any(field in values for field in LANGUAGE_FIELDS)
+        and (not state_path.exists() or state["schema_version"] == 1)
+    )
+    story_errors = validate_story(values, legacy=legacy_languages)
+    if not story_errors and not legacy_languages:
+        story_errors.extend(language_profile_errors(project_dir, values))
     track, track_errors = parse_final_track(values)
     errors = [*story_errors, *track_errors]
 
-    state = load_state(project_dir / STATE_RELATIVE_PATH)
     story = None
     story_fingerprint = None
     if not story_errors:
-        story = story_value(values)
+        story = story_value(values, legacy=legacy_languages)
         story_fingerprint = fingerprint(story)
 
     story_state = state["story"]
@@ -1531,12 +1904,9 @@ def current_status(
 
     audio_fingerprint = None
     if story_fingerprint and track is not None:
-        audio_fingerprint = fingerprint(
-            {
-                "story_fingerprint": story_fingerprint,
-                "final_music_track": track,
-            }
-        )
+        audio_fingerprint = fingerprint(audio_value(
+            project_dir, story_fingerprint, track, legacy=legacy_languages,
+        ))
     audio_state = state["audio"]
     audio_confirmed = bool(
         story_confirmed
@@ -1584,6 +1954,8 @@ def current_status(
 
     payload = {
         "complete": not errors,
+        "brief_schema_version": 1 if legacy_languages else SCHEMA_VERSION,
+        "language_upgrade_required": legacy_languages,
         "project_dir": str(project_dir),
         "state_file": str(project_dir / STATE_RELATIVE_PATH),
         "errors": errors,
@@ -1630,6 +2002,9 @@ def emit(payload: dict[str, Any], as_json: bool, *, stream: Any = sys.stdout) ->
         )
     else:
         print("All phase stamps are fresh.", file=stream)
+    if payload.get("language_upgrade_required"):
+        print("Historical language choices are unrecorded; new generation requires an explicit language upgrade.",
+              file=stream)
 
 
 def error_payload(message: str) -> dict[str, Any]:
@@ -1757,6 +2132,47 @@ def command_migrate(project_dir: Path, as_json: bool) -> int:
     return 0
 
 
+def command_migrate_languages(project_dir: Path, as_json: bool) -> int:
+    path = project_dir / PLAN_NAME
+    try:
+        values = parse_brief(path)
+        missing = [field for field in LANGUAGE_FIELDS if field not in values]
+        if not missing:
+            emit({"complete": True, "changed": False,
+                  "message": "Language rows already exist; collect and confirm their values."}, as_json)
+            return 0
+        with path.open(encoding="utf-8", newline="") as handle:
+            original = handle.read()
+        lines = original.splitlines(keepends=True)
+        heading = next(index for index, line in enumerate(lines)
+                       if line.strip().lower() == "## creative brief")
+        start = heading + 1
+        while not lines[start].strip():
+            start += 1
+        start += 2
+        end = start
+        while end < len(lines) and lines[end].strip().startswith("|"):
+            end += 1
+        insertion = next(
+            (index for index in range(start, end)
+             if re.match(r"^\|\s*voice\s*\|", lines[index].strip())),
+            end,
+        )
+        newline = "\r\n" if "\r\n" in original else "\n"
+        rows = [f"| {field} | {BRIEF_PLACEHOLDERS[field]} |{newline}" for field in missing]
+        if insertion and not lines[insertion - 1].endswith(("\n", "\r")):
+            rows.insert(0, newline)
+        lines[insertion:insertion] = rows
+        write_text_atomic(path, "".join(lines), BriefFormatError)
+    except (BriefFormatError, OSError) as error:
+        emit(error_payload(str(error)), as_json, stream=sys.stdout if as_json else sys.stderr)
+        return 2
+    emit({"complete": True, "changed": True, "inserted": missing,
+          "message": "Inserted only missing language placeholders. No choice or approval was inferred; "
+                     "collect languages and compatible voice, then confirm the story brief."}, as_json)
+    return 0
+
+
 # ── Narration fit ────────────────────────────────────────────────────────────
 #
 # Phase 1 writes each frame's `duration` and `voiceover` in the same pass, then nobody
@@ -1818,13 +2234,15 @@ def count_syllables(word: str) -> int:
     return max(n, 1)
 
 
-def estimate_speech_seconds(text: str | None) -> float:
-    """Estimate how long `text` takes to speak, in seconds."""
+def estimate_speech_seconds(text: str | None, language: str | None = "en") -> float | None:
+    """Use the English calibration only for English; None means unmeasurable."""
     if not text:
         return 0.0
     body = text.strip().strip('"').strip("'")
     if not body:
         return 0.0
+    if language is None or language.split("-")[0].lower() != "en":
+        return None
     words = _WORD.findall(body)
     if not words:
         return 0.0
@@ -1840,7 +2258,7 @@ def estimate_speech_seconds(text: str | None) -> float:
     return round(seconds, 2)
 
 
-def classify_frame(estimate: float, slot: float | None, has_text: bool) -> str:
+def classify_frame(estimate: float | None, slot: float | None, has_text: bool) -> str:
     """Grade one frame. Tiers differ in kind, not just degree.
 
     OVER breaches the assembler's hard limit — it inserts no silence spacer, so every
@@ -1855,7 +2273,7 @@ def classify_frame(estimate: float, slot: float | None, has_text: bool) -> str:
     """
     if not has_text:
         return "SILENT"
-    if estimate <= 0:
+    if estimate is None or estimate <= 0:
         return "UNMEASURABLE"
     if slot is None:
         return "UNMEASURABLE"
@@ -1871,15 +2289,25 @@ def classify_frame(estimate: float, slot: float | None, has_text: bool) -> str:
 def vo_budget_payload(project_dir: Path, path: Path, text: str) -> dict[str, Any]:
     """Estimate narration against each frame's slot. Reads only; writes nothing."""
     document = parse_storyboard(text)
+    language = "en"
+    legacy_assumption = True
+    plan = project_dir / PLAN_NAME
+    if plan.exists():
+        values = parse_brief(plan)
+        if "narration_language" in values:
+            legacy_assumption = False
+            selected = values["narration_language"]
+            language = None if not selected or is_placeholder(selected) else locale_info(selected)["tag"]
     frames: list[dict[str, Any]] = []
     total = 0.0
     film = 0.0
     for frame in document["frames"]:
         vo = frame.get("voiceover")
         slot = frame.get("duration_seconds")
-        estimate = estimate_speech_seconds(vo)
+        estimate = estimate_speech_seconds(vo, language)
         has_text = bool(vo and vo.strip().strip('"').strip("'").strip())
-        total += estimate
+        if estimate is not None:
+            total += estimate
         if slot:
             film += slot
         frames.append(
@@ -1888,9 +2316,9 @@ def vo_budget_payload(project_dir: Path, path: Path, text: str) -> dict[str, Any
                 "title": frame.get("title"),
                 "slot_seconds": slot,
                 "estimate_seconds": estimate,
-                "estimate_low_seconds": round(estimate * (1 - ESTIMATE_SPREAD), 2),
-                "estimate_high_seconds": round(estimate * (1 + ESTIMATE_SPREAD), 2),
-                "slack_seconds": round(slot - estimate, 2) if slot else None,
+                "estimate_low_seconds": round(estimate * (1 - ESTIMATE_SPREAD), 2) if estimate is not None else None,
+                "estimate_high_seconds": round(estimate * (1 + ESTIMATE_SPREAD), 2) if estimate is not None else None,
+                "slack_seconds": round(slot - estimate, 2) if slot and estimate is not None else None,
                 "tier": classify_frame(estimate, slot, has_text),
             }
         )
@@ -1900,7 +2328,11 @@ def vo_budget_payload(project_dir: Path, path: Path, text: str) -> dict[str, Any
         "storyboard": str(path),
         "frame_count": len(frames),
         "frames": frames,
-        "estimated_total_seconds": round(total, 2),
+        "narration_language": None if legacy_assumption else language,
+        "legacy_english_assumption": legacy_assumption,
+        "estimated_total_seconds": (
+            None if any(frame["estimate_seconds"] is None for frame in frames) else round(total, 2)
+        ),
         "film_seconds": round(film, 2),
         "over_count": len(over),
         "over_seconds": round(sum(f["estimate_seconds"] - f["slot_seconds"] for f in over), 2),
@@ -1917,6 +2349,7 @@ def command_vo_budget(project_dir: Path, as_json: bool) -> int:
     """Report whether the approved narration can be spoken in the time it has."""
     try:
         path, text = read_storyboard(project_dir)
+        payload = vo_budget_payload(project_dir, path, text)
     except FileNotFoundError as error:
         emit(
             error_payload(str(error)),
@@ -1932,18 +2365,27 @@ def command_vo_budget(project_dir: Path, as_json: bool) -> int:
         )
         return 2
 
-    payload = vo_budget_payload(project_dir, path, text)
     if not payload["complete"]:
         payload["message"] = f"No frames found in {payload['storyboard']}."
         emit(payload, as_json, stream=sys.stdout if as_json else sys.stderr)
         return 1
 
     # The total is the alarm; per-frame tiers are triage for where to cut.
-    summary = [
-        f"Narration estimate: ~{payload['estimated_total_seconds']:.0f}s of speech "
-        f"for a {payload['film_seconds']:.0f}s film "
-        f"({payload['frame_count']} frames)."
-    ]
+    if payload["estimated_total_seconds"] is None:
+        summary = [
+            f"Narration timing is unmeasurable by the English heuristic for "
+            f"{payload['narration_language'] or 'an unselected language'}. "
+            "Use language-appropriate pacing and measured synthesized audio; no zero-duration "
+            "or English-calibrated total is a fit verdict."
+        ]
+    else:
+        summary = [
+            f"Narration estimate: ~{payload['estimated_total_seconds']:.0f}s of speech "
+            f"for a {payload['film_seconds']:.0f}s film "
+            f"({payload['frame_count']} frames)."
+        ]
+    if payload["legacy_english_assumption"]:
+        summary.append("Legacy advisory assumes English calibration; this is not a confirmed language choice.")
     if payload["over_count"]:
         summary.append(
             f"{payload['over_count']} frame(s) cannot be spoken in their slot — "
@@ -2508,6 +2950,8 @@ def command_confirm_story(project_dir: Path, as_json: bool) -> int:
     try:
         values = parse_brief(project_dir / PLAN_NAME)
         errors = validate_story(values)
+        if not errors:
+            errors.extend(language_profile_errors(project_dir, values))
         if errors:
             payload = {
                 "complete": False,
@@ -2519,6 +2963,7 @@ def command_confirm_story(project_dir: Path, as_json: bool) -> int:
         current_story_fingerprint = fingerprint(story_value(values))
         state_path = project_dir / STATE_RELATIVE_PATH
         state = load_state(state_path)
+        state["schema_version"] = SCHEMA_VERSION
         prior = state["story"]
         changed = not prior or prior.get("fingerprint") != current_story_fingerprint
         revision = (
@@ -2560,6 +3005,8 @@ def command_confirm_audio(project_dir: Path, as_json: bool) -> int:
     try:
         values = parse_brief(project_dir / PLAN_NAME)
         story_errors = validate_story(values)
+        if not story_errors:
+            story_errors.extend(language_profile_errors(project_dir, values))
         track, track_errors = parse_final_track(values)
         errors = [*story_errors, *track_errors]
         if errors:
@@ -2583,12 +3030,9 @@ def command_confirm_audio(project_dir: Path, as_json: bool) -> int:
             emit(payload, as_json, stream=sys.stdout if as_json else sys.stderr)
             return 1
 
-        current_audio_fingerprint = fingerprint(
-            {
-                "story_fingerprint": current_story_fingerprint,
-                "final_music_track": track,
-            }
-        )
+        current_audio_fingerprint = fingerprint(audio_value(
+            project_dir, current_story_fingerprint, track,
+        ))
         prior = state["audio"]
         changed = bool(
             not prior
@@ -2639,6 +3083,13 @@ def command_require(project_dir: Path, target: str, as_json: bool) -> int:
         emit(error_payload(str(error)), as_json, stream=sys.stdout if as_json else sys.stderr)
         return 2
 
+    if payload["language_upgrade_required"]:
+        emit(error_payload(
+            "historical consent is readable, but new generation needs explicit language choices; "
+            "obtain migration consent, run migrate-languages, then confirm the story brief"
+        ), as_json, stream=sys.stdout if as_json else sys.stderr)
+        return 1
+
     if target == "story":
         fresh = payload["story"]["confirmed"]
         message = (
@@ -2670,6 +3121,12 @@ def command_require(project_dir: Path, target: str, as_json: bool) -> int:
 def command_stamp(project_dir: Path, phase: str, as_json: bool) -> int:
     try:
         payload, state, context = current_status(project_dir)
+        if payload["language_upgrade_required"]:
+            emit(error_payload(
+                "language upgrade required before new phase stamps; "
+                "obtain consent, run migrate-languages and confirm the story brief"
+            ), as_json, stream=sys.stdout if as_json else sys.stderr)
+            return 1
         if not payload["story"]["confirmed"]:
             message = (
                 "story brief is not confirmed at the current fingerprint; "
@@ -2750,6 +3207,25 @@ def build_parser() -> argparse.ArgumentParser:
     status = subparsers.add_parser("status", help="Validate the brief and report freshness.")
     status.add_argument("--json", action="store_true", help="Emit one JSON object.")
 
+    language_catalog = subparsers.add_parser(
+        "language-catalog", help="Import native capabilities for the actual TTS provider/model.",
+    )
+    language_catalog.add_argument("--provider", required=True, choices=("elevenlabs", "kokoro"))
+    language_catalog.add_argument("--model", required=True)
+    language_catalog.add_argument("--input", required=True, type=Path)
+    language_catalog.add_argument("--voices", type=Path, help="Native voice metadata, including custom/full-catalog IDs.")
+    language_catalog.add_argument("--languages", type=Path, help="Kokoro's full supported-code JSON array, not inferred from curated voices.")
+    language_catalog.add_argument("--source", default="", help="Capability provenance; never include credentials.")
+    language_catalog.add_argument("--json", action="store_true")
+    language_options = subparsers.add_parser(
+        "language-options", help="List provider/model-supported languages from the imported catalogs.",
+    )
+    language_options.add_argument("--json", action="store_true")
+    language_profile = subparsers.add_parser(
+        "language-profile", help="Check the selected languages/voice and write their execution profile.",
+    )
+    language_profile.add_argument("--json", action="store_true")
+
     migrate = subparsers.add_parser(
         "migrate",
         help=(
@@ -2758,6 +3234,11 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     migrate.add_argument("--json", action="store_true", help="Emit one JSON object.")
+    migrate_languages = subparsers.add_parser(
+        "migrate-languages",
+        help="After user consent, add only missing language placeholders to an existing brief.",
+    )
+    migrate_languages.add_argument("--json", action="store_true")
 
     storyboard = subparsers.add_parser(
         "storyboard",
@@ -2824,8 +3305,19 @@ def main(argv: list[str] | None = None) -> int:
     project_dir = args.project_dir.expanduser().resolve()
     if args.command == "status":
         return command_status(project_dir, args.json)
+    if args.command == "language-catalog":
+        return command_language_catalog(
+            project_dir, args.provider, args.model, args.input, args.voices,
+            args.languages, args.source, args.json,
+        )
+    if args.command == "language-options":
+        return command_language_options(project_dir, args.json)
+    if args.command == "language-profile":
+        return command_language_profile(project_dir, args.json)
     if args.command == "migrate":
         return command_migrate(project_dir, args.json)
+    if args.command == "migrate-languages":
+        return command_migrate_languages(project_dir, args.json)
     if args.command == "storyboard":
         return command_storyboard(project_dir, args.json)
     if args.command == "vo-budget":

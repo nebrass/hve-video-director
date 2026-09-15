@@ -7,14 +7,16 @@ description: >
   recording where supported, asciinema terminal recording) → Design (HyperFrames scene templates) →
   Production (HyperFrames composition) → Audio & Render (media-use audio engine for voiceover,
   music and SFX; reviewed captions; hyperframes render).
+  Starts from a video request and the current project's context; the request drives subject,
+  scenario, detail, and results.
   Three content modes: promo (marketing), showcase (portfolio/demo), or tutorial (walkthrough/how-to). Triggers: "create video",
   "promo video", "showcase video", "tutorial video", "walkthrough video", "how-to video", "product video", "demo video",
   "launch video", "desktop app demo", "screen recording video", "record a screen region".
 user-invocable: true
-argument-hint: "[project-dir] [--mode new|continue|jump] [--phase 0|1|2|3|4|5]"
+argument-hint: "[video request] or [--mode new|continue|jump] [--phase 0|1|2|3|4|5] [--source-dir path] [--output-dir path] [-- video request]"
 allowed-tools: Bash(npm:*), Bash(npx:*), Bash(node:*), Bash(bash:*), Bash(ffmpeg:*), Bash(python:*), Bash(python3:*), Bash(pip:*), Bash(pip3:*), Bash(whisper:*), Bash(curl:*), Bash(git:*), Bash(asciinema:*), Bash(agg:*), Bash(timeout:*), Bash(ffprobe:*), Bash(script:*), Read, Write, Edit, Glob, Grep, AskUserQuestion, Skill, mcp__chrome-devtools__navigate_page, mcp__chrome-devtools__take_screenshot, mcp__chrome-devtools__take_snapshot, mcp__chrome-devtools__click, mcp__chrome-devtools__hover, mcp__chrome-devtools__press_key, mcp__chrome-devtools__type_text, mcp__chrome-devtools__fill, mcp__chrome-devtools__drag, mcp__chrome-devtools__upload_file, mcp__chrome-devtools__wait_for, mcp__chrome-devtools__evaluate_script, mcp__chrome-devtools__emulate, mcp__chrome-devtools__list_pages, mcp__chrome-devtools__new_page, mcp__chrome-devtools__select_page, mcp__chrome-devtools__screencast_start, mcp__chrome-devtools__screencast_stop, mcp__chrome-devtools__resize_page
 version: "0.3.0"
-updated: "2026-08-31"
+updated: "2026-09-14"
 ---
 
 # hve-video-director — AI Video Production Pipeline
@@ -28,13 +30,95 @@ flexible; explicit **MUST**, **NEVER**, prerequisite, safety, and validation rul
 
 **Creative instinct governs craft, not the user's choices.** The agent owns motion choreography,
 easing, composition polish, narrative craft, and implementation details. The user owns the
-creative brief: mode, product surface, duration, theme, aspect ratio, identity/design system,
+creative brief: mode, product surface, duration, theme, aspect ratio, text and narration languages, identity/design system,
 visual ceiling, voice provider and exact voice, transition style, transition speed, music
 strategy, and the final exact music track (or an explicit no-music choice). Surface every lever as a native prompt.
 Phase-0 research may support a
 recommendation, but never infer, silently default, preselect, or answer for the user. If making a
 recommendation, put `Recommended - <reason>` in the option label/description; visible guidance is
 not consent.
+
+## Invocation — the video request comes first
+
+The normal invocation is a description of the video, not a directory:
+
+```text
+/hve-video-director Demonstrate feature XYZ in a typical end-to-end scenario, showing every option and the final results.
+```
+
+Preserve the complete request received from the host, including punctuation, quoted text, and
+line breaks. It determines the **subject, goal, scenario, depth, and expected result** that Phase 0
+researches and Phase 1 storyboards. A detailed feature demo must not become a generic product tour;
+a short promo request must not become a granular tutorial. The word "demo" alone selects no content
+mode. Recommend a fitting existing mode, then keep the normal Creative Brief confirmations.
+
+### Read intent and optional controls
+
+This is a body-level contract on every runtime, not behavior supplied by `argument-hint` or a
+Claude-only placeholder. For intent-based activation, use the triggering user's video request.
+
+- With ordinary prose after the skill name, **all trailing text is the request**. Do not split it
+  into words and rejoin it, treat it as a path, or execute it as shell input.
+- Optional controls form a **leading control block**. Consume only the controls below; the first
+  prose starts the request, and later flag-looking text stays request content. `--` explicitly
+  ends controls and preserves everything after it as the request.
+- Missing control values, unknown leading controls, duplicate/conflicting controls, and a phase
+  without `--mode jump` require clarification before any write. `jump` requires a phase.
+- A lone path, or a path followed by old mode/phase controls, may be a **legacy directory-first**
+  invocation. If it could also be prose, ask whether it is a request or an output workspace.
+  A confirmed legacy directory still means **output**, never source. Do not decide from path
+  existence alone and never turn the entire prompt into a folder name.
+- For bare/default `new`, ask what video the user wants before creating anything. Use the native
+  free-text question capability. Required brief and phase approvals still follow; the request
+  makes their context specific, not optional.
+
+| Leading control | Meaning |
+|---|---|
+| `--mode new\|continue\|jump` | Entry mode; defaults to `new`, distinct from the video's content mode |
+| `--phase 0\|1\|2\|3\|4\|5` | Phase requested by `jump`; existing prerequisites still apply |
+| `--source-dir <path>` | Explicit source override; otherwise use invocation-time cwd for a new video |
+| `--output-dir <path>` | Generated video workspace, never the source argument to the brief validator |
+
+Example with controls: `/hve-video-director --output-dir "../XYZ demo" -- Show XYZ end to end.`
+Quoted control paths may contain spaces; quotes inside the remaining request remain content.
+
+### Bind locations without changing intent
+
+Capture the invocation directory once with `INVOCATION_DIR=$(pwd -P)` **before changing directories**.
+Resolve explicit relative paths against it. Bind `SOURCE_DIR` to the selected source's absolute
+path and `PROJECT_DIR` to the separate output candidate. Propose a short, dedicated output
+subdirectory such as `videos/xyz-demo`; do not create it until the `new` location confirmation.
+The source may be a non-code directory: use clarification or description-based discovery, never
+invent a codebase. Exclude the output subtree from source research.
+
+In every fresh tool call, restore the relevant absolute bindings: source reads and demonstrated
+terminal commands run against `SOURCE_DIR`; generated files and render commands use `PROJECT_DIR`.
+The installed `SKILL_DIR` and companion paths are separate and must be absolute before an
+output-directory change. The resolvers below anchor project-local homes to `SOURCE_DIR` without
+changing the canonical home order.
+
+For `continue`/`jump`, resolve the **output workspace and phase first**, before asking for a new
+description or source. An explicit output or a `project-plan.md` in invocation cwd is a candidate;
+if none or several are plausible, ask rather than choosing the newest folder. Keep the validator
+and prerequisite checks below. A different request attached to resume requires a choice: resume
+the existing film unchanged, or start a new film with that request. Never silently replace its
+intent or bless existing artifacts for a different scenario.
+
+After creation, the **Video Request** section of `project-plan.md` owns the original request and
+portable source locator; its format is in `templates/project-plan.md`. Decode its JSON strings as
+data; a malformed value is an error to repair, not permission to infer a replacement. Resolve a
+nonempty source locator **relative to `PROJECT_DIR`**, not the new cwd; never
+execute its contents. A missing, empty, or unavailable locator requires source re-selection only
+when source-dependent work is needed. On artifact-only resume, explain that the source is not
+needed and leave `SOURCE_DIR` unset so loaded/global skills can still resolve. Never substitute
+the output directory as the product source. An explicit source override that changes an existing
+binding must be confirmed; log a relocation, or start a new film for a different subject.
+
+Legacy projects without this section or an approved scenario inventory keep their existing resume
+behavior. Do not infer an original prompt, retrofit coverage requirements, or force a new discovery
+solely because metadata is absent. Do not create a placeholder `context.md` at intake: its existence
+is a discovery prerequisite. Phase 0 writes the completed interpretation and scenario, then uses
+its existing approval checkpoint. Request provenance is not a Creative Brief answer or consent.
 
 ## Runtime Compatibility
 
@@ -95,10 +179,15 @@ as follows:
   # The zsh guard is part of the bootstrap, not an optional extra: without it zsh
   # neither splits $SKILL_HOMES nor tolerates an unmatched glob, so any resolver
   # copied from here without it silently resolves to nothing.
-  SKILL_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+  SKILL_SEARCH_DIR=$(cd "${SOURCE_DIR:-.}" && pwd -P) || exit 2
+  SKILL_ROOT=$(git -C "$SKILL_SEARCH_DIR" rev-parse --show-toplevel 2>/dev/null || printf '%s\n' "$SKILL_SEARCH_DIR")
   SKILL_HOMES="$HOME/.claude/skills|$HOME/.copilot/skills|$HOME/.agents/skills|$HOME/.pi/agent/skills|$HOME/.config/opencode/skills|$HOME/.cursor/skills|$HOME/.codex/skills|/etc/codex/skills|.claude/skills|.github/skills|.agents/skills|.pi/skills|.opencode/skills|.cursor/skills|.codex/skills|$SKILL_ROOT/.claude/skills|$SKILL_ROOT/.github/skills|$SKILL_ROOT/.agents/skills|$SKILL_ROOT/.pi/skills|$SKILL_ROOT/.opencode/skills|$SKILL_ROOT/.cursor/skills|$SKILL_ROOT/.codex/skills"
   if [ -n "${ZSH_VERSION:-}" ]; then setopt shwordsplit nullglob; fi
   ```
+
+  Relative homes are resolved under `SKILL_SEARCH_DIR`; absolute/global homes keep their order.
+  Set `SOURCE_DIR` only to an available, bound source. An artifact-only resume may leave it unset;
+  this changes skill lookup's anchor, not the film's source identity.
 
 ## Prerequisites
 
@@ -115,7 +204,8 @@ canonical homes without creating or downloading anything:
 
 ```bash
 # Probe the canonical skill homes ($SKILL_HOMES, defined in § Runtime Compatibility above).
-SKILL_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+SKILL_SEARCH_DIR=$(cd "${SOURCE_DIR:-.}" && pwd -P) || exit 2
+SKILL_ROOT=$(git -C "$SKILL_SEARCH_DIR" rev-parse --show-toplevel 2>/dev/null || printf '%s\n' "$SKILL_SEARCH_DIR")
 SKILL_HOMES="$HOME/.claude/skills|$HOME/.copilot/skills|$HOME/.agents/skills|$HOME/.pi/agent/skills|$HOME/.config/opencode/skills|$HOME/.cursor/skills|$HOME/.codex/skills|/etc/codex/skills|.claude/skills|.github/skills|.agents/skills|.pi/skills|.opencode/skills|.cursor/skills|.codex/skills|$SKILL_ROOT/.claude/skills|$SKILL_ROOT/.github/skills|$SKILL_ROOT/.agents/skills|$SKILL_ROOT/.pi/skills|$SKILL_ROOT/.opencode/skills|$SKILL_ROOT/.cursor/skills|$SKILL_ROOT/.codex/skills"
 # zsh does not word-split unquoted $SKILL_HOMES and makes an unmatched glob fatal;
 # both make this loop silently resolve to nothing. No-ops in bash/dash/sh.
@@ -124,6 +214,7 @@ OLD_IFS=$IFS
 IFS='|'
 SKILL_DIR=
 for home in $SKILL_HOMES; do
+  case "$home" in /*) ;; *) home="$SKILL_SEARCH_DIR/$home";; esac
   [ -f "$home/hve-video-director/scripts/check_requirements.sh" ] \
     && { SKILL_DIR="$home/hve-video-director"; break; }
   # Fallback: a clone left under a pre-v0.1.0 directory name. Match the skill's
@@ -173,11 +264,15 @@ non-zero exit is a failed gate exactly like `check`.
 ### `new` (default)
 
 Start fresh. Complete the guided first-run setup, ask mode, create the project directory, then
-begin Phase 0.
+begin Phase 0. First collect the video request and resolve source/output candidates as above,
+without creating files. A `project-plan.md` in the source does not make a different output
+candidate resumable. If the output already contains a project or other files, offer continue,
+a different location, or cancel; never overwrite it in `new`.
 
 ### Phase -1: Guided first-run setup
 
-Run Phase -1 for direct/default `new` mode only when there is no `project-plan.md`. Skip it for explicit `continue` and `jump` invocations; do not create the project directory or
+Run Phase -1 for direct/default `new` mode only when there is no `project-plan.md` in the output
+candidate. Skip it for explicit `continue` and `jump` invocations; do not create the project directory or
 `project-plan.md` until this setup has completed.
 
 1. Resolve the installed skill root (`$SKILL_DIR`) from the runtime's loaded skill path, falling
@@ -185,7 +280,7 @@ Run Phase -1 for direct/default `new` mode only when there is no `project-plan.m
    side-effect-free mode:
 
    ```bash
-   bash "$SKILL_DIR/scripts/check_requirements.sh" --json
+   (cd "$SOURCE_DIR" && bash "$SKILL_DIR/scripts/check_requirements.sh" --json)
    ```
 
 2. Parse the JSON and explain it conversationally rather than dumping it:
@@ -221,7 +316,7 @@ Run Phase -1 for direct/default `new` mode only when there is no `project-plan.m
    command:
 
    ```bash
-   bash "$SKILL_DIR/scripts/check_requirements.sh" "--fix=$SELECTED_FIX_IDS"
+   (cd "$SOURCE_DIR" && bash "$SKILL_DIR/scripts/check_requirements.sh" "--fix=$SELECTED_FIX_IDS")
    ```
 
    Never substitute bare `--fix` for a scoped consent response.
@@ -229,7 +324,7 @@ Run Phase -1 for direct/default `new` mode only when there is no `project-plan.m
 4. After selected fixes finish — or immediately when none were selected — re-run:
 
    ```bash
-   bash "$SKILL_DIR/scripts/check_requirements.sh" --json
+   (cd "$SOURCE_DIR" && bash "$SKILL_DIR/scripts/check_requirements.sh" --json)
    ```
 
    Block entry to Phase 0 only while a `required` check remains `blocked`. Recommended or
@@ -244,7 +339,7 @@ Run Phase -1 for direct/default `new` mode only when there is no `project-plan.m
    | Phase 2 — Capture | Gather bound web (including an already-open authenticated Chrome tab, and human-paced replay of a user-recorded browse flow), terminal, supplied, or native recordings | Approve the capture set and any fallbacks; whole-flow consent before any replay |
    | Phase 3 — Design | Define brand/motion and author scene HTML | Approve `DESIGN.md` and scene previews |
    | Phase 4 — Production | Wire the root composition and transitions | Approve the preview after the seam gate + lint + check |
-   | Phase 5 — Audio & Render | Generate narration, music and SFX through the `media-use` audio engine, review captions, mix, render MP4 | Confirm title/path/source/license (or explicit none) before mixing; approve render |
+   | Phase 5 — Audio & Render | Use the `media-use` engine or confirmed local TTS route with checked languages, review captions, mix, render MP4 | Confirm title/path/source/license (or explicit none) before mixing; approve render |
 
    Mention that `screen-recording` capture is native where supported: macOS uses the
    `screencapture` adapter, Windows uses FFmpeg `gdigrab`, and X11 uses FFmpeg `x11grab`.
@@ -295,26 +390,44 @@ pure-backend tool) or an explicitly abstract brand film. Present a selectable pr
 }
 ```
 
-Then create `{project-dir}/`, generate `project-plan.md` from `templates/project-plan.md`, and
-record the explicit answers in the Creative Brief table as `mode: promo | showcase | tutorial`
-and `product_surface: ui | none`. Do not mark either option selected before the user's response.
-Carry the product surface into the `storyboard.md` frontmatter (`product_surface`) in Phase 1.
-Begin Phase 0.
-
 **Make the output location crystal-clear (issue #21).** Before creating the directory, resolve and
 show its **absolute** path so the user knows exactly where their work will live, and let them
 confirm, rename, or cancel via a native prompt (create / change location / cancel):
 
 ```bash
-# Resolve to an absolute path even though {project-dir} doesn't exist yet (parent must exist).
-PROJECT_DIR="$(cd "$(dirname "{project-dir}")" && pwd)/$(basename "{project-dir}")"
-echo "Project will be created at: $PROJECT_DIR"
+# OUTPUT_CHOICE is the selected path, not the video request.
+PROJECT_DIR=$(python3 - "$INVOCATION_DIR" "$OUTPUT_CHOICE" <<'PY'
+from pathlib import Path
+import sys
+
+path = Path(sys.argv[2]).expanduser()
+if not path.is_absolute():
+    path = Path(sys.argv[1]) / path
+print(path.resolve())
+PY
+) || exit 2
+printf 'Project will be created at: %s\n' "$PROJECT_DIR"
 ```
 
-After `mkdir`, confirm with `Created project at: $PROJECT_DIR`. Recompute this machine-specific
-absolute path from the CWD each run — never persist it into a committed artifact.
+Check the resolved destination, including symlink aliases: it must not be the source directory
+and must be nonexistent or an empty directory. A dedicated child of the source is allowed, but excluded from research.
+If the user changes location, re-resolve and recheck before confirmation.
+
+Only after location confirmation, create `{project-dir}/`, generate `project-plan.md` from
+`templates/project-plan.md`, and record the explicit answers as `mode: promo | showcase | tutorial`
+and `product_surface: ui | none`. Fill its **Video Request** section using the preserved request
+and source locator. Do not mark an option selected before the user's response. Carry the product
+surface into storyboard frontmatter in Phase 1, then begin Phase 0.
+
+After creation, confirm with `Created project at: $PROJECT_DIR`. Recompute machine-specific
+absolute paths from the confirmed bindings each run — never persist them into a committed artifact.
 
 ### `continue`
+
+Resolve the intended output as described in Invocation. Missing request/scenario metadata is not
+a migration trigger; an otherwise valid late-phase artifact-only resume needs no new description
+or available source. If Phase 0 is actually needed, recover the request when present, or ask for
+the missing context without pretending it was an original user instruction.
 
 Read `{project-dir}/project-plan.md`, resolve the installed validator, and run it even when all
 expected files exist:
@@ -322,6 +435,37 @@ expected files exist:
 ```bash
 python3 "$VALIDATOR" --project-dir "$PROJECT_DIR" status --json
 ```
+
+**Language schema upgrade.** `language_upgrade_required: true` means the schema-1 record is
+readable under its original consent, not that a language was confirmed. Read-only inspection or
+returning existing completed artifacts may leave it untouched. Before any new authoring, capture,
+synthesis, mix, render, or phase stamp, ask:
+
+```json
+{
+  "questions": [{
+    "question": "This project has no confirmed language choices. Add empty language fields and choose them before generating anything new?",
+    "header": "Languages",
+    "options": [
+      { "label": "Add language choices", "description": "Preserve all existing answers and artifacts, add only missing placeholders, then choose languages and reconfirm the story." },
+      { "label": "Inspect existing output only", "description": "Leave the historical record unchanged; do not generate or stamp new work." },
+      { "label": "Cancel", "description": "Stop without changing the project." }
+    ],
+    "multiSelect": false
+  }]
+}
+```
+
+Only after **Add language choices**, run:
+
+```bash
+python3 "$VALIDATOR" --project-dir "$PROJECT_DIR" migrate-languages --json
+```
+
+Then route to Phase 0 if context is missing, otherwise Phase 1. Its language/profile and full
+story confirmation make changed language choices stale across Phase 1–5 without deleting
+artifacts. `require` and `stamp` refuse new generation against an un-upgraded historical record.
+Schema-2 projects cannot downgrade by deleting the language rows.
 
 Exit 1 means the table is incomplete or a legacy plan needs migration; still parse the JSON. A
 structurally complete table may return 0 while `story.confirmed`, `audio.confirmed`, or phase
@@ -364,6 +508,8 @@ If no project-plan.md → report that there is no resumable project and switch t
   prompts, but preserve the explicit-continue origin: skip Phase -1 and begin at video-type selection
 If validator migration_required is true → ask migration consent; on approval run migrate, then
   treat every story field as incomplete and route through Phase 0 if needed, otherwise Phase 1
+If language_upgrade_required is true and a phase would run → use the consented language upgrade
+  above; do not interpret historical freshness as permission for new generation
 If context.md missing → Phase 0
 If validator story.complete is false, story.confirmed is false, or earliest_stale_phase is phase-1
   → Phase 1 (collect/reconfirm the complete story brief before storyboard creation)
@@ -397,16 +543,21 @@ If Phase 2 is required and any planned capture lacks its accepted output → Pha
   - supplied: named supplied file exists and is non-empty
 If no DESIGN.md or scenes/ → Phase 3
 If no index.html → Phase 4
+If .hve/vo-sections.pending.json exists → Phase 5 (finish the exact-request synthesis round)
 If no out/final.mp4 → Phase 5
 If out/final.mp4 exists but
   `python3 "$SKILL_DIR/scripts/caption_gen.py" validate --audio voiceover-with-music.mp3
   --manifest captions-review.json --srt out/final.srt --vtt out/final.vtt
-  --state .hve/captions-state.json` fails → Phase 5
+  --state .hve/captions-state.json --expected-language "<confirmed narration locale>"` fails → Phase 5
 Also map validator earliest_stale_phase phase-2..phase-5 directly to that phase, even when its
   files exist. Choose the earliest phase found by either validator state or file checks.
   A changed story field routes to Phase 1 because Phase 1–5 stamps no longer match.
   A changed final_music_track with the same confirmed story routes only to Phase 5.
 ```
+
+For new language-aware work, take the expected caption locale from the checked language profile.
+Only when inspecting an unchanged historical output may its already-reviewed manifest supply that
+value; this is not a new brief answer and permits no new generation.
 
 ### `jump`
 
@@ -414,6 +565,9 @@ Go directly to a specific phase only after checking current state. Run `status -
 `earliest_stale_phase` is earlier than the requested phase, reject the jump and route to that
 earliest stale phase. Keep every existing file-presence prerequisite below, and add these
 fingerprint requirements:
+
+If `language_upgrade_required` is true, reject the generation jump and use the same explicit
+language-upgrade choice as `continue`, then return to Phase 0/1 as appropriate.
 
 If `migration_required` is true, reject the requested jump. Use the same consent-gated migration
 prompt as `continue`, then route through Phase 0 when `context.md` is missing or Phase 1 otherwise.
@@ -531,6 +685,12 @@ Phase 3: DESIGN ──── Phase 4: PRODUCTION ──── Phase 5: AUDIO & R
 See [workflows/phase-0-discovery.md](workflows/phase-0-discovery.md)
 
 ### Phase 1: Storytelling
+Discover language choices from the actual provider/model/voice catalog (`TTS_LANGUAGE_DISCOVERY`),
+never a fixed English/French shortlist. Confirm `text_language` and `narration_language` explicitly,
+using one main choice plus an optional spoken override. The checked language profile keeps
+canonical locales, native TTS codes and ASR codes distinct. Captured UI/code are not translated.
+Provider support alone is not pronunciation, ASR, glyph or end-to-end render qualification.
+
 See [workflows/phase-1-storytelling.md](workflows/phase-1-storytelling.md)
 
 ### Phase 2: Capture
@@ -563,8 +723,9 @@ regenerated packet plus one concrete finding: **one retry per frame**, never "ma
 See [workflows/phase-4-production.md](workflows/phase-4-production.md)
 
 ### Phase 5: Audio & Render
-**Audio generation is delegated to the `media-use` skill.** Its AUDIO_ENGINE produces narration,
-the music bed (BGM) and SFX from one request and returns the assets plus per-line metadata. The
+**Audio generation uses the `media-use` mechanisms.** Its AUDIO_ENGINE produces ElevenLabs narration
+and delegated music/SFX; a confirmed Kokoro voice uses TTS_LOCAL directly with the checked native
+language (`TTS_LANGUAGE_DISCOVERY`). The engine returns assets plus per-line metadata. The
 word timings in that metadata are **relative to each line's own audio**, so they are never the
 caption clock: composition-absolute timing comes from TRANSCRIBE over the *assembled*
 `voiceover.mp3`, with no provider branch — Phase 5 runs it whichever voice spoke.
@@ -589,6 +750,21 @@ user-supplied file), the user confirms that exact track or an explicit none befo
 `scripts/caption_gen.py` `draft` → `approve` → `finalize` → `validate` review contract over the
 caption data, the verified
 mix recipes, and render approval.
+
+`verify_vo_sections.py` binds preparation and seals to exact lines, all non-BGM/SFX settings and
+the profile's opaque speech identity. New language/voice/model/settings need full
+prepare/synthesis/seal; unchanged-text subset retries cannot carry old takes forward. Text-only
+locale changes do not alter that speech identity. The copied assembler checks only repo-owned
+hashes/identities and pending state, never the engine schema. Local/user-supplied attestations
+cannot waive a new language binding, and deleting a profile or using the unverified override is
+not a workflow repair.
+
+Caption drafts use the narration locale; approve/finalize/validate always receive
+`--expected-language` from the checked profile in new work. They reject mismatches without
+rewriting approved cues. The sibling `scripts/language_tools.mjs` uses the already-required
+full-ICU Node runtime for Unicode segmentation; missing support fails explicitly. Grapheme/rate
+ceilings are not universal language-readability guarantees, so the complete user review remains.
+
 See [workflows/phase-5-audio.md](workflows/phase-5-audio.md)
 
 ---
@@ -629,4 +805,6 @@ See [workflows/phase-5-audio.md](workflows/phase-5-audio.md)
 - [patterns/transition-catalog.md](patterns/transition-catalog.md) — Which transition fits which moment; seam law itself is `SEAM_LAW`, enforced by `SEAM_VERIFIER`
 - [scripts/validate_brief.py](scripts/validate_brief.py) — Creative Brief validation, confirmations, fingerprints, and phase freshness
 - [scripts/generate_voiceover.py](scripts/generate_voiceover.py) — voiceover-section assembly for **both** audio paths (`--assemble-only`): exact start times, silence spacers, pad to duration, overrun warning. Pure stdlib; no API key, no network. The ElevenLabs acquisition half was removed in M6
-- [scripts/caption_gen.py](scripts/caption_gen.py) — Reviewed speech/speaker/sound captions bound to the final mixed-audio fingerprint
+- [scripts/verify_vo_sections.py](scripts/verify_vo_sections.py) — Exact-request preparation, settings/profile/media seals, and safe subset retries
+- [scripts/caption_gen.py](scripts/caption_gen.py) — Unicode-aware reviewed captions bound to final audio and the expected narration locale
+- [scripts/language_tools.mjs](scripts/language_tools.mjs) — Canonical locales and ICU word/grapheme segmentation through the existing Node dependency

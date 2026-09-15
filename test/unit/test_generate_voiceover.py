@@ -36,6 +36,26 @@ def seal_sections(project, bodies):
     )
 
 
+def seal_language_sections(project, bodies, texts):
+    """Repo-owned opaque seal/profile fixture; no provider or audio qualification."""
+    seal_sections(project, bodies)
+    path = project / ".hve" / "vo-sections.json"
+    manifest = json.loads(path.read_text(encoding="utf-8"))
+    manifest.update(
+        schema_version=2, speech_fingerprint="sha256:" + "a" * 64,
+        synthesis_sha256="b" * 64, request_fingerprint="c" * 64,
+        script_sha256={sid: hashlib.sha256(text.encode("utf-8")).hexdigest()
+                       for sid, text in texts.items()},
+    )
+    for entry in manifest["sections"].values():
+        entry["request_sha256"] = "d" * 64
+    path.write_text(json.dumps(manifest), encoding="utf-8")
+    (project / ".hve" / "language-profile.json").write_text(json.dumps({
+        "schema_version": 1, "speech_fingerprint": manifest["speech_fingerprint"],
+        "text": {"tag": "en"}, "speech": {"opaque_to_the_assembler": True},
+    }), encoding="utf-8")
+
+
 class GenerateVoiceoverTest(unittest.TestCase):
     def test_the_retired_acquisition_surface_is_gone(self):
         """M6 removed acquisition; only assembly survives.
@@ -265,6 +285,128 @@ class ManifestAnchorWriteIsAtomic(unittest.TestCase):
                 )
             finally:
                 os.chdir(old_cwd)
+
+
+class LanguageBoundAssemblyTest(unittest.TestCase):
+    def setUp(self):
+        self.temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temporary.cleanup)
+        self.project = Path(self.temporary.name)
+        self.module = load_module()
+        self.module.sections = [(0.0, "Same exact text.")]
+        (self.project / "vo_section_00.mp3").write_bytes(b"same-audio")
+        seal_language_sections(self.project, {"00": b"same-audio"}, {"00": "Same exact text."})
+        self.manifest = self.project / ".hve" / "vo-sections.json"
+        self.profile = self.project / ".hve" / "language-profile.json"
+
+    def assemble(self, *args):
+        old_cwd = os.getcwd()
+        os.chdir(self.project)
+        try:
+            with (
+                mock.patch.object(self.module, "get_audio_duration", return_value=1.0) as probe,
+                mock.patch.object(self.module, "assemble_voiceover") as assemble,
+                mock.patch("sys.stderr", new_callable=io.StringIO) as stderr,
+            ):
+                code = self.module.main(["--assemble-only", *args])
+            return code, probe.call_count, assemble.call_count, stderr.getvalue()
+        finally:
+            os.chdir(old_cwd)
+
+    def test_matching_opaque_identity_assembles_without_reading_engine_schema(self):
+        (self.project / "audio_request.json").write_text("not even JSON", encoding="utf-8")
+        before = self.manifest.read_bytes()
+        code, _, calls, _ = self.assemble()
+        self.assertEqual((code, calls), (0, 1))
+        self.assertEqual(before, self.manifest.read_bytes())
+
+    def test_changed_speech_identity_blocks_unchanged_text_and_audio(self):
+        data = json.loads(self.profile.read_text())
+        data["speech_fingerprint"] = "sha256:" + "e" * 64
+        self.profile.write_text(json.dumps(data), encoding="utf-8")
+        before = self.manifest.read_bytes()
+        code, probes, calls, message = self.assemble()
+        self.assertEqual((code, probes, calls), (2, 0, 0))
+        self.assertIn("current speech profile", message)
+        self.assertEqual(before, self.manifest.read_bytes())
+
+    def test_text_only_locale_changes_do_not_invalidate_the_speech_seal(self):
+        data = json.loads(self.profile.read_text())
+        data["text"] = {"tag": "ar", "direction": "rtl"}
+        self.profile.write_text(json.dumps(data), encoding="utf-8")
+        self.assertEqual(self.assemble()[0], 0)
+
+    def test_deleting_a_bound_profile_cannot_downgrade_to_legacy_assembly(self):
+        self.profile.unlink()
+        before = self.manifest.read_bytes()
+        code, probes, calls, message = self.assemble()
+        self.assertEqual((code, probes, calls), (2, 0, 0))
+        self.assertIn("deletion cannot downgrade", message)
+        self.assertEqual(before, self.manifest.read_bytes())
+
+    def test_legacy_or_unbound_seals_cannot_be_anchored_under_a_language_profile(self):
+        for version in (1, 2):
+            with self.subTest(version=version):
+                seal_sections(self.project, {"00": b"same-audio"})
+                data = json.loads(self.manifest.read_text())
+                data["schema_version"] = version
+                self.manifest.write_text(json.dumps(data), encoding="utf-8")
+                before = self.manifest.read_bytes()
+                code, probes, calls, message = self.assemble()
+                self.assertEqual((code, probes, calls), (2, 0, 0))
+                self.assertIn("unbound", message)
+                self.assertEqual(before, self.manifest.read_bytes())
+
+    def test_pending_state_blocks_even_identical_media_before_probing_or_anchoring(self):
+        pending = self.project / ".hve" / "vo-sections.pending.json"
+        pending.write_text("{ interrupted prepare", encoding="utf-8")
+        before = self.manifest.read_bytes()
+        code, probes, calls, message = self.assemble()
+        self.assertEqual((code, probes, calls), (2, 0, 0))
+        self.assertIn("preparation is pending", message)
+        self.assertEqual(before, self.manifest.read_bytes())
+
+    def test_first_assembly_checks_the_sealed_script_not_a_new_anchor(self):
+        self.module.sections = [(0.0, "Changed script, same audio.")]
+        before = self.manifest.read_bytes()
+        code, probes, calls, message = self.assemble()
+        self.assertEqual((code, probes, calls), (2, 0, 0))
+        self.assertIn("different narration", message)
+        self.assertEqual(before, self.manifest.read_bytes())
+
+    def test_incomplete_language_seal_is_not_repaired_by_assembly(self):
+        for field in ("script_sha256", "synthesis_sha256", "request_fingerprint"):
+            with self.subTest(field=field):
+                seal_language_sections(self.project, {"00": b"same-audio"},
+                                       {"00": "Same exact text."})
+                data = json.loads(self.manifest.read_text())
+                del data[field]
+                self.manifest.write_text(json.dumps(data), encoding="utf-8")
+                before = self.manifest.read_bytes()
+                code, probes, calls, message = self.assemble()
+                self.assertEqual((code, probes, calls), (2, 0, 0))
+                self.assertIn("no complete request/script proof", message)
+                self.assertEqual(before, self.manifest.read_bytes())
+
+    def test_malformed_profile_fails_instead_of_falling_back_to_english(self):
+        for value in ("not json", "[]", '{"schema_version":1,"speech_fingerprint":"bad"}'):
+            with self.subTest(value=value):
+                self.profile.write_text(value, encoding="utf-8")
+                before = self.manifest.read_bytes()
+                code, probes, calls, message = self.assemble()
+                self.assertEqual((code, probes, calls), (2, 0, 0))
+                self.assertIn("language-profile.json", message)
+                self.assertEqual(before, self.manifest.read_bytes())
+
+    def test_explicit_unverified_override_warns_without_rewriting_any_proof(self):
+        self.profile.unlink()
+        before = self.manifest.read_bytes()
+        self.assertEqual(self.assemble()[0], 2)
+        code, _, calls, message = self.assemble("--allow-unverified")
+        self.assertEqual((code, calls), (0, 1))
+        self.assertIn("WARNING: assembling UNVERIFIED", message)
+        self.assertIn("language-profile.json is missing", message)
+        self.assertEqual(before, self.manifest.read_bytes())
 
 
 class ConcatListRobustnessTest(unittest.TestCase):

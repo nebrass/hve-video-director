@@ -2,9 +2,22 @@
 
 ## What this repo is
 
-This repo **is an agent skill** (`hve-video-director`) that runs on both **GitHub Copilot CLI** and **Claude Code**, not a typical application. The "source" is prompt content (markdown) plus Python helper scripts. There is no build system or lint config; pure-stdlib helper tests live under `test/`. The skill is consumed by future agent sessions that invoke `/hve-video-director <project-dir>` (a slash command on Claude Code; invoked by name/intent on Copilot CLI). The `SKILL.md` frontmatter follows the Claude Code skill schema; Copilot CLI loads the skill from its `name`/`description` and harmlessly ignores the Claude-only fields (`allowed-tools`, `user-invocable`, `argument-hint`). See the **Runtime Compatibility** section in `SKILL.md` for how interaction blocks (`{"questions": […]}`), companion-skill loading (`Skill(<name>)`), and skill-home paths map across runtimes — preserve that mapping when editing.
+This repo **is an agent skill** (`hve-video-director`) that runs on both **GitHub Copilot CLI** and **Claude Code**, not a typical application. The "source" is prompt content (markdown) plus Python helper scripts. There is no build system or lint config; pure-stdlib helper tests live under `test/`. The skill is consumed by future agent sessions that invoke `/hve-video-director <video request>` or use intent. Copilot CLI reads the skill's `name`/`description` and honors `allowed-tools`; invocation behavior must not depend on Claude-specific frontmatter. See **Runtime Compatibility** in `SKILL.md` for the question schema, companion loading, and skill-home mapping.
 
 The renderer is **HyperFrames** (HTML + GSAP, rendered via headless Chromium). React/Remotion are **not** used.
+
+**Request scope matters.** The prompt defines subject, scenario, depth, and expected result.
+Phase 0 focuses on that feature/product; Phase 1 preserves the requested coverage rather than
+forcing a generic tour. Store original request/source provenance as single-line JSON strings
+outside the Creative Brief in `project-plan.md`; do not create an intake `context.md`.
+An approved scenario inventory in the completed context owns requirement IDs; the storyboard's
+single **Scenario Coverage** prose table records their frames and actual capture/assembled
+evidence. No new brief/director keys or larger packets: each frame carries its own required
+content, and coverage IDs are not rendered. Unresolved approved requirements are not completion.
+
+Source comes from invocation cwd or `--source-dir`; output is separately confirmed (`--output-dir`).
+Resolve source-local skills to absolute paths before output work. Legacy and artifact-only
+resumes keep their existing prerequisites; missing new metadata alone never forces discovery.
 
 Keep two scopes distinct when editing:
 
@@ -43,12 +56,16 @@ SKILL.md (orchestrator)
 - `npx hyperframes` CLI for `init`, `add` (pull catalog blocks — registry-first scene planning in Phase 3, seams and furniture in Phase 4), `lint`, `preview`, `check` (required final gate; `inspect`/`validate`/`layout` are deprecated aliases), `snapshot`, `render`, `doctor` (render-environment diagnostics, Phase 5), `transcribe` (preferred voiceover-timing verifier in Phase 5; falls back to standalone Whisper if unavailable), and `tts` (used in Phase 5 when the user explicitly confirms a local Kokoro voice)
 - `mcp__chrome-devtools__screencast_*` + `resize_page` for Phase-2 web-clip capture (experimental, feature-detected — needs `--experimentalScreencast=true`; falls back to screenshots), and optional `asciinema`+`agg` for CLI clip recording (otherwise the authored-terminal path)
 - `mcp__chrome-devtools__list_pages` + `select_page` for the explicit authenticated-session path. The user must first connect the MCP to running Chrome with Chrome 144+ `--autoConnect` (preferred) or the dedicated-profile `--browser-url` fallback; attached capture never navigates and follows `patterns/authenticated-browser-capture.md` — with one carve-out: a user-recorded flow replayed after the Phase-2 whole-flow consent may perform exactly its own recorded steps (ADR-011; § Recorded-flow exception in that pattern).
-- `scripts/generate_voiceover.py` → `--assemble-only` section assembler used by both audio paths (exact start times, padding, overrun warning). M6 retired its ElevenLabs acquisition path; narration now comes from the `media-use` audio engine
-- `scripts/caption_gen.py` → backward-compatible ASR drafts plus the Phase-5 reviewed-caption workflow: `draft` creates an audio-bound manifest, `approve` binds explicit user approval to the exact cues, `finalize` transactionally publishes `out/final.srt` + `out/final.vtt` + deterministic state, and `validate` rejects stale audio/manifest/state/outputs (pure stdlib + required `ffprobe`)
+- `scripts/generate_voiceover.py` → `--assemble-only` section assembler for both audio paths (exact start times, padding, overrun warning). ElevenLabs synthesis stays in the `media-use` engine; confirmed Kokoro narration uses the existing `TTS_LOCAL` CLI directly with its native language. Assembly reads only repo-owned opaque speech/profile/seal identities, media/script hashes and pending state, never the engine request schema; missing/mismatched profiles and old unbound seals cannot authorize language-aware assembly
+- `scripts/verify_vo_sections.py` → validates the checked request/profile before clearing both WAV/MP3 section layers. Schema-2 preparation and seals bind every complete exact line plus all non-BGM/SFX synthesis settings; changed language, voice, model or settings require full prepare/synthesis, not unchanged-text subset reuse. `check` writes a filtered retry request without replacing the complete canonical request; edited-after-prepare requests fail sealing. Local/user-supplied attestations do not waive language freshness, and deleting a bound profile does not restore legacy behavior. Upstream failure mechanics: `AUDIO_ENGINE_PARTIAL_FAILURE`
+- `scripts/caption_gen.py` → backward-compatible ASR drafts plus `draft` → human review → `approve` → `finalize` → `validate`. Drafts canonicalize the narration locale; the other commands compare optional `--expected-language`, always explicit in new workflows, before writes without relabelling approved cues. Approval remains content-bound and sidecars/state publish transactionally. ICU word/grapheme handling preserves combining marks/emoji and unspaced-script joining; global width/rate ceilings do not certify per-language readability (Python stdlib + required `ffprobe` and sibling Node helper)
+- `scripts/language_tools.mjs` → offline canonical locales and Unicode segmentation through the existing full-ICU Node platform dependency; no new package. Caption/brief helpers invoke it using argv/JSON stdin, and missing capability/parse failures are explicit, never English defaults
 - `scripts/capture_screen.py` → fixed-duration, silent native desktop/region capture orchestrator (pure stdlib): macOS `screencapture`, Windows `gdigrab`, X11 `x11grab`, or feature-detected Wayland `wf-recorder`; WSL/unavailable Wayland return explicit handoffs. It trims via sibling `stitch_clip.py`, validates duration/frame count within one frame, and uses `<clip>.capture.pending` + fingerprinted `<clip>.capture.json` state so failed retakes preserve prior valid media but cannot count as complete.
 - `scripts/stitch_clip.py` → canonical raw-capture normalizer/stitcher for CFR30 H.264 High/yuv420p, even dimensions, no audio, and `+faststart` (pure stdlib wrapper for ffmpeg/ffprobe)
-- `scripts/validate_brief.py` → exact Creative Brief parser, consent-gated legacy placeholder migration, revision-bound story/audio fingerprints, atomic `.hve/brief-state.json`, phase stamps, and stale-prerequisite checks (pure stdlib)
-- `scripts/check_requirements.sh` → structured toolchain preflight. Default, `--json`, and
+- `scripts/validate_brief.py` → exact Creative Brief parser, consent-gated legacy migration, revision-bound fingerprints and phase stamps. Schema-2 briefs confirm separate `text_language`/`narration_language`; native provider/model catalogs drive all language choices, not a fixed shortlist. The checked language profile maps canonical, native TTS and ASR codes separately. Historical schema-1 inspection stays byte-preserving; new generation requires consented language upgrade. Text-only locale changes stale story work but not narration's opaque speech identity. Do not translate captured UI/code
+- `scripts/check_requirements.sh` → structured toolchain preflight. The Node gate checks the
+  version and then runs the sibling `language_tools.mjs` on an RTL locale, so a small-icu build
+  is blocked here instead of failing at the first Phase-1 language call. Default, `--json`, and
   `--plan` are side-effect-free and never use online `npx` probes. Scoped
   `--fix=<id,id>` runs only selected safe user-scoped fixes; bare `--fix` means all safe fixes.
   It never runs system/sudo commands or sets environment variables. Phase -1 consumes its JSON
@@ -64,7 +81,8 @@ The media scripts run inside generated video projects; `validate_brief.py` runs 
 skill against a generated project via `--project-dir`. Every remaining helper — voiceover
 assembly, clip-audio mixing, capture, stitch, caption, and Creative Brief validation — is pure
 standard library. Caption finalization invokes the required `ffprobe` binary for
-duration validation.
+duration validation. Locale/word/grapheme handling invokes sibling `scripts/language_tools.mjs`
+through the already-required full-ICU Node runtime; keep it beside the Python callers.
 
 ```bash
 # Voiceover-section assembly (from inside a generated project) — both audio
@@ -97,7 +115,7 @@ python3 /path/to/hve-video-director/scripts/validate_brief.py \
 engine's ElevenLabs route.
 
 There is no build or lint command for this repo. Run `bash test/run.sh` for the stdlib helper tests;
-validation of workflow changes still happens by running `/hve-video-director <project-dir>` end-to-end
+validation of workflow changes still happens by running `/hve-video-director <video request>` end-to-end
 in Claude Code. The canonical reference build is `example/` — the source artifacts of one real end-to-end run
 (media gitignored; see `example/README.md` for how to reproduce the render). It is a record of a
 human-in-the-loop run, so never hand-edit it and never regenerate it from a partial run; a

@@ -54,3 +54,18 @@ Invocation differs by host:
 | Cursor | `/hve-video-director` |
 
 See [`SKILL.md`](SKILL.md) and [`README.md`](README.md) for the six-phase pipeline.
+
+For a new video, follow the invocation with the video request, for example:
+
+```text
+/hve-video-director Demonstrate feature XYZ in a typical end-to-end scenario, showing its granular options and final results.
+```
+
+The prompt drives subject, scenario, depth, and result; it is not a directory argument. A short
+promo request stays a short promo. The invocation directory supplies source context while the
+output workspace is separately confirmed. Bare invocation asks what video to create.
+
+Optional leading `--source-dir`, `--output-dir`, `--mode`, and `--phase` controls are described in
+`SKILL.md`; `--` ends controls before literal request text. Behavior belongs to the skill body,
+not Claude-specific frontmatter. Legacy directory-first input is clarified when ambiguous;
+continue/jump still target a generated workspace and keep their prerequisite/consent checks.
