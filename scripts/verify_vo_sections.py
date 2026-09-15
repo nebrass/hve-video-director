@@ -113,7 +113,12 @@ def read_json_object(path: Path) -> dict:
 
 def load_request(project_dir: Path) -> dict:
     """Read exact lines and all settings except independent BGM/SFX requests."""
-    data = read_json_object(project_dir / "audio_request.json")
+    path = project_dir / "audio_request.json"
+    if not path.is_file():
+        # read_json_object only translates malformed JSON, so without this the
+        # operator sees a bare ENOENT instead of the file that is missing.
+        raise FileNotFoundError(f"no audio_request.json in {project_dir}")
+    data = read_json_object(path)
     lines = data.get("lines")
     if not isinstance(lines, list) or not lines:
         raise ValueError("audio_request.json carries no lines[]")

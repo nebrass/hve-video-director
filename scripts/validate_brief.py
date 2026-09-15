@@ -474,6 +474,9 @@ def command_language_catalog(
 
 
 def command_language_options(project_dir: Path, as_json: bool) -> int:
+    # One tuple guards and builds the row: a key present in only one of the two
+    # raises KeyError past the BriefFormatError handler and prints a traceback.
+    fields = ("tag", "name", "code", "language")
     try:
         catalog = load_language_catalog(project_dir)
         options = []
@@ -481,10 +484,10 @@ def command_language_options(project_dir: Path, as_json: bool) -> int:
             if not isinstance(entry, dict) or not isinstance(entry.get("languages"), list):
                 raise BriefFormatError("provider catalog is malformed")
             for row in entry["languages"]:
-                if not isinstance(row, dict) or not all(key in row for key in ("tag", "name", "code")):
+                if not isinstance(row, dict) or not all(key in row for key in fields):
                     raise BriefFormatError("provider language entry is malformed")
                 options.append({
-                    **{key: row[key] for key in ("tag", "name", "code", "language")},
+                    **{key: row[key] for key in fields},
                     "provider": provider, "model": entry["model"],
                 })
         if not options:
