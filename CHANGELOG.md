@@ -7,6 +7,79 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-09-15
+
+Two features that were really one problem: the skill assumed the run started from a source it
+could inspect, and it assumed the film was in English. Both assumptions were load-bearing in
+places nobody had written down, which is why this release touches discovery, storyboarding,
+capture, audio and captions rather than adding a flag.
+
+The consent doctrine did not bend for either one. Language is not inferred from a request, a
+locale, or a provider's default — `text_language` and `narration_language` are confirmed
+separately, after the provider and model say what they actually support, and a historical project
+keeps the consent and the bytes it was built with.
+
+### Added
+
+- **Prompt-driven video requests** — a natural-language request is the primary entry form, and it
+  decides subject, scenario, detail and result. Discovery narrows to that request instead of
+  turning every demo into a product tour. Source binds to the invocation cwd (or an explicit
+  `--source-dir`) and output is separate (`--output-dir`), so project-local skill homes resolve
+  against the bound source while generated files and render commands stay in output. Provenance
+  rides in `project-plan.md` as single-line JSON outside the Creative Brief; `context.md` is the
+  completed interpretation, never an intake placeholder. Its optional approved scenario inventory
+  owns requirement IDs, and the storyboard's single **Scenario Coverage** table maps them to
+  frames and actual evidence — missing approved coverage is a repair or an explicit scope change,
+  not a silent gap.
+- **Provider-supported languages** (schema-2 language consent) — no fixed language shortlist.
+  Provider/model catalogs are imported and drive the options; the checked
+  `.hve/language-profile.json` maps canonical locales to native TTS/ASR codes and carries an
+  opaque `speech_fingerprint`. Authored text follows its locale, narration and captions follow the
+  spoken locale, and captured UI/code are never translated. A text-only locale change stales story
+  work without touching the speech identity.
+- **`scripts/language_tools.mjs`** — dependency-free locale and Unicode word/grapheme operations
+  on the already-required full-ICU Node runtime, invoked by the caption and brief helpers over
+  argv/JSON stdin. Missing capabilities, unsupported segmentation and malformed output fail
+  explicitly rather than quietly selecting English.
+- **Unicode-aware captions** — ICU grapheme/word segmentation preserves combining marks, emoji
+  clusters, RTL text and unspaced-script joining. `draft` canonicalizes the narration locale, and
+  `approve`/`finalize`/`validate` take `--expected-language`, failing before any write rather than
+  relabelling approved cues. Review stays mandatory in every language: global width and rate
+  ceilings do not certify a given language's readability.
+- **Language-bound synthesis proofs** — schema-2 `prepare`/`seal` bind language, voice, model and
+  every non-BGM/SFX generation setting. Changed settings cannot reuse an unchanged-text take, and
+  a local or user-supplied attestation does not waive a new language binding.
+
+### Changed
+
+- The Node preflight gate is version **and** capability: it runs `language_tools.mjs` on an RTL
+  locale, so a small-icu build that clears `node --version` is reported blocked at Phase -1
+  instead of failing at the first language call in Phase 1. It probes through the helper on
+  purpose — restating the helper's Intl requirements in the gate is how the two drift apart.
+- Both CI jobs provision Node 22 for the shared Intl helper.
+- Tool resolution is bound to the source directory, and early-phase dependency reporting follows
+  it.
+
+### Fixed
+
+- Ecosystem pointers for four HyperFrames workflow contracts that moved to
+  `hyperframes/references/` (#49). A stale local install produces the identical failure, so check
+  upstream before reading it as a regression.
+- `load_request` lost its file-presence check, so sealing a language-aware project with no
+  `audio_request.json` reported a bare `ENOENT` instead of naming the missing file.
+- `command_language_options` validated three keys and built the row with four, so a catalog
+  missing `language` raised `KeyError` past the error handler and printed a traceback. Both are
+  now one tuple.
+- `scripts/validate_brief.py` was still documented as pure stdlib. Any non-legacy brief resolves
+  locales through the Node helper and hard-fails without a working full-ICU runtime.
+
+### Not certified by this release
+
+Live provider synthesis, speech quality and a full human-approved production run were not
+performed. Provider-supported languages are not a blanket certification of every
+voice/font/backend combination — the per-project compatibility, readability and approval checks
+remain required, and `example/` remains the record of the one real end-to-end run, unchanged.
+
 ## [0.3.0] - 2026-08-31
 
 A remediation pass over a seven-agent audit of the skill (41 findings), plus an expert review
@@ -598,7 +671,8 @@ Initial release of the hve-video-director skill.
   earlier Pixabay integration.
 - README with install instructions and an MIT license.
 
-[Unreleased]: https://github.com/nebrass/hve-video-director/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/nebrass/hve-video-director/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/nebrass/hve-video-director/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/nebrass/hve-video-director/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/nebrass/hve-video-director/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/nebrass/hve-video-director/compare/v0.0.4...v0.1.0

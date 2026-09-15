@@ -15,7 +15,7 @@ description: >
 user-invocable: true
 argument-hint: "[video request] or [--mode new|continue|jump] [--phase 0|1|2|3|4|5] [--source-dir path] [--output-dir path] [-- video request]"
 allowed-tools: Bash(npm:*), Bash(npx:*), Bash(node:*), Bash(bash:*), Bash(ffmpeg:*), Bash(python:*), Bash(python3:*), Bash(pip:*), Bash(pip3:*), Bash(whisper:*), Bash(curl:*), Bash(git:*), Bash(asciinema:*), Bash(agg:*), Bash(timeout:*), Bash(ffprobe:*), Bash(script:*), Read, Write, Edit, Glob, Grep, AskUserQuestion, Skill, mcp__chrome-devtools__navigate_page, mcp__chrome-devtools__take_screenshot, mcp__chrome-devtools__take_snapshot, mcp__chrome-devtools__click, mcp__chrome-devtools__hover, mcp__chrome-devtools__press_key, mcp__chrome-devtools__type_text, mcp__chrome-devtools__fill, mcp__chrome-devtools__drag, mcp__chrome-devtools__upload_file, mcp__chrome-devtools__wait_for, mcp__chrome-devtools__evaluate_script, mcp__chrome-devtools__emulate, mcp__chrome-devtools__list_pages, mcp__chrome-devtools__new_page, mcp__chrome-devtools__select_page, mcp__chrome-devtools__screencast_start, mcp__chrome-devtools__screencast_stop, mcp__chrome-devtools__resize_page
-version: "0.3.0"
+version: "0.4.0"
 updated: "2026-09-14"
 ---
 
