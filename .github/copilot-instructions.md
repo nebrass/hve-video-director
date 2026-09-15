@@ -63,7 +63,9 @@ SKILL.md (orchestrator)
 - `scripts/capture_screen.py` → fixed-duration, silent native desktop/region capture orchestrator (pure stdlib): macOS `screencapture`, Windows `gdigrab`, X11 `x11grab`, or feature-detected Wayland `wf-recorder`; WSL/unavailable Wayland return explicit handoffs. It trims via sibling `stitch_clip.py`, validates duration/frame count within one frame, and uses `<clip>.capture.pending` + fingerprinted `<clip>.capture.json` state so failed retakes preserve prior valid media but cannot count as complete.
 - `scripts/stitch_clip.py` → canonical raw-capture normalizer/stitcher for CFR30 H.264 High/yuv420p, even dimensions, no audio, and `+faststart` (pure stdlib wrapper for ffmpeg/ffprobe)
 - `scripts/validate_brief.py` → exact Creative Brief parser, consent-gated legacy migration, revision-bound fingerprints and phase stamps. Schema-2 briefs confirm separate `text_language`/`narration_language`; native provider/model catalogs drive all language choices, not a fixed shortlist. The checked language profile maps canonical, native TTS and ASR codes separately. Historical schema-1 inspection stays byte-preserving; new generation requires consented language upgrade. Text-only locale changes stale story work but not narration's opaque speech identity. Do not translate captured UI/code
-- `scripts/check_requirements.sh` → structured toolchain preflight. Default, `--json`, and
+- `scripts/check_requirements.sh` → structured toolchain preflight. The Node gate checks the
+  version and then runs the sibling `language_tools.mjs` on an RTL locale, so a small-icu build
+  is blocked here instead of failing at the first Phase-1 language call. Default, `--json`, and
   `--plan` are side-effect-free and never use online `npx` probes. Scoped
   `--fix=<id,id>` runs only selected safe user-scoped fixes; bare `--fix` means all safe fixes.
   It never runs system/sudo commands or sets environment variables. Phase -1 consumes its JSON
