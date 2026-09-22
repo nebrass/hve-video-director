@@ -42,10 +42,11 @@ __pycache__/
 # Agent session state (local runtime, not source)
 .omo/
 
-# Throwaway render/verify harnesses; keep only the stdlib test entrypoint/suite
+# Throwaway render/verify harnesses; keep the committed test tooling
 test/*
 !test/run.sh
 !test/install_ecosystem.py
+!test/check_shell_portability.py
 !test/unit/
 test/unit/__pycache__/
 

@@ -212,14 +212,15 @@ if ! capture_line SKILL_ROOT git rev-parse --show-toplevel 2>/dev/null; then
 fi
 SKILL_HOMES="$HOME/.claude/skills|$HOME/.copilot/skills|$HOME/.agents/skills|$HOME/.pi/agent/skills|$HOME/.config/opencode/skills|$HOME/.cursor/skills|$HOME/.codex/skills|/etc/codex/skills|.claude/skills|.github/skills|.agents/skills|.pi/skills|.opencode/skills|.cursor/skills|.codex/skills|$SKILL_ROOT/.claude/skills|$SKILL_ROOT/.github/skills|$SKILL_ROOT/.agents/skills|$SKILL_ROOT/.pi/skills|$SKILL_ROOT/.opencode/skills|$SKILL_ROOT/.cursor/skills|$SKILL_ROOT/.codex/skills"
 
-# The sibling language helper is the authority on what the language layer needs,
-# so the Node gate runs it rather than restating its Intl requirements and
-# drifting from them. Resolved from this file rather than $PWD, by parameter
-# expansion rather than `dirname`: the gate has to survive the broken PATH it
-# exists to report, and the script never changes directory.
-case "${BASH_SOURCE[0]}" in
-  */*) LANGUAGE_TOOL="${BASH_SOURCE[0]%/*}/language_tools.mjs" ;;
-  *) LANGUAGE_TOOL="./language_tools.mjs" ;;
+# The sibling language helper is the authority when this runs from an installed
+# skill. A standalone download or `curl | bash` has no sibling, so it falls back
+# to the equivalent offline capability probe below. Resolve without `dirname`:
+# the gate has to survive the broken PATH it exists to report.
+SCRIPT_PATH="${BASH_SOURCE[0]-}"
+case "$SCRIPT_PATH" in
+  */*) LANGUAGE_TOOL="${SCRIPT_PATH%/*}/language_tools.mjs" ;;
+  ?*) LANGUAGE_TOOL="./language_tools.mjs" ;;
+  *) LANGUAGE_TOOL="" ;;
 esac
 LANGUAGE_PROBE_REASON=""
 
@@ -228,16 +229,27 @@ probe_language_runtime() {
   # script resolution, text direction, display names and ICU segmentation. A
   # small-icu Node passes `node --version` and fails here.
   LANGUAGE_PROBE_REASON=""
-  if [ ! -f "$LANGUAGE_TOOL" ]; then
-    LANGUAGE_PROBE_REASON="scripts/language_tools.mjs is missing; reinstall the skill"
-    return 1
-  fi
-  if ! printf '%s' '{"language":"ar","texts":["a b"]}' \
-    | node "$LANGUAGE_TOOL" segment >/dev/null 2>&1; then
+  if [ -n "$LANGUAGE_TOOL" ] && [ -f "$LANGUAGE_TOOL" ]; then
+    if printf '%s' '{"language":"ar","texts":["a b"]}' \
+      | node "$LANGUAGE_TOOL" segment >/dev/null 2>&1; then
+      return 0
+    fi
     LANGUAGE_PROBE_REASON="this Node cannot resolve full-ICU locale data (small-icu build?)"
     return 1
   fi
-  return 0
+  if node -e '
+    const locale = new Intl.Locale("ar");
+    const tag = locale.toString();
+    const direction = (locale.getTextInfo?.() ?? locale.textInfo)?.direction;
+    if (locale.maximize().script !== "Arab" || direction !== "rtl") process.exit(1);
+    if (!new Intl.DisplayNames(["en"], {type: "language"}).of(tag)) process.exit(1);
+    if (!Intl.Segmenter.supportedLocalesOf([tag]).length) process.exit(1);
+    Array.from(new Intl.Segmenter(tag, {granularity: "word"}).segment("a b"));
+  ' >/dev/null 2>&1; then
+    return 0
+  fi
+  LANGUAGE_PROBE_REASON="this Node cannot resolve full-ICU locale data (small-icu build?)"
+  return 1
 }
 
 find_skill_home() {

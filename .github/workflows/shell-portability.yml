@@ -1,0 +1,112 @@
+name: native shell verification
+
+on:
+  push:
+    paths:
+      - ".github/workflows/shell-portability.yml"
+      - ".gitattributes"
+      - "scripts/**"
+      - "test/**"
+  pull_request:
+    paths:
+      - ".github/workflows/shell-portability.yml"
+      - ".gitattributes"
+      - "scripts/**"
+      - "test/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: native-shell-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  native-shell:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: bash
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: macOS system Bash 3.2
+            os: macos-latest
+            platform: darwin
+            bash-version: "3.2"
+          - name: Windows Git Bash
+            os: windows-latest
+            platform: win32
+            bash-version: ""
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Record native toolchain and revision
+        run: |
+          if [ "$RUNNER_OS" = macOS ]; then
+            native_bash=/bin/bash
+          else
+            native_bash="$BASH"
+          fi
+          printf 'NATIVE_BASH=%s\n' "$native_bash" >> "$GITHUB_ENV"
+          {
+            git rev-parse HEAD
+            printf 'Bash executable: %s\n' "$native_bash"
+            "$native_bash" --version
+            uname -a
+            python --version
+            node --version
+            git ls-files --eol scripts/check_requirements.sh test/run.sh
+            git config --show-origin --get core.autocrlf || true
+          } 2>&1 | tee native-toolchain.log
+
+      - name: Verify native shell invocation contracts
+        id: smoke
+        run: |
+          python test/check_shell_portability.py \
+            --bash "$NATIVE_BASH" \
+            --expected-platform "${{ matrix.platform }}" \
+            --expected-bash "${{ matrix.bash-version }}" \
+            2>&1 | tee native-shell-smoke.log
+
+      - name: Run the existing suite on the native host
+        id: suite
+        if: ${{ !cancelled() }}
+        run: |
+          "$NATIVE_BASH" --noprofile --norc test/run.sh 2>&1 | tee native-shell-suite.log
+
+      - name: Summarize native results
+        if: ${{ !cancelled() }}
+        env:
+          SMOKE_OUTCOME: ${{ steps.smoke.outcome }}
+          SUITE_OUTCOME: ${{ steps.suite.outcome }}
+        run: |
+          {
+            printf '## Native shell verification\n\n'
+            printf 'Runner: %s; interpreter: %s\n\n' "${{ matrix.os }}" "$NATIVE_BASH"
+            printf '| Check | Outcome |\n| --- | --- |\n'
+            printf '| Invocation contracts | %s |\n' "$SMOKE_OUTCOME"
+            printf '| Existing full suite | %s |\n' "$SUITE_OUTCOME"
+            printf '\nSee the native-shell-%s artifact for complete logs, including skips.\n' "$RUNNER_OS"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload native execution evidence
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-shell-${{ runner.os }}
+          path: native-*.log
+          if-no-files-found: error
+          retention-days: 14

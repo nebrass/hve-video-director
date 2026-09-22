@@ -175,10 +175,11 @@ class RequirementsCheckerTestCase(unittest.TestCase):
         self.assertIn("nodejs.org", checks["node"]["fixability"]["command"])
         self.assertFalse(self.log.exists(), "the ICU probe must stay offline")
 
-    def test_missing_language_helper_blocks_instead_of_reporting_node_ready(self):
-        # The helper is resolved from the script's own directory, not $PWD, so a
-        # copy without its sibling is a partial install — report it, never assume
-        # the language layer works because `node --version` answered.
+    def test_standalone_copy_uses_offline_language_capability_probe(self):
+        # The README supports downloading only this script. Without its sibling,
+        # the checker must remain self-contained while testing the same Node
+        # capabilities rather than failing solely because language_tools.mjs is
+        # unavailable.
         self.install_required_shims()
         self.install_skills()
         orphan = self.work / "orphan"
@@ -194,9 +195,24 @@ class RequirementsCheckerTestCase(unittest.TestCase):
             check=False,
         )
         checks = {check["id"]: check for check in json.loads(result.stdout)["checks"]}
-        self.assertEqual(result.returncode, 1)
-        self.assertEqual(checks["node"]["state"], "blocked")
-        self.assertIn("language_tools.mjs", checks["node"]["detail"])
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(checks["node"]["state"], "ready")
+
+    def test_stdin_execution_does_not_require_bash_source_or_language_helper(self):
+        self.install_required_shims()
+        self.install_skills()
+        result = subprocess.run(
+            ["/bin/bash", "-s", "--", "--json"],
+            input=SCRIPT.read_text(encoding="utf-8"),
+            cwd=self.sandbox,
+            env=self.environment(),
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        checks = {check["id"]: check for check in json.loads(result.stdout)["checks"]}
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(checks["node"]["state"], "ready")
 
     def assert_companion_skill_degrades(self, name, check_id, phases):
         """A recommended companion skill: present -> ready, absent -> degraded.
