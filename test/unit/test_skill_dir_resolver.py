@@ -13,6 +13,8 @@ import textwrap
 import unittest
 from pathlib import Path
 
+from shell_helpers import native_path, shell_executable, shell_path
+
 
 ROOT = Path(__file__).resolve().parents[2]
 SKILL_NAME = "hve-video-director"
@@ -51,12 +53,13 @@ def make_skill(home: Path, dirname: str, frontmatter_name: str) -> Path:
 
 
 def resolve(home: Path) -> str:
-    return subprocess.run(
-        ["sh", "-c", PROBE, "sh", str(home)],
+    value = subprocess.run(
+        [shell_executable("sh"), "-c", PROBE, "sh", shell_path(home, "sh")],
         capture_output=True,
-        text=True,
+        encoding="utf-8",
         check=True,
     ).stdout
+    return str(native_path(value, "sh")) if value else ""
 
 
 class ResolverParity(unittest.TestCase):

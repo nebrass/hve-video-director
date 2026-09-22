@@ -499,13 +499,11 @@ class AnchorWriteIsDurable(unittest.TestCase):
 
     `verify_script_unchanged` writes the script fingerprint that later assemblies are
     checked against, so a torn write here is a freshness claim nobody can trust. It
-    already used tmp + fsync + rename; a review noticed it never fsynced the parent
-    directory, which is what makes the *rename* durable — while the sibling writer in
-    `verify_vo_sections.write_text_atomic` did. Two atomic writers in one repo, and the
-    weaker one guarded the claim.
+    File fsync must precede atomic replacement on every platform. POSIX additionally
+    fsyncs the parent directory; Windows cannot open directory file descriptors.
     """
 
-    def test_both_the_bytes_and_the_rename_are_fsynced(self):
+    def test_anchor_uses_the_platforms_supported_durability_steps(self):
         G = load_module()
         with tempfile.TemporaryDirectory() as tmp:
             tmp = Path(tmp)
@@ -513,20 +511,55 @@ class AnchorWriteIsDurable(unittest.TestCase):
             manifest.write_text(json.dumps({"sections": {"00": "abc"}}), encoding="utf-8")
 
             seen = []
-            real = os.fsync
+            real_fsync = os.fsync
+            real_replace = os.replace
+
+            def fsync(fd):
+                seen.append("fsync")
+                real_fsync(fd)
+
+            def replace(source, destination):
+                seen.append("replace")
+                real_replace(source, destination)
+
             with mock.patch.object(G, "MANIFEST", manifest), \
                  mock.patch.object(G, "sections", [("00", "hello there")]), \
-                 mock.patch.object(os, "fsync", lambda fd: (seen.append(fd), real(fd))[1]):
+                 mock.patch.object(os, "fsync", fsync), \
+                 mock.patch.object(os, "replace", replace):
                 self.assertEqual([], G.verify_script_unchanged())
 
-            self.assertEqual(
-                2, len(seen),
-                "expected two fsyncs — the file's bytes and the parent directory that "
-                f"carries the rename; saw {len(seen)}",
-            )
+            expected = ["fsync", "replace"] + ([] if os.name == "nt" else ["fsync"])
+            self.assertEqual(expected, seen,
+                             "file fsync is mandatory; directory fsync is POSIX-only")
             self.assertIn("script_sha256", json.loads(manifest.read_text(encoding="utf-8")))
             leftovers = [p.name for p in tmp.iterdir() if p.name.startswith(".anchor")]
             self.assertEqual([], leftovers, f"temp file left behind: {leftovers}")
+
+    def test_failed_file_fsync_preserves_the_manifest(self):
+        G = load_module()
+        with tempfile.TemporaryDirectory() as tmp:
+            manifest = Path(tmp) / "anchor.json"
+            original = b'{"sections": {"00": "abc"}}\n'
+            manifest.write_bytes(original)
+            with mock.patch.object(G, "MANIFEST", manifest), \
+                 mock.patch.object(G, "sections", [("00", "hello there")]), \
+                 mock.patch.object(os, "fsync", side_effect=OSError("cannot flush")):
+                with self.assertRaisesRegex(OSError, "cannot flush"):
+                    G.verify_script_unchanged()
+            self.assertEqual(manifest.read_bytes(), original)
+            self.assertEqual(list(Path(tmp).iterdir()), [manifest])
+
+    @unittest.skipIf(os.name == "nt", "directory fsync is a POSIX capability")
+    def test_posix_directory_open_failure_is_not_silenced(self):
+        G = load_module()
+        with tempfile.TemporaryDirectory() as tmp:
+            manifest = Path(tmp) / "anchor.json"
+            manifest.write_bytes(b'{"sections": {"00": "abc"}}\n')
+            with mock.patch.object(G, "MANIFEST", manifest), \
+                 mock.patch.object(G, "sections", [("00", "hello there")]), \
+                 mock.patch.object(os, "open", side_effect=PermissionError("cannot open directory")):
+                with self.assertRaisesRegex(PermissionError, "cannot open directory"):
+                    G.verify_script_unchanged()
 
 
 if __name__ == "__main__":

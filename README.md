@@ -733,7 +733,8 @@ Run the existing helper suite with `bash test/run.sh`. The
 [`native shell verification`](.github/workflows/shell-portability.yml) workflow also runs
 on macOS using `/bin/bash` **3.2**, and on Windows using **Git Bash with native Windows
 Node and Python**, not WSL. It runs on pushes and pull requests touching scripts, tests,
-the workflow or Git attributes. Once the workflow is on the default branch, it can also
+shell-recipe workflows/patterns, `SKILL.md`, the CI workflow or Git attributes.
+Once the workflow is on the default branch, it can also
 be started manually from Actions.
 
 Each native job runs [`test/check_shell_portability.py`](test/check_shell_portability.py)
@@ -741,8 +742,17 @@ and the existing full suite independently, then uploads `native-shell-macOS` or
 `native-shell-Windows` logs even when a check fails. The smoke checks exercise file,
 stdin and standalone-download invocation, real Node/ICU checks, isolated `--fix` calls
 with installer stubs, and Windows `core.autocrlf=true` checkouts. They do not install
-dependencies through `--fix`, normalize checkout line endings, suppress failures or
+dependencies through `--fix`, rewrite checked-out files, suppress failures or
 turn a skipped test into platform verification.
+
+Git attributes preserve LF bytes for text files even with `core.autocrlf=true`, so
+Windows checkouts do not change the recorded example or its pinned hashes. The test
+fixtures resolve native shell executables and convert MSYS paths at the Python/shell
+boundary. Tests for filenames Windows cannot represent remain explicitly POSIX-only.
+
+Voiceover manifest publication fsyncs the file before atomic replacement on all platforms.
+POSIX also fsyncs the parent directory; Windows does not support opening that directory
+through Python's `os.open`, so no directory-fsync guarantee is made there.
 
 To check macOS locally with the same interpreter:
 

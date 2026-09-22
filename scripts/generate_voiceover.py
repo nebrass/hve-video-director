@@ -353,15 +353,14 @@ def verify_script_unchanged():
                 handle.flush()
                 os.fsync(handle.fileno())
             os.replace(tmp, MANIFEST)
-            # Durability of the rename itself, not just of the bytes. The sibling
-            # writer in verify_vo_sections.py already does this; publishing the
-            # anchor any less safely would make the weaker of two atomic writers
-            # in the same repo the one guarding the freshness claim.
-            dir_fd = os.open(MANIFEST.parent, os.O_RDONLY)
-            try:
-                os.fsync(dir_fd)
-            finally:
-                os.close(dir_fd)
+            # Windows cannot open directories with os.open; the file is still
+            # fsynced before atomic replacement. POSIX also persists the rename.
+            if os.name != "nt":
+                dir_fd = os.open(MANIFEST.parent, os.O_RDONLY)
+                try:
+                    os.fsync(dir_fd)
+                finally:
+                    os.close(dir_fd)
         except OSError:
             try:
                 tmp.unlink()

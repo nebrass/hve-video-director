@@ -258,7 +258,7 @@ TABLE_SEPARATOR = re.compile(r":?-{3,}:?")
 
 
 def rel(path):
-    return str(Path(path).resolve().relative_to(ROOT))
+    return Path(path).resolve().relative_to(ROOT).as_posix()
 
 
 def read(path):

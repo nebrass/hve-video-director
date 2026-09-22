@@ -5,12 +5,18 @@ on:
     paths:
       - ".github/workflows/shell-portability.yml"
       - ".gitattributes"
+      - "SKILL.md"
+      - "workflows/**"
+      - "patterns/**"
       - "scripts/**"
       - "test/**"
   pull_request:
     paths:
       - ".github/workflows/shell-portability.yml"
       - ".gitattributes"
+      - "SKILL.md"
+      - "workflows/**"
+      - "patterns/**"
       - "scripts/**"
       - "test/**"
   workflow_dispatch:

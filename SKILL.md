@@ -214,7 +214,7 @@ OLD_IFS=$IFS
 IFS='|'
 SKILL_DIR=
 for home in $SKILL_HOMES; do
-  case "$home" in /*) ;; *) home="$SKILL_SEARCH_DIR/$home";; esac
+  case "$home" in (/*|[A-Za-z]:/*|[A-Za-z]:\\*) ;; (*) home="$SKILL_SEARCH_DIR/$home";; esac
   [ -f "$home/hve-video-director/scripts/check_requirements.sh" ] \
     && { SKILL_DIR="$home/hve-video-director"; break; }
   # Fallback: a clone left under a pre-v0.1.0 directory name. Match the skill's

@@ -9,6 +9,7 @@ import tempfile
 import unittest
 
 from test_validate_brief import VB
+from shell_helpers import shell_executable, shell_path
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -167,7 +168,7 @@ elif tool == "ffprobe":
         binaries.mkdir()
         for name in ("asciinema", "agg", "ffmpeg", "ffprobe"):
             stub = binaries / name
-            stub.write_text(self.STUB, encoding="utf-8")
+            stub.write_text(self.STUB, encoding="utf-8", newline="\n")
             stub.chmod(0o755)
         target = output / "public" / "clips" / "scene-00-test.mp4"
         target.parent.mkdir(parents=True)
@@ -177,17 +178,18 @@ elif tool == "ffprobe":
         script.write_text(
             terminal_recipe(relative).replace("{NN}", "00").replace("{slug}", "test")
             + '\nprintf "\\n__READY__%s__END__" "$clip_ready"\n',
-            encoding="utf-8",
+            encoding="utf-8", newline="\n",
         )
         env = dict(
             os.environ,
-            SOURCE_DIR=str(source),
-            PROJECT_DIR=str(output),
+            SOURCE_DIR=shell_path(source),
+            PROJECT_DIR=shell_path(output),
             TMPDIR="scratch",
             PATH=str(binaries) + os.pathsep + os.environ.get("PATH", ""),
         )
         result = subprocess.run(
-            ["bash", str(script)], cwd=output, env=env, text=True, capture_output=True,
+            [shell_executable(), script.as_posix()], cwd=output, env=env,
+            encoding="utf-8", capture_output=True,
         )
         return result, source, output, target
 
