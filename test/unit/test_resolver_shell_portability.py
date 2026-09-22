@@ -282,11 +282,12 @@ class ResolverGuardIsUniform(unittest.TestCase):
                                 + clause + f'\nprintf "%s" "${variable}"\n'
                             )
                             result = subprocess.run(
-                                [shell_executable(shell), "-c", script, "path", value],
-                                capture_output=True, encoding="utf-8", check=True,
+                                [shell_executable(shell), "-s", "--", value],
+                                input=script.encode("utf-8"),
+                                capture_output=True, check=True,
                             )
                             expected = "/source/" + value if value == "relative skills" else value
-                            self.assertEqual(result.stdout, expected)
+                            self.assertEqual(result.stdout.decode("utf-8"), expected)
 
 
 if __name__ == "__main__":
