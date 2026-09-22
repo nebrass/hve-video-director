@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
 
 import json
+import os
 import shutil
 import subprocess
 import tempfile
 import unittest
 import uuid
 from pathlib import Path
+
+from shell_helpers import platform_environment, shell_executable, shell_path
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -31,15 +34,16 @@ class RequirementsCheckerTestCase(unittest.TestCase):
 
     def write_executable(self, name, body):
         path = self.bin / name
-        path.write_text(f"#!/bin/sh\n{body}\n", encoding="utf-8")
+        path.write_text(f"#!/bin/sh\n{body}\n", encoding="utf-8", newline="\n")
         path.chmod(0o755)
         return path
 
     def environment(self):
         return {
-            "PATH": str(self.bin),
-            "HOME": str(self.home),
-            "CHECKER_TEST_LOG": str(self.log),
+            **platform_environment(),
+            "PATH": shell_path(self.bin),
+            "HOME": shell_path(self.home),
+            "CHECKER_TEST_LOG": shell_path(self.log),
             "PYTHONDONTWRITEBYTECODE": "1",
         }
 
@@ -93,10 +97,10 @@ class RequirementsCheckerTestCase(unittest.TestCase):
         # from ROOT would let the repo's own installed skills — and any repo
         # .npmrc or node_modules/ — decide what the checker reports.
         return subprocess.run(
-            ["/bin/bash", str(SCRIPT), *args],
+            [shell_executable(), SCRIPT.as_posix(), *args],
             cwd=cwd or self.sandbox,
             env=env or self.environment(),
-            text=True,
+            encoding="utf-8",
             capture_output=True,
             check=False,
         )
@@ -127,10 +131,12 @@ class RequirementsCheckerTestCase(unittest.TestCase):
         blocked_bin = self.work / "blocked-bin"
         blocked_bin.mkdir()
         blocked_uname = blocked_bin / "uname"
-        blocked_uname.write_text("#!/bin/sh\nprintf 'Darwin\\n'\n", encoding="utf-8")
+        blocked_uname.write_text(
+            "#!/bin/sh\nprintf 'Darwin\\n'\n", encoding="utf-8", newline="\n",
+        )
         blocked_uname.chmod(0o755)
         blocked_env = self.environment()
-        blocked_env["PATH"] = str(blocked_bin)
+        blocked_env["PATH"] = shell_path(blocked_bin)
         blocked = self.run_checker(env=blocked_env)
         self.assertEqual(blocked.returncode, 1)
         self.assertIn("Node.js — not found", blocked.stdout)
@@ -175,10 +181,11 @@ class RequirementsCheckerTestCase(unittest.TestCase):
         self.assertIn("nodejs.org", checks["node"]["fixability"]["command"])
         self.assertFalse(self.log.exists(), "the ICU probe must stay offline")
 
-    def test_missing_language_helper_blocks_instead_of_reporting_node_ready(self):
-        # The helper is resolved from the script's own directory, not $PWD, so a
-        # copy without its sibling is a partial install — report it, never assume
-        # the language layer works because `node --version` answered.
+    def test_standalone_copy_uses_offline_language_capability_probe(self):
+        # The README supports downloading only this script. Without its sibling,
+        # the checker must remain self-contained while testing the same Node
+        # capabilities rather than failing solely because language_tools.mjs is
+        # unavailable.
         self.install_required_shims()
         self.install_skills()
         orphan = self.work / "orphan"
@@ -186,17 +193,71 @@ class RequirementsCheckerTestCase(unittest.TestCase):
         copied = orphan / SCRIPT.name
         shutil.copy(SCRIPT, copied)
         result = subprocess.run(
-            ["/bin/bash", str(copied), "--json"],
+            [shell_executable(), copied.as_posix(), "--json"],
             cwd=self.sandbox,
             env=self.environment(),
-            text=True,
+            encoding="utf-8",
             capture_output=True,
             check=False,
         )
         checks = {check["id"]: check for check in json.loads(result.stdout)["checks"]}
-        self.assertEqual(result.returncode, 1)
-        self.assertEqual(checks["node"]["state"], "blocked")
-        self.assertIn("language_tools.mjs", checks["node"]["detail"])
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(checks["node"]["state"], "ready")
+
+    def test_stdin_execution_does_not_require_bash_source_or_language_helper(self):
+        self.install_required_shims()
+        self.install_skills()
+        result = subprocess.run(
+            [shell_executable(), "-s", "--", "--json"],
+            input=SCRIPT.read_text(encoding="utf-8"),
+            cwd=self.sandbox,
+            env=self.environment(),
+            encoding="utf-8",
+            capture_output=True,
+            check=False,
+        )
+        checks = {check["id"]: check for check in json.loads(result.stdout)["checks"]}
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(checks["node"]["state"], "ready")
+
+    def test_installed_skill_without_language_helper_is_blocked(self):
+        self.install_required_shims()
+        self.install_skills()
+        root = self.work / "installed skill"
+        scripts = root / "scripts"
+        scripts.mkdir(parents=True)
+        (root / "SKILL.md").write_text(
+            "---\nname: hve-video-director\n---\n", encoding="utf-8",
+        )
+        copied = scripts / SCRIPT.name
+        shutil.copyfile(SCRIPT, copied)
+        for path, cwd in (
+            (copied.as_posix(), self.sandbox),
+            ("scripts/" + SCRIPT.name, root),
+            (SCRIPT.name, scripts),
+        ):
+            with self.subTest(path=path):
+                result = subprocess.run(
+                    [shell_executable(), path, "--json"],
+                    cwd=cwd, env=self.environment(), encoding="utf-8",
+                    capture_output=True, check=False,
+                )
+                checks = {
+                    check["id"]: check for check in json.loads(result.stdout)["checks"]
+                }
+                self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+                self.assertEqual(checks["node"]["state"], "blocked")
+                self.assertIn("language_tools.mjs is missing", checks["node"]["detail"])
+                self.assertIn("Reinstall hve-video-director", checks["node"]["fixability"]["command"])
+                self.assertNotIn("nodejs.org", checks["node"]["fixability"]["command"])
+        piped = subprocess.run(
+            [shell_executable(), "-s", "--", "--json"],
+            input=copied.read_text(encoding="utf-8"),
+            cwd=scripts, env=self.environment(), encoding="utf-8",
+            capture_output=True, check=False,
+        )
+        self.assertEqual(piped.returncode, 0, piped.stdout + piped.stderr)
+        self.assertFalse(self.log.exists(), "an incomplete installation must not trigger installers")
 
     def assert_companion_skill_degrades(self, name, check_id, phases):
         """A recommended companion skill: present -> ready, absent -> degraded.
@@ -217,7 +278,7 @@ class RequirementsCheckerTestCase(unittest.TestCase):
         self.assertEqual(check["state"], "ready")
         self.assertEqual(check["tier"], "recommended")
         self.assertEqual(check["phases"], phases)
-        self.assertIn(str(home), check["detail"])
+        self.assertIn(shell_path(home), check["detail"])
         # No new safe fix ID: these are bundle installs, and the one safe ID
         # that installs the bundle gates on `hyperframes` being absent, so
         # reusing it here would report "already ready" while this skill is
@@ -355,7 +416,7 @@ class RequirementsCheckerTestCase(unittest.TestCase):
             _, checks = self.json_checks()
             check = checks["heygen-credential"]
             self.assertEqual(check["state"], "ready")
-            self.assertIn(str(credential), check["detail"])
+            self.assertIn(shell_path(credential), check["detail"])
             self.assertFalse(self.log.exists(), "the heygen CLI was run")
             shutil.rmtree(credential.parent)
 
@@ -364,11 +425,11 @@ class RequirementsCheckerTestCase(unittest.TestCase):
             custom.mkdir()
             (custom / "credentials").write_text("token\n", encoding="utf-8")
             env = self.environment()
-            env["HEYGEN_CONFIG_DIR"] = str(custom)
+            env["HEYGEN_CONFIG_DIR"] = shell_path(custom)
             _, checks = self.json_checks(env=env)
             check = checks["heygen-credential"]
             self.assertEqual(check["state"], "ready")
-            self.assertIn(str(custom / "credentials"), check["detail"])
+            self.assertIn(shell_path(custom / "credentials"), check["detail"])
             self.assertFalse(self.log.exists(), "the heygen CLI was run")
 
     def test_heygen_credential_degrades_with_and_without_the_cli(self):
@@ -391,7 +452,7 @@ class RequirementsCheckerTestCase(unittest.TestCase):
         check = checks["heygen-credential"]
         self.assertEqual(installed.returncode, 0, installed.stdout + installed.stderr)
         self.assertEqual(check["state"], "degraded")
-        self.assertIn(str(cli), check["detail"])
+        self.assertIn(shell_path(cli), check["detail"])
         self.assertFalse(
             self.log.exists(),
             "presence detection executed the heygen CLI — it must resolve the "
@@ -437,18 +498,19 @@ class RequirementsCheckerTestCase(unittest.TestCase):
             )
 
     def test_json_escapes_control_characters_and_discovered_paths(self):
-        self.write_executable("uname", "printf 'Odd\\033OS\\n'")
-        chrome = self.work / 'chrome"\n\x1bheadless-shell'
-        chrome.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+        self.write_executable("uname", "printf 'Odd\"\\n\\033OS\\n'")
+        name = 'chrome"\n\x1bheadless-shell' if os.name != "nt" else "chrome & headless-shell"
+        chrome = self.work / name
+        chrome.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8", newline="\n")
         chrome.chmod(0o755)
         env = self.environment()
-        env["PUPPETEER_EXECUTABLE_PATH"] = str(chrome)
+        env["PUPPETEER_EXECUTABLE_PATH"] = shell_path(chrome)
         result = self.run_checker("--json", env=env)
         report = json.loads(result.stdout)
-        self.assertEqual(report["platform"], "Odd\x1bOS")
+        self.assertEqual(report["platform"], 'Odd"\n\x1bOS')
         check = next(item for item in report["checks"]
                      if item["id"] == "chrome-shell")
-        self.assertIn(str(chrome), check["detail"])
+        self.assertIn(shell_path(chrome), check["detail"])
 
     def test_report_json_and_plan_never_invoke_install_or_network_stubs(self):
         self.install_required_shims(include_hyperframes=False, include_chrome=False)
@@ -479,7 +541,7 @@ class RequirementsCheckerTestCase(unittest.TestCase):
             "if [ \"$1\" = \"--version\" ]; then printf '1.2.3\\n'; exit 0; fi\n"
             "if [ \"$1\" = \"transcribe\" ]; then exit 0; fi\n"
             "exit 0\n",
-            encoding="utf-8",
+            encoding="utf-8", newline="\n",
         )
         cached.chmod(0o755)
 
@@ -490,7 +552,7 @@ class RequirementsCheckerTestCase(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertEqual(checks["hyperframes-cli"]["state"], "ready")
         self.assertEqual(checks["hyperframes-cli"]["version"], "1.2.3")
-        self.assertIn(str(cached), checks["hyperframes-cli"]["detail"])
+        self.assertIn(shell_path(cached), checks["hyperframes-cli"]["detail"])
         self.assertEqual(checks["whisper"]["state"], "ready")
         self.assertFalse(self.log.exists())
 
@@ -508,11 +570,11 @@ class RequirementsCheckerTestCase(unittest.TestCase):
             "if [ \"$1\" = \"--version\" ]; then printf '2.0.0\\n'; exit 0; fi\n"
             "if [ \"$1\" = \"transcribe\" ]; then exit 0; fi\n"
             "exit 0\n",
-            encoding="utf-8",
+            encoding="utf-8", newline="\n",
         )
         cached.chmod(0o755)
         (self.home / ".npmrc").write_text(
-            f'cache = "{cache}"\n',
+            f'cache = "{shell_path(cache)}"\n',
             encoding="utf-8",
         )
 
@@ -526,9 +588,10 @@ class RequirementsCheckerTestCase(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertEqual(check["state"], "ready")
         self.assertEqual(check["version"], "2.0.0")
-        self.assertIn(str(cached), check["detail"])
+        self.assertIn(shell_path(cached), check["detail"])
         self.assertFalse(self.log.exists())
 
+    @unittest.skipIf(os.name == "nt", "Windows filenames cannot contain newline characters")
     def test_hyperframes_cache_path_preserves_trailing_newline(self):
         self.install_required_shims(include_hyperframes=False)
         self.install_skills()
@@ -543,11 +606,11 @@ class RequirementsCheckerTestCase(unittest.TestCase):
             "if [ \"$1\" = \"--version\" ]; then printf '4.0.0\\n'; exit 0; fi\n"
             "if [ \"$1\" = \"transcribe\" ]; then exit 0; fi\n"
             "exit 0\n",
-            encoding="utf-8",
+            encoding="utf-8", newline="\n",
         )
         cached.chmod(0o755)
         env = self.environment()
-        env["npm_config_cache"] = str(cache)
+        env["npm_config_cache"] = shell_path(cache)
 
         result = self.run_checker("--json", env=env)
         report = json.loads(result.stdout)
@@ -558,7 +621,7 @@ class RequirementsCheckerTestCase(unittest.TestCase):
 
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertEqual(check["version"], "4.0.0")
-        self.assertIn(str(cached), check["detail"])
+        self.assertIn(shell_path(cached), check["detail"])
 
     def test_hyperframes_uses_expanded_global_npmrc_cache(self):
         self.install_required_shims(include_hyperframes=False)
@@ -575,7 +638,7 @@ class RequirementsCheckerTestCase(unittest.TestCase):
             "if [ \"$1\" = \"--version\" ]; then printf '3.0.0\\n'; exit 0; fi\n"
             "if [ \"$1\" = \"transcribe\" ]; then exit 0; fi\n"
             "exit 0\n",
-            encoding="utf-8",
+            encoding="utf-8", newline="\n",
         )
         cached.chmod(0o755)
         global_npmrc = self.work / "etc" / "npmrc"
@@ -585,7 +648,7 @@ class RequirementsCheckerTestCase(unittest.TestCase):
             encoding="utf-8",
         )
         env = self.environment()
-        env["CUSTOM_CACHE_ROOT"] = str(cache_root)
+        env["CUSTOM_CACHE_ROOT"] = shell_path(cache_root)
 
         result = self.run_checker("--json", env=env)
         report = json.loads(result.stdout)
@@ -597,7 +660,7 @@ class RequirementsCheckerTestCase(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertEqual(check["state"], "ready")
         self.assertEqual(check["version"], "3.0.0")
-        self.assertIn(str(cached), check["detail"])
+        self.assertIn(shell_path(cached), check["detail"])
         self.assertFalse(self.log.exists())
 
     def test_plan_is_side_effect_free_and_prints_exact_actions(self):

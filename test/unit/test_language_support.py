@@ -260,10 +260,11 @@ class LanguageConsentTests(ProjectCase):
 
     def test_language_migration_preserves_crlf_and_existing_bytes(self):
         plan, _ = self.historical_record()
-        original = plan.replace(b"\n", b"\r\n")
+        original = plan.replace(b"\r\n", b"\n").replace(b"\n", b"\r\n")
         path = self.project / "project-plan.md"
         path.write_bytes(original)
-        self.assertEqual(self.run_cli("migrate-languages").returncode, 0)
+        result = self.run_cli("migrate-languages")
+        self.assertEqual(result.returncode, 0, result.stderr)
         preserved = b"".join(
             line for line in path.read_bytes().splitlines(keepends=True)
             if not any(line.startswith(f"| {field} |".encode()) for field in VB.LANGUAGE_FIELDS)

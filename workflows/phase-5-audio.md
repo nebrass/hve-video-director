@@ -39,7 +39,7 @@ SKILL_DIR=$(
   OLD_IFS=$IFS
   IFS='|'
   for h in $SKILL_HOMES; do
-    case "$h" in /*) ;; *) h="$SKILL_SEARCH_DIR/$h";; esac
+    case "$h" in (/*|[A-Za-z]:/*|[A-Za-z]:\\*) ;; (*) h="$SKILL_SEARCH_DIR/$h";; esac
     [ -d "$h/hve-video-director" ] && { echo "$h/hve-video-director"; break; }
     # Fallback: a clone left under a pre-v0.1.0 directory name. Match the skill's
     # declared frontmatter identity, not its directory name or file layout, so a
@@ -58,7 +58,7 @@ MEDIA_SKILL_DIR=$(
   OLD_IFS=$IFS
   IFS='|'
   for h in $SKILL_HOMES; do
-    case "$h" in /*) ;; *) h="$SKILL_SEARCH_DIR/$h";; esac
+    case "$h" in (/*|[A-Za-z]:/*|[A-Za-z]:\\*) ;; (*) h="$SKILL_SEARCH_DIR/$h";; esac
     [ -d "$h/media-use" ] && { echo "$h/media-use"; break; }
   done
   IFS=$OLD_IFS

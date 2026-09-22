@@ -163,7 +163,7 @@ KEY_SPLIT = re.compile(r"[·/,;]")
 
 
 def rel(path):
-    return str(Path(path).resolve().relative_to(ROOT))
+    return Path(path).resolve().relative_to(ROOT).as_posix()
 
 
 def normalize(value):

@@ -319,7 +319,7 @@ DOCTRINE_SKILL_DIR=$(
   OLD_IFS=$IFS
   IFS='|'
   for h in $SKILL_HOMES; do
-    case "$h" in /*) ;; *) h="$SKILL_SEARCH_DIR/$h";; esac
+    case "$h" in (/*|[A-Za-z]:/*|[A-Za-z]:\\*) ;; (*) h="$SKILL_SEARCH_DIR/$h";; esac
     [ -d "$h/motion-doctrine" ] && { echo "$h/motion-doctrine"; break; }
   done
   IFS=$OLD_IFS
@@ -591,7 +591,7 @@ ANIM_SKILL_DIR=$(
   OLD_IFS=$IFS
   IFS='|'
   for h in $SKILL_HOMES; do
-    case "$h" in /*) ;; *) h="$SKILL_SEARCH_DIR/$h";; esac
+    case "$h" in (/*|[A-Za-z]:/*|[A-Za-z]:\\*) ;; (*) h="$SKILL_SEARCH_DIR/$h";; esac
     [ -d "$h/hyperframes-animation" ] && { echo "$h/hyperframes-animation"; break; }
   done
   IFS=$OLD_IFS

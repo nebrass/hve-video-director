@@ -28,6 +28,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from shell_helpers import native_path, shell_executable, shell_path
+
 ROOT = Path(__file__).resolve().parents[2]
 
 # Every markdown block that defines SKILL_HOMES and iterates it, with the skill each
@@ -120,18 +122,18 @@ class ResolverShellPortability(unittest.TestCase):
             script.write_text(
                 block + f'\nprintf "\\n__RESOLVED__%s__END__" "${var}"\n'
                 + 'printf "\\n__CWD__%s__END__" "$(pwd -P)"\n',
-                encoding="utf-8",
+                encoding="utf-8", newline="\n",
             )
 
-            env = dict(os.environ, HOME=str(fake_home))
+            env = dict(os.environ, HOME=shell_path(fake_home, shell))
             env.pop("ZSH_VERSION", None)  # never inherit; each shell sets its own
             env.pop("SOURCE_DIR", None)
             if source is not None:
-                env["SOURCE_DIR"] = str(source)
+                env["SOURCE_DIR"] = shell_path(source, shell)
             proc = subprocess.run(
-                [shell, str(script)],
+                [shell_executable(shell), script.as_posix()],
                 capture_output=True,
-                text=True,
+                encoding="utf-8",
                 cwd=cwd,
                 env=env,
             )
@@ -143,11 +145,12 @@ class ResolverShellPortability(unittest.TestCase):
             m = re.search(r"__RESOLVED__(.*?)__END__", proc.stdout, re.S)
             if m is None:
                 self.fail(f"{shell} produced no sentinel for {doc.name}:{var}")
-            self.assertTrue(Path(m.group(1)).is_absolute(), m.group(1))
+            resolved = native_path(m.group(1), shell)
+            self.assertTrue(resolved.is_absolute(), m.group(1))
             after = re.search(r"__CWD__(.*?)__END__", proc.stdout, re.S)
             self.assertIsNotNone(after, proc.stdout)
-            self.assertEqual(after.group(1), str(cwd.resolve()))
-            return str(Path(m.group(1)).resolve()), str(expected.resolve())
+            self.assertEqual(native_path(after.group(1), shell).resolve(), cwd.resolve())
+            return str(resolved.resolve()), str(expected.resolve())
 
     def test_every_resolver_resolves_in_every_shell(self):
         shells = available_shells()
@@ -190,13 +193,16 @@ class ResolverShellPortability(unittest.TestCase):
 
     def test_explicit_missing_source_is_not_silently_replaced(self):
         with tempfile.TemporaryDirectory() as td:
-            env = dict(os.environ, HOME=td, SOURCE_DIR=str(Path(td) / "missing-source"))
+            env = dict(
+                os.environ, HOME=shell_path(td),
+                SOURCE_DIR=shell_path(Path(td) / "missing-source"),
+            )
             env.pop("ZSH_VERSION", None)
             for doc, var, _ in RESOLVERS:
                 with self.subTest(doc=doc.name, var=var):
                     proc = subprocess.run(
-                        ["bash"], input=extract_block(doc, var), cwd=td,
-                        env=env, text=True, capture_output=True,
+                        [shell_executable()], input=extract_block(doc, var), cwd=td,
+                        env=env, encoding="utf-8", capture_output=True,
                     )
                     self.assertEqual(proc.returncode, 2)
                     self.assertIn("missing-source", proc.stderr)
@@ -259,6 +265,29 @@ class ResolverGuardIsUniform(unittest.TestCase):
     def test_guard_tolerates_set_u(self):
         """check_requirements.sh runs under `set -u`; a bare $ZSH_VERSION is fatal there."""
         self.assertIn("${ZSH_VERSION:-}", the_guard(), "guard must default the variable")
+
+    def test_only_relative_homes_are_prefixed_with_the_source(self):
+        for doc in {d for d, _, _ in RESOLVERS}:
+            cases = re.findall(
+                r'^[ \t]*(case "\$(h|home)" in .* esac)$',
+                doc.read_text(encoding="utf-8"), re.M,
+            )
+            self.assertTrue(cases, doc)
+            for clause, variable in cases:
+                for shell in available_shells():
+                    for value in ("/skills", "C:/skills", r"D:\skills", "relative skills"):
+                        with self.subTest(doc=doc.name, shell=shell, value=value):
+                            script = (
+                                f'{variable}="$1"\nSKILL_SEARCH_DIR=/source\n'
+                                + clause + f'\nprintf "%s" "${variable}"\n'
+                            )
+                            result = subprocess.run(
+                                [shell_executable(shell), "-s", "--", value],
+                                input=script.encode("utf-8"),
+                                capture_output=True, check=True,
+                            )
+                            expected = "/source/" + value if value == "relative skills" else value
+                            self.assertEqual(result.stdout.decode("utf-8"), expected)
 
 
 if __name__ == "__main__":

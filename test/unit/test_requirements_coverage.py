@@ -23,6 +23,8 @@ import re
 import unittest
 from pathlib import Path
 
+from shell_helpers import shell_executable
+
 
 ROOT = Path(__file__).resolve().parents[2]
 SCRIPTS = ROOT / "scripts"
@@ -90,9 +92,10 @@ class CredentialCoverage(unittest.TestCase):
         import subprocess
 
         result = subprocess.run(
-            ["bash", str(CHECKER), "--json"],
-            capture_output=True, text=True, cwd=str(ROOT), check=False,
+            [shell_executable(), CHECKER.as_posix(), "--json"],
+            capture_output=True, encoding="utf-8", cwd=ROOT, check=False,
         )
+        self.assertIn(result.returncode, (0, 1), result.stderr)
         payload = json.loads(result.stdout)
         labels = {c.get("label", "") for c in payload["checks"]}
         missing = [
