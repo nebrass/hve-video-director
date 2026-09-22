@@ -7,6 +7,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-09-22
+
+Requirements-checker and shell-portability fixes from #51, verified on native macOS
+Bash 3.2 and Windows Git Bash as well as the existing Linux CI.
+
+### Added
+
+- Native macOS and Windows CI jobs with separate shell smoke and full-suite checks,
+  real Node/Python runtimes, isolated installer stubs, and uploaded execution logs.
+- Regression coverage for stdin and standalone checker execution, incomplete skill
+  installations, helper restoration, Windows path handling, and checkout-byte preservation.
+
+### Fixed
+
+- Piping `check_requirements.sh` into Bash no longer crashes on an unset `BASH_SOURCE`.
+  Stdin and standalone copies use an offline Node capability probe when the sibling
+  language helper is unavailable.
+- Installed skills still block readiness when `scripts/language_tools.mjs` is missing,
+  with guidance to reinstall the skill rather than Node.
+- Embedded skill resolvers use Bash 3.2-compatible case patterns and recognize
+  Windows drive-qualified absolute paths.
+- Shell test fixtures resolve native executables and convert MSYS paths at the
+  Python/shell boundary instead of assuming POSIX interpreter paths.
+- Git attributes preserve LF checkout bytes, including the unchanged reference build
+  and its pinned hashes, even with `core.autocrlf=true`.
+- Voiceover manifest publication no longer attempts to open a directory through
+  `os.open` on Windows. File fsync and atomic replacement remain required everywhere;
+  the additional directory fsync remains POSIX-only.
+
+### Verification scope
+
+The native full suite ran 517 tests on each platform without failures; macOS skipped
+16 and Windows skipped 17 platform-specific or optional checks. Native smoke checks
+and Linux stdlib/ecosystem CI passed. These are script and helper-suite results, not
+an end-to-end video-production certification; `example/` was not regenerated or edited.
+
 ## [0.4.0] - 2026-09-15
 
 Two features that were really one problem: the skill assumed the run started from a source it
@@ -671,7 +707,8 @@ Initial release of the hve-video-director skill.
   earlier Pixabay integration.
 - README with install instructions and an MIT license.
 
-[Unreleased]: https://github.com/nebrass/hve-video-director/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/nebrass/hve-video-director/compare/v0.4.1...HEAD
+[0.4.1]: https://github.com/nebrass/hve-video-director/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/nebrass/hve-video-director/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/nebrass/hve-video-director/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/nebrass/hve-video-director/compare/v0.1.0...v0.2.0
