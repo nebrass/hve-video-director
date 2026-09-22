@@ -220,6 +220,45 @@ class RequirementsCheckerTestCase(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertEqual(checks["node"]["state"], "ready")
 
+    def test_installed_skill_without_language_helper_is_blocked(self):
+        self.install_required_shims()
+        self.install_skills()
+        root = self.work / "installed skill"
+        scripts = root / "scripts"
+        scripts.mkdir(parents=True)
+        (root / "SKILL.md").write_text(
+            "---\nname: hve-video-director\n---\n", encoding="utf-8",
+        )
+        copied = scripts / SCRIPT.name
+        shutil.copyfile(SCRIPT, copied)
+        for path, cwd in (
+            (copied.as_posix(), self.sandbox),
+            ("scripts/" + SCRIPT.name, root),
+            (SCRIPT.name, scripts),
+        ):
+            with self.subTest(path=path):
+                result = subprocess.run(
+                    [shell_executable(), path, "--json"],
+                    cwd=cwd, env=self.environment(), encoding="utf-8",
+                    capture_output=True, check=False,
+                )
+                checks = {
+                    check["id"]: check for check in json.loads(result.stdout)["checks"]
+                }
+                self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+                self.assertEqual(checks["node"]["state"], "blocked")
+                self.assertIn("language_tools.mjs is missing", checks["node"]["detail"])
+                self.assertIn("Reinstall hve-video-director", checks["node"]["fixability"]["command"])
+                self.assertNotIn("nodejs.org", checks["node"]["fixability"]["command"])
+        piped = subprocess.run(
+            [shell_executable(), "-s", "--", "--json"],
+            input=copied.read_text(encoding="utf-8"),
+            cwd=scripts, env=self.environment(), encoding="utf-8",
+            capture_output=True, check=False,
+        )
+        self.assertEqual(piped.returncode, 0, piped.stdout + piped.stderr)
+        self.assertFalse(self.log.exists(), "an incomplete installation must not trigger installers")
+
     def assert_companion_skill_degrades(self, name, check_id, phases):
         """A recommended companion skill: present -> ready, absent -> degraded.
 

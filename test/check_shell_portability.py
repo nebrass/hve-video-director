@@ -143,6 +143,29 @@ class NativeShellChecks(unittest.TestCase):
                 self.assertTrue(result.stderr)
                 self.assertFalse(self.log.exists())
 
+    def test_installed_skill_requires_its_language_helper(self):
+        root = self.work / "installed skill"
+        scripts = root / "scripts"
+        scripts.mkdir(parents=True)
+        (root / "SKILL.md").write_bytes(b"---\nname: hve-video-director\n---\n")
+        checker = scripts / SCRIPT.name
+        helper = scripts / "language_tools.mjs"
+        shutil.copyfile(SCRIPT, checker)
+
+        result = self.run_bash(checker.as_posix(), "--json")
+        self.assert_exit(result, (1,))
+        node = next(item for item in json.loads(result.stdout)["checks"] if item["id"] == "node")
+        self.assertEqual(node["state"], "blocked")
+        self.assertIn("language_tools.mjs is missing", node["detail"])
+        self.assertIn("Reinstall hve-video-director", node["fixability"]["command"])
+
+        shutil.copyfile(SCRIPT.with_name("language_tools.mjs"), helper)
+        result = self.run_bash(checker.as_posix(), "--json")
+        self.assert_exit(result, (0, 1))
+        node = next(item for item in json.loads(result.stdout)["checks"] if item["id"] == "node")
+        self.assertEqual(node["state"], "ready", node)
+        self.assertFalse(self.log.exists(), "checking installation health must remain offline")
+
     def test_stdin_fixes_never_reach_real_installers(self):
         allowed = {
             "npx --yes puppeteer browsers install chrome-headless-shell",

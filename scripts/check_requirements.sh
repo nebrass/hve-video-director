@@ -213,8 +213,8 @@ fi
 SKILL_HOMES="$HOME/.claude/skills|$HOME/.copilot/skills|$HOME/.agents/skills|$HOME/.pi/agent/skills|$HOME/.config/opencode/skills|$HOME/.cursor/skills|$HOME/.codex/skills|/etc/codex/skills|.claude/skills|.github/skills|.agents/skills|.pi/skills|.opencode/skills|.cursor/skills|.codex/skills|$SKILL_ROOT/.claude/skills|$SKILL_ROOT/.github/skills|$SKILL_ROOT/.agents/skills|$SKILL_ROOT/.pi/skills|$SKILL_ROOT/.opencode/skills|$SKILL_ROOT/.cursor/skills|$SKILL_ROOT/.codex/skills"
 
 # The sibling language helper is the authority when this runs from an installed
-# skill. A standalone download or `curl | bash` has no sibling, so it falls back
-# to the equivalent offline capability probe below. Resolve without `dirname`:
+# skill. Only stdin or a standalone copy outside a skill root may fall back to
+# the offline capability probe below. Resolve without `dirname`:
 # the gate has to survive the broken PATH it exists to report.
 SCRIPT_PATH="${BASH_SOURCE[0]-}"
 case "$SCRIPT_PATH" in
@@ -223,18 +223,25 @@ case "$SCRIPT_PATH" in
   *) LANGUAGE_TOOL="" ;;
 esac
 LANGUAGE_PROBE_REASON=""
+LANGUAGE_PROBE_FIX=""
 
 probe_language_runtime() {
   # Arabic exercises every piece the helper depends on in one call: likely-subtag
   # script resolution, text direction, display names and ICU segmentation. A
   # small-icu Node passes `node --version` and fails here.
   LANGUAGE_PROBE_REASON=""
+  LANGUAGE_PROBE_FIX="Install an official full-ICU Node.js >= 22.12 build from https://nodejs.org/ (distro small-icu builds omit the locale data)"
   if [ -n "$LANGUAGE_TOOL" ] && [ -f "$LANGUAGE_TOOL" ]; then
     if printf '%s' '{"language":"ar","texts":["a b"]}' \
       | node "$LANGUAGE_TOOL" segment >/dev/null 2>&1; then
       return 0
     fi
     LANGUAGE_PROBE_REASON="this Node cannot resolve full-ICU locale data (small-icu build?)"
+    return 1
+  fi
+  if [ -n "$LANGUAGE_TOOL" ] && [ -f "${LANGUAGE_TOOL%/*}/../SKILL.md" ]; then
+    LANGUAGE_PROBE_REASON="scripts/language_tools.mjs is missing; reinstall the skill"
+    LANGUAGE_PROBE_FIX="Reinstall hve-video-director in its existing location to restore scripts/language_tools.mjs."
     return 1
   fi
   if node -e '
@@ -658,7 +665,7 @@ collect_checks() {
       # helper, so reporting this ready would green-light a Phase 1 failure.
       add_check node "Node.js" required blocked "1,2,3,4,5" \
         "meets >= 22.12 but $LANGUAGE_PROBE_REASON" "$version" manual-download "" \
-        "Install an official full-ICU Node.js >= 22.12 build from https://nodejs.org/ (distro small-icu builds omit the locale data)" \
+        "$LANGUAGE_PROBE_FIX" \
         Required \
         "Node.js $version — $LANGUAGE_PROBE_REASON"
     else

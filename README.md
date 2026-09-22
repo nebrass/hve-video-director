@@ -127,6 +127,11 @@ mechanical gates run in Phase 4, once the scenes are assembled into one composit
 
 **No local checkout?** The doctor is self-contained — run it straight from GitHub:
 
+Stdin and standalone copies use an offline Node capability probe when no language
+helper is available. An installed copy under a skill root containing `SKILL.md`
+still requires its sibling `scripts/language_tools.mjs`; a missing helper blocks
+readiness and recommends reinstalling the skill, not Node.
+
 ```bash
 # report only
 curl -fsSL https://raw.githubusercontent.com/nebrass/hve-video-director/main/scripts/check_requirements.sh | bash
