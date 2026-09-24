@@ -799,7 +799,10 @@ A: 30fps MP4 (H.264 video + AAC audio) via `npx hyperframes render`. The canvas 
   - 4:5  → 1080×1350 (portrait IG feed)
 
 **Q: Can I edit the video after generation?**
-A: Yes — the project is plain HTML + CSS + GSAP. Edit `index.html` or any `scenes/*.html` file directly. Run `npx hyperframes preview` for a scrubbable timeline UI, then `npx hyperframes render` to re-render.
+A: Yes — the project is plain HTML + CSS + GSAP. Edit `index.html` or any `scenes/*.html` file
+directly. Run `npx hyperframes preview --background` for a scrubbable timeline UI, then run
+`npx hyperframes preview --stop` when review ends before using `npx hyperframes render` to
+re-render. Closing the Studio browser does not stop its preview server.
 
 **Q: Is Freesound music free to use commercially?**
 A: It depends on the track. Freesound hosts a mix of CC0 (public domain — no attribution, commercial OK), CC-BY (commercial OK with attribution), and other Creative Commons variants. You pick the track yourself and record its license in the Creative Brief, so check that license on the track's Freesound page before commercial use — prefer CC0 or CC-BY. For a license that requires attribution, the workflow writes a `CREDITS.md`.
