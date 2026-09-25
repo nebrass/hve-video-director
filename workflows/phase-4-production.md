@@ -433,10 +433,15 @@ and `CHECK_GATE` the `lint` / `check` / `snapshot` semantics — what each audit
 project **directory** rather than a file, that `check` reruns `lint`, and how to fail on warnings.
 
 ```bash
-npx hyperframes preview .              # studio: every composition — `main` plus each scene sub-comp
+npx hyperframes preview . --background # studio: every composition — `main` plus each scene sub-comp
 npx hyperframes lint .                 # fast static pass after each structural change
 npx hyperframes check . --samples 10   # the required gate
 ```
+
+Use the managed background preview for the user-review loop. Verify its printed URL returns HTTP
+200 before presenting it. Keep that one server alive while the user requests revisions; do not
+start another preview for each pass. Closing the Studio browser does not stop the server or its
+browser children.
 
 Local sampling convention: `--samples 10` for a 30s spot, `--samples 15` for denser
 transition-heavy cuts; `--at 1.5,4,7.25` instead for specific hero frames. `check` must pass
@@ -569,7 +574,17 @@ Ask:
 }
 ```
 
-Iterate on feedback before proceeding.
+Iterate on feedback before proceeding. After **Looks good, proceed**, stop the managed preview
+before advancing:
+
+```bash
+npx hyperframes preview . --stop
+```
+
+Also run the same project-scoped stop command before leaving Phase 4 because the user cancels,
+changes phase, or an unrecoverable error ends the review. Do not treat closing the Studio browser
+as cleanup. Confirm no preview remains for this project; a failed stop is an explicit cleanup
+error to report and resolve, not a successful checkpoint.
 
 ## Step 4.7: Animation Map Verification (Optional)
 
@@ -700,7 +715,8 @@ For each checked item, propose 1-2 fixes and iterate. See `patterns/anti-slop.md
 
 ## Checkpoint
 
-After the user accepts the preview and the HyperFrames gates pass, stamp Phase 4:
+After the user accepts the preview, the HyperFrames gates pass, and the project preview has
+stopped, stamp Phase 4:
 
 ```bash
 python3 "$SKILL_DIR/scripts/validate_brief.py" \
