@@ -7,6 +7,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.2] - 2026-09-25
+
+Preview-lifecycle fix from #52: Phase 4 now stops the HyperFrames Studio preview it starts, so
+reviewing a composition no longer leaves a preview server running after the phase ends.
+
+### Added
+
+- `test/unit/test_preview_lifecycle.py` pins the Phase 4 order — background start, review
+  question, stop, phase stamp — and the README's preview shutdown instructions.
+
+### Fixed
+
+- Phase 4 runs the composition review on one managed background preview
+  (`npx hyperframes preview . --background`), verifies its printed URL returns HTTP 200 before
+  presenting it, and reuses that server across revision passes instead of starting one per pass.
+- After the user approves the composition, Phase 4 stops the preview with the project-scoped
+  `npx hyperframes preview . --stop`, and runs the same stop before leaving the phase on
+  cancellation, a phase change or an unrecoverable error. The phase is stamped only once the
+  preview has stopped; a failed stop is a cleanup error to report and resolve, not a successful
+  checkpoint.
+- The README's post-generation editing answer now starts the preview with `--background`, stops
+  it with `--stop` before re-rendering, and notes that closing the Studio browser does not stop
+  the preview server.
+
+### Verification scope
+
+The full suite ran 519 tests without failures on the #52 merge commit in Linux stdlib and
+ecosystem CI and on native macOS and Windows (12, 1, 16 and 17 platform-specific or optional
+checks skipped), and again locally on Linux with this version bump. The new test checks the
+workflow and README text and its order; no live HyperFrames preview was started or stopped as
+part of this release's verification. Cleanup still depends on the agent reaching the stop step:
+a session interrupted mid-review can leave its preview running, and the skill does not look for
+one when a run resumes — stop it with `npx hyperframes preview . --stop` from that project's
+directory. `example/` was not regenerated or edited.
+
 ## [0.4.1] - 2026-09-22
 
 Requirements-checker and shell-portability fixes from #51, verified on native macOS
@@ -707,7 +742,8 @@ Initial release of the hve-video-director skill.
   earlier Pixabay integration.
 - README with install instructions and an MIT license.
 
-[Unreleased]: https://github.com/nebrass/hve-video-director/compare/v0.4.1...HEAD
+[Unreleased]: https://github.com/nebrass/hve-video-director/compare/v0.4.2...HEAD
+[0.4.2]: https://github.com/nebrass/hve-video-director/compare/v0.4.1...v0.4.2
 [0.4.1]: https://github.com/nebrass/hve-video-director/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/nebrass/hve-video-director/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/nebrass/hve-video-director/compare/v0.2.0...v0.3.0
