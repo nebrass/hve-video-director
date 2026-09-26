@@ -724,6 +724,8 @@ hve-video-director/
 ├── test/
 │   ├── run.sh                     # stdlib unit/integration test entrypoint
 │   ├── check_shell_portability.py # native Bash smoke checks, with real Node/Python and stub installers
+│   ├── bench/                     # live benchmarks, run by hand (not by run.sh or CI)
+│   │   └── preview_lifecycle.py   # Phase 4 preview lifecycle: 0.4.1 vs the 0.4.2 background/stop fix
 │   └── unit/                      # caption, capture, requirements, onboarding, brief and resolver tests, plus:
 │       ├── test_compat_pointers.py # pointer validity — compat/ecosystem.md is the only holder of upstream paths
 │       ├── test_director_keys.py  # docs-as-contract — director keys + the capability-tag vocabulary
@@ -776,6 +778,11 @@ Push the verification changes to start both jobs; their results and uploaded log
 the evidence, not the presence of this workflow. Known portability failures remain
 visible until repaired, and optional integrations skipped by the full suite remain
 unverified.
+
+To measure the 0.4.2 preview-lifecycle change against the real HyperFrames CLI, run
+`python3 test/bench/preview_lifecycle.py`. It previews a temporary copy of `example/`
+and compares the 0.4.1 workflow with the managed `--background`/`--stop` lifecycle.
+See [`test/bench/README.md`](test/bench/README.md) for the metrics and a recorded result.
 
 ## FAQ
 

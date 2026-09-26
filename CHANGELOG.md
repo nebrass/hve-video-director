@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `test/bench/preview_lifecycle.py` benchmarks the 0.4.2 preview-lifecycle fix against the real
+  HyperFrames CLI. It compares the 0.4.1 workflow (a preview per revision pass, never stopped,
+  attached or auto-backgrounded) with one managed `--background` preview that is reused and then
+  stopped. It measures preview wait time, blocking start calls, servers started, and the processes,
+  memory and CPU left running after the phase. It runs on a temporary project copy and reports any
+  leaked process as a failure. It is run by hand, not by `test/run.sh` or CI.
+  `test/unit/test_preview_benchmark.py` tests the harness offline against a fake CLI. The first
+  recorded result is in `test/bench/README.md` (CLI 0.8.78, Linux): no preview left running
+  instead of ~280 MB (one auto-backgrounded server) or ~925 MB (three attached servers), no
+  blocking start calls, and ~23% less preview wait than repeating `preview .` over 3 passes.
+  Starting a preview is not faster.
+
 ## [0.4.2] - 2026-09-25
 
 Preview-lifecycle fix from #52: Phase 4 now stops the HyperFrames Studio preview it starts, so
