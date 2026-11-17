@@ -865,8 +865,30 @@ automated.
 > suite** protects this registry. Do not treat a matching hash as evidence that the paths above
 > still resolve.
 
+**The commit pin.** `compat/ecosystem-pin.json` records the one upstream commit this registry was
+last verified against, as a full commit id. `python3 test/install_ecosystem.py --pinned` installs
+exactly that commit, and it is what CI gates pushes and pull requests on. A separate nightly job
+installs upstream's default branch instead and is the relayout alarm. The two exist because the
+lock above cannot do either job: it holds no commit, so it can neither reproduce a working install
+nor say when upstream moved.
+
+> **Registry status as of 2026-11-17 — behind upstream.** Upstream commit `6882293`
+> (heygen-com/hyperframes#5651, 2026-10-21) retired twelve of the twenty-five skills the lock
+> names, including four domain skills, `general-video` and `motion-graphics`, which between them
+> own 46 of this registry's 76 rows. At upstream's default branch on 2026-11-17, 27 rows resolve at
+> their registered path and 49 do not: the 46 owned by those six retired skills, plus 3 naming
+> files removed from the surviving `hyperframes` skill. None of the 70 rule and blueprint files
+> that existed at the pinned commit is mentioned by name anywhere in the published skills.
+> That is a content removal, not a relayout, so it cannot be repaired by editing rows here. The pin
+> is the commit immediately before it, where all 25 skills and the full suite are green. Until the
+> registry is migrated, `npx skills add heygen-com/hyperframes` and `npx hyperframes skills update`
+> install a set this skill cannot resolve.
+
 **Update procedure.**
 
+0. Advance `compat/ecosystem-pin.json` **last**, in the same commit as the registry edits that make
+   the suite green against the new commit — never on its own. A pin that is ahead of the registry
+   turns the gating job red; a pin moved to silence the drift job hides the thing it reports.
 1. `npx hyperframes skills update` — updates the core set plus every already-installed HyperFrames
    skill, and removes any no longer published. **Gotcha:** with no skill names passed it *never
    expands a partial install*, so a newly-required skill will not appear until you name it

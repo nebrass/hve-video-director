@@ -1,0 +1,9 @@
+{
+  "source": "heygen-com/hyperframes",
+  "ref": "207c8a4daf6480d697f203784f1fd422727569e3",
+  "ref_date": "2026-10-21",
+  "verified": "2026-11-17",
+  "verified_with": "HVE_REQUIRE_ECOSYSTEM=1 bash test/run.sh — 519 tests, 0 failures",
+  "superseded_by": "688229314fb219c4317351c25483ecc3c56a519b",
+  "note": "Last upstream commit at which every skillPath in skills-lock.json and every row of compat/ecosystem.md resolves. The next commit (heygen-com/hyperframes#5651) retired the domain skills this registry points into. Move this pin only together with a registry migration, never on its own."
+}
