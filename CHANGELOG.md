@@ -7,6 +7,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+Upstream HyperFrames retired twelve of the twenty-five skills `skills-lock.json` names on
+2026-10-21 (heygen-com/hyperframes#5651). Nothing in this repo runs unless someone pushes, so the
+first signal was a broken install weeks later. This entry does not migrate the registry; it makes a
+working ecosystem installable again and makes the next upstream move visible within a day.
+
+### Added
+
+- `compat/ecosystem-pin.json` records the last upstream commit the registry was verified against
+  (`207c8a4`, the commit immediately before the retirement).
+- `test/install_ecosystem.py --pinned` installs that commit, and `--ref <commit|tag|branch>`
+  installs any named one. Both refuse before fetching: a pin that is not a full commit id, a pin for
+  an unlisted source, a ref git could read as an option, and either flag combined with
+  `--source-dir`.
+- A nightly `ecosystem-drift` CI job installs upstream's default branch and runs the suite with the
+  ecosystem required. It also runs on manual dispatch.
+
+### Changed
+
+- The `ecosystem-tests` CI job now installs the pinned commit instead of upstream's default branch,
+  so an upstream change cannot turn an unrelated pull request red. Tracking the default branch moved
+  to the nightly job above.
+- `compat/ecosystem.md` § Pin and update policy documents the commit pin, the registry's current
+  status against upstream, and that the pin advances only together with the registry edits that
+  make the suite green.
+
+### Known limitation
+
+The registry still targets the pre-retirement layout. At upstream's default branch on 2026-11-17,
+27 of 76 registry rows resolve and 49 do not, and none of the 70 rule and blueprint files present at
+the pinned commit is mentioned by name in the published skills. `npx skills add heygen-com/hyperframes`
+and `npx hyperframes skills update` therefore install a set this skill cannot resolve; the runtime
+resolvers probe global skill homes first, so a pinned copy in a project home does not take
+precedence over a newer global one.
+
+### Verification scope
+
+With the pinned commit installed, `HVE_REQUIRE_ECOSYSTEM=1 bash test/run.sh` ran without failures
+on macOS. `--pinned` and the default install were each run once against GitHub: the pinned install
+copied 25 of 25 skills, the default install copied 13 and named the 12 missing. The nightly
+`ecosystem-drift` job runs only on a schedule or a manual dispatch, so it had not run on GitHub
+Actions when this entry was written. No video was produced, and `example/` was not regenerated or
+edited.
+
 ## [0.4.2] - 2026-09-25
 
 Preview-lifecycle fix from #52: Phase 4 now stops the HyperFrames Studio preview it starts, so

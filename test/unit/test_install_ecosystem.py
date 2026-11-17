@@ -142,5 +142,154 @@ class SourceAllowlistTests(unittest.TestCase):
         self.assertIn("2", proc.stdout)
 
 
+def load_installer():
+    """The installer as a module, for the one function a subprocess cannot reach."""
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("install_ecosystem", INSTALLER)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+class PinnedInstallTests(unittest.TestCase):
+    """Upstream's tip can be unusable for weeks; the pin is what stays installable.
+
+    On 2026-10-21 upstream retired twelve of the skills `skills-lock.json` names. The
+    installer only knew how to fetch the tip, so there was no way left to install an
+    ecosystem this repo's registry resolves against. `--pinned` and `--ref` are that way.
+    Every refusal below has to happen BEFORE a fetch: these tests run offline, and the
+    lock names a real GitHub source.
+    """
+
+    def setUp(self):
+        self.tmp = Path(__import__("tempfile").mkdtemp())
+        self.addCleanup(lambda: __import__("shutil").rmtree(self.tmp, ignore_errors=True))
+
+    def _run(self, *extra, pin=None):
+        root, source = fake_repo(self.tmp, lock_for("heygen-com/hyperframes"))
+        installer = root / "test" / "install_ecosystem.py"
+        installer.write_bytes(INSTALLER.read_bytes())
+        if pin is not None:
+            (root / "compat").mkdir(parents=True, exist_ok=True)
+            (root / "compat" / "ecosystem-pin.json").write_text(
+                pin if isinstance(pin, str) else json.dumps(pin), encoding="utf-8"
+            )
+        proc = subprocess.run(
+            [sys.executable, str(installer),
+             "--dest", str(root / ".agents" / "skills"), *extra],
+            capture_output=True, text=True, timeout=60,
+        )
+        return proc, source
+
+    def test_the_committed_pin_is_a_full_commit_of_an_allowed_source(self):
+        """A branch or tag name in the pin would move, and then it is not a pin."""
+        installer = load_installer()
+        source, ref = installer.read_pin(REPO / "compat" / "ecosystem-pin.json")
+        self.assertIn(source, installer.ALLOWED_SOURCES)
+        self.assertRegex(ref, r"\A[0-9a-f]{40}\Z")
+
+    def test_the_committed_pin_names_a_source_the_lock_actually_uses(self):
+        """A pin for a source the lock never installs from would pin nothing."""
+        installer = load_installer()
+        source, _ = installer.read_pin(REPO / "compat" / "ecosystem-pin.json")
+        lock = json.loads((REPO / "skills-lock.json").read_text(encoding="utf-8"))
+        self.assertIn(source, {meta.get("source") for meta in lock["skills"].values()})
+
+    def test_a_moving_name_in_the_pin_is_refused_before_anything_is_fetched(self):
+        proc, _ = self._run(
+            "--pinned", pin={"source": "heygen-com/hyperframes", "ref": "main"}
+        )
+        self.assertEqual(2, proc.returncode, proc.stderr)
+        self.assertIn("40-character commit", proc.stderr)
+
+    def test_a_pin_for_an_unlisted_source_is_refused(self):
+        proc, _ = self._run(
+            "--pinned", pin={"source": "attacker/evil", "ref": "a" * 40}
+        )
+        self.assertEqual(2, proc.returncode, proc.stderr)
+        self.assertIn("attacker/evil", proc.stderr)
+
+    def test_a_missing_or_malformed_pin_is_reported_not_raised(self):
+        cases = (
+            ("missing", None),
+            ("malformed", "{not json"),
+            ("not an object", "[]"),
+            ("source is not a string", '{"source": ["x"], "ref": "' + "a" * 40 + '"}'),
+        )
+        for label, pin in cases:
+            with self.subTest(pin=label):
+                proc, _ = self._run("--pinned", pin=pin)
+                self.assertEqual(2, proc.returncode, proc.stderr)
+                self.assertIn("ecosystem-pin.json", proc.stderr)
+                self.assertNotIn("Traceback", proc.stderr)
+
+    def test_a_ref_that_git_would_read_as_an_option_is_refused(self):
+        """`--ref` reaches git's argv; a leading dash there is an option, not a name."""
+        for ref in ("--upload-pack=touch pwned", "-x", "a..b", "a b", ""):
+            with self.subTest(ref=ref):
+                proc, _ = self._run(f"--ref={ref}")
+                self.assertEqual(2, proc.returncode, proc.stderr)
+                self.assertIn("refusing --ref", proc.stderr)
+
+    def test_a_checkout_on_disk_cannot_also_be_given_a_ref(self):
+        """`--source-dir` is copied as it is; pretending to pin it would be a lie."""
+        for flag in (("--ref", "v1"), ("--pinned",)):
+            with self.subTest(flag=flag[0]):
+                root, source = fake_repo(self.tmp, lock_for("heygen-com/hyperframes"))
+                installer = root / "test" / "install_ecosystem.py"
+                installer.write_bytes(INSTALLER.read_bytes())
+                proc = subprocess.run(
+                    [sys.executable, str(installer),
+                     "--dest", str(root / ".agents" / "skills"),
+                     "--source-dir", str(source), *flag],
+                    capture_output=True, text=True, timeout=60,
+                )
+                self.assertEqual(2, proc.returncode, proc.stderr)
+                self.assertIn("--source-dir", proc.stderr)
+
+    def test_ref_and_pinned_are_mutually_exclusive(self):
+        proc, _ = self._run("--pinned", "--ref", "v1")
+        self.assertEqual(2, proc.returncode)
+        self.assertIn("not allowed with", proc.stderr)
+
+    @unittest.skipUnless(
+        __import__("shutil").which("git"), "git is not on PATH"
+    )
+    def test_a_ref_installs_that_commit_and_not_the_tip(self):
+        """The whole point: the skill the tip deleted is still there at the ref."""
+        upstream = self.tmp / "upstream"
+        skill = upstream / "skills" / "alpha"
+        skill.mkdir(parents=True)
+        (skill / "SKILL.md").write_text("# alpha\n", encoding="utf-8")
+
+        def git(*args):
+            return subprocess.run(
+                ["git", "-C", str(upstream),
+                 "-c", "user.name=test", "-c", "user.email=test@example.invalid",
+                 "-c", "commit.gpgsign=false", *args],
+                capture_output=True, text=True, check=True,
+            ).stdout.strip()
+
+        git("init", "--quiet")
+        # GitHub serves any reachable commit by id; a bare local repo needs telling.
+        git("config", "uploadpack.allowAnySHA1InWant", "true")
+        git("add", "-A")
+        git("commit", "--quiet", "--no-verify", "-m", "skill present")
+        before = git("rev-parse", "HEAD")
+        (skill / "SKILL.md").unlink()
+        git("add", "-A")
+        git("commit", "--quiet", "--no-verify", "-m", "skill retired")
+
+        installer = load_installer()
+        at_ref, at_tip = self.tmp / "at-ref", self.tmp / "at-tip"
+        installer.checkout(upstream.as_uri(), at_ref, ref=before)
+        installer.checkout(upstream.as_uri(), at_tip)
+
+        self.assertTrue((at_ref / "skills" / "alpha" / "SKILL.md").is_file())
+        self.assertFalse((at_tip / "skills" / "alpha" / "SKILL.md").exists())
+        self.assertEqual(before, installer.resolved_commit(at_ref))
+
+
 if __name__ == "__main__":
     unittest.main()

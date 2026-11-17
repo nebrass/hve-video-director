@@ -4,16 +4,27 @@ on:
   push:
     branches: ["**"]
   pull_request:
+  # Upstream moves without anyone pushing here. On 2026-10-21 it retired twelve of
+  # the skills skills-lock.json names, and nothing in this repo ran for weeks, so
+  # the first signal was a user's broken install. The schedule runs only the
+  # ecosystem-drift job below.
+  schedule:
+    - cron: "17 5 * * *"
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: tests-${{ github.ref }}
+  # The event is part of the group: a scheduled run and a push to the default
+  # branch share a ref, and without it either one cancels the other.
+  group: tests-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   stdlib-tests:
+    # Nothing in this job depends on upstream, so a nightly rerun would prove nothing.
+    if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -179,7 +190,16 @@ jobs:
   #     read-only token. NEVER switch it to `pull_request_target`, which would
   #     run PR-authored code with the base repo's secrets and a write token.
   # Each run prints the commit it installed, so what executed is attributable.
+  #
+  # PINNED vs DRIFT — two jobs, because one job cannot do both.
+  # `ecosystem-tests` installs the commit in compat/ecosystem-pin.json: the last
+  # upstream commit this registry was verified against. It gates pushes and pull
+  # requests, so a change upstream cannot turn an unrelated PR red.
+  # `ecosystem-drift` installs upstream's default branch and runs nightly: it is
+  # the relayout alarm, and it is EXPECTED to fail from the day upstream moves
+  # until the registry is migrated and the pin is advanced with it.
   ecosystem-tests:
+    if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -197,10 +217,37 @@ jobs:
       - name: Install ffmpeg
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
 
+      - name: Install the HyperFrames ecosystem at the pinned commit
+        run: python3 test/install_ecosystem.py --pinned --dest .agents/skills
+
+      - name: Run the suite with the ecosystem required
+        run: HVE_REQUIRE_ECOSYSTEM=1 bash test/run.sh
+
+  # The relayout alarm. Same steps as ecosystem-tests, but against upstream's
+  # default branch, and never on a push or a pull request. The security notes
+  # above ecosystem-tests apply here unchanged: no secrets, read-only token.
+  ecosystem-drift:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install ffmpeg
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
+
       # Tracks upstream's default branch on purpose: catching an upstream
       # relayout before a user does is this job's reason to exist. A skill
       # whose recorded skillPath vanished upstream fails the install by name.
-      - name: Install the HyperFrames ecosystem from skills-lock.json
+      - name: Install the HyperFrames ecosystem from upstream's default branch
         run: python3 test/install_ecosystem.py --dest .agents/skills
 
       - name: Run the suite with the ecosystem required
