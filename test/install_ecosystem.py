@@ -131,19 +131,23 @@ def read_known_drift(pin_file=None):
     return frozenset(retired), tuple(removed)
 
 
+def inside(path, root):
+    """True when `path`, with every symlink followed, is within checkout `root`."""
+    try:
+        resolved, root = path.resolve(), root.resolve()
+    except OSError:
+        return False
+    return resolved == root or root in resolved.parents
+
+
 def skill_dir_in(src, meta):
     """The skill's directory inside checkout `src`, or None if its path escapes it.
 
     A recorded path may not reach outside its own checkout: that would copy — and
     then run — something the source never shipped.
     """
-    root = src.resolve()
     skill_dir = (src / meta["skillPath"]).parent
-    try:
-        resolved = skill_dir.resolve()
-    except OSError:
-        return None
-    return skill_dir if (resolved == root or root in resolved.parents) else None
+    return skill_dir if inside(skill_dir, src) else None
 
 
 def checkout(url, dest, ref=None):
@@ -337,7 +341,9 @@ def main(argv=None):
                     continue
                 pin_dir = skill_dir_in(pin_src, skills[name])
                 origin = pin_dir / relative if pin_dir is not None else None
-                if origin is None or not origin.is_file() or origin.is_symlink():
+                # Resolve the WHOLE path: a symlinked parent directory would
+                # otherwise carry the copy outside the pinned checkout.
+                if origin is None or not inside(origin, pin_src) or not origin.is_file():
                     bad_baseline.append(f"file {path}")
                     continue
                 target.parent.mkdir(parents=True, exist_ok=True)

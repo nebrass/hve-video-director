@@ -317,7 +317,8 @@ class KnownDriftTests(unittest.TestCase):
         tree.mkdir(parents=True, exist_ok=True)
         return tree
 
-    def _install(self, tip, pin, known_drift, lock_skills=("alpha", "beta")):
+    def _install(self, tip, pin, known_drift, lock_skills=("alpha", "beta"),
+                 prepare_pin=None):
         import contextlib
         import io
         import shutil
@@ -336,7 +337,11 @@ class KnownDriftTests(unittest.TestCase):
         )
         installer.ROOT, installer.PIN_FILE = root, pin_file
         trees = {None: self._tree("tip", tip), "a" * 40: self._tree("pin", pin)}
-        installer.checkout = lambda url, dest, ref=None: shutil.copytree(trees[ref], dest)
+        if prepare_pin is not None:
+            prepare_pin(trees["a" * 40])
+        installer.checkout = lambda url, dest, ref=None: shutil.copytree(
+            trees[ref], dest, symlinks=True
+        )
         dest = root / ".agents" / "skills"
         out, err = io.StringIO(), io.StringIO()
         with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
@@ -403,6 +408,39 @@ class KnownDriftTests(unittest.TestCase):
         )
         self.assertEqual(1, code)
         self.assertIn("never-existed.md", err)
+
+    def test_a_file_reached_through_a_symlink_out_of_the_checkout_is_not_copied(self):
+        """A symlinked parent directory, or the file itself, may not leave the pin."""
+        outside = self.tmp / "outside"
+        outside.mkdir()
+        (outside / "gone.md").write_text("not from the pinned commit", encoding="utf-8")
+
+        def link_parent(pin_tree):
+            (pin_tree / "skills" / "alpha" / "references").symlink_to(
+                outside, target_is_directory=True
+            )
+
+        def link_file(pin_tree):
+            references = pin_tree / "skills" / "alpha" / "references"
+            references.mkdir()
+            (references / "gone.md").symlink_to(outside / "gone.md")
+
+        for label, prepare in (("parent", link_parent), ("file", link_file)):
+            with self.subTest(symlink=label):
+                __import__("shutil").rmtree(self.tmp / "repo", ignore_errors=True)
+                __import__("shutil").rmtree(self.tmp / "pin", ignore_errors=True)
+                try:
+                    code, _, err, dest = self._install(
+                        tip={"alpha": {"SKILL.md": "tip alpha"}, "beta": {"SKILL.md": "tip beta"}},
+                        pin={"alpha": {"SKILL.md": "pin alpha"}, "beta": {"SKILL.md": "pin beta"}},
+                        known_drift={"removed_files": ["alpha/references/gone.md"]},
+                        prepare_pin=prepare,
+                    )
+                except OSError as error:  # no symlink privilege (Windows)
+                    self.skipTest(f"cannot create a symlink here: {error}")
+                self.assertEqual(1, code)
+                self.assertIn("gone.md", err)
+                self.assertFalse((dest / "alpha" / "references" / "gone.md").exists())
 
     def test_a_path_that_leaves_its_skill_is_refused_before_anything_is_fetched(self):
         for path in ("alpha/../../etc/passwd", "/etc/passwd", "alpha", "alpha//x", "alpha/./x"):
