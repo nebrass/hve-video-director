@@ -5,5 +5,28 @@
   "verified": "2026-11-17",
   "verified_with": "HVE_REQUIRE_ECOSYSTEM=1 bash test/run.sh — 519 tests, 0 failures",
   "superseded_by": "688229314fb219c4317351c25483ecc3c56a519b",
-  "note": "Last upstream commit at which every skillPath in skills-lock.json and every row of compat/ecosystem.md resolves. The next commit (heygen-com/hyperframes#5651) retired the domain skills this registry points into. Move this pin only together with a registry migration, never on its own."
+  "note": "Last upstream commit at which every skillPath in skills-lock.json and every row of compat/ecosystem.md resolves. The next commit (heygen-com/hyperframes#5651) retired the domain skills this registry points into. Move this pin only together with a registry migration, never on its own.",
+  "known_drift": {
+    "recorded": "2026-11-19",
+    "retired_skills": [
+      "embedded-captions",
+      "faceless-explainer",
+      "general-video",
+      "hyperframes-animation",
+      "hyperframes-core",
+      "hyperframes-creative",
+      "hyperframes-keyframes",
+      "motion-graphics",
+      "music-to-video",
+      "pr-to-video",
+      "product-launch-video",
+      "talking-head-recut"
+    ],
+    "removed_files": [
+      "hyperframes/references/frame-worker-core.md",
+      "hyperframes/references/brief-format.md",
+      "hyperframes/references/brief-contract.md"
+    ],
+    "note": "Upstream drift already seen and not yet migrated (heygen-com/hyperframes#5651). `install_ecosystem.py --accept-known-drift` installs upstream's default branch and takes exactly these skills and files from the pinned commit, so the nightly ecosystem-drift job fails on new drift only. Add an entry only for drift a person has looked at; empty both lists when the registry is migrated."
+  }
 }

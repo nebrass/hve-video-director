@@ -291,5 +291,145 @@ class PinnedInstallTests(unittest.TestCase):
         self.assertEqual(before, installer.resolved_commit(at_ref))
 
 
+class KnownDriftTests(unittest.TestCase):
+    """The drift job must fail on NEW drift, not on drift already recorded.
+
+    Its first scheduled run failed on the 2026-10-21 retirement, which the commit
+    that added the job had already documented. A job that is red every night for
+    a known reason cannot report the next upstream move. `--accept-known-drift`
+    takes the recorded pieces from the pinned commit and nothing else.
+    """
+
+    SOURCE = "heygen-com/hyperframes"
+
+    def setUp(self):
+        self.tmp = Path(__import__("tempfile").mkdtemp())
+        self.addCleanup(lambda: __import__("shutil").rmtree(self.tmp, ignore_errors=True))
+
+    def _tree(self, label, skills):
+        """A fake checkout: {skill: {relative path: text}}."""
+        tree = self.tmp / label
+        for name, files in skills.items():
+            for relative, text in files.items():
+                path = tree / "skills" / name / relative
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(text, encoding="utf-8")
+        tree.mkdir(parents=True, exist_ok=True)
+        return tree
+
+    def _install(self, tip, pin, known_drift, lock_skills=("alpha", "beta")):
+        import contextlib
+        import io
+        import shutil
+
+        installer = load_installer()
+        root = self.tmp / "repo"
+        (root / "compat").mkdir(parents=True)
+        (root / "skills-lock.json").write_text(
+            json.dumps(lock_for(self.SOURCE, lock_skills, path_template="skills/{name}/SKILL.md")),
+            encoding="utf-8",
+        )
+        pin_file = root / "compat" / "ecosystem-pin.json"
+        pin_file.write_text(
+            json.dumps({"source": self.SOURCE, "ref": "a" * 40, "known_drift": known_drift}),
+            encoding="utf-8",
+        )
+        installer.ROOT, installer.PIN_FILE = root, pin_file
+        trees = {None: self._tree("tip", tip), "a" * 40: self._tree("pin", pin)}
+        installer.checkout = lambda url, dest, ref=None: shutil.copytree(trees[ref], dest)
+        dest = root / ".agents" / "skills"
+        out, err = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            code = installer.main(["--accept-known-drift", "--dest", str(dest)])
+        return code, out.getvalue(), err.getvalue(), dest
+
+    def test_a_recorded_retired_skill_is_taken_from_the_pin(self):
+        code, out, err, dest = self._install(
+            tip={"alpha": {"SKILL.md": "tip alpha"}},
+            pin={"alpha": {"SKILL.md": "pin alpha"}, "beta": {"SKILL.md": "pin beta"}},
+            known_drift={"retired_skills": ["beta"]},
+        )
+        self.assertEqual(0, code, err)
+        self.assertEqual("tip alpha", (dest / "alpha" / "SKILL.md").read_text(encoding="utf-8"))
+        self.assertEqual("pin beta", (dest / "beta" / "SKILL.md").read_text(encoding="utf-8"))
+        self.assertIn("beta", out)
+
+    def test_a_skill_missing_at_the_tip_and_not_recorded_still_fails_by_name(self):
+        """The alarm itself: new drift may not hide behind the old one."""
+        code, _, err, dest = self._install(
+            tip={},
+            pin={"alpha": {"SKILL.md": "pin alpha"}, "beta": {"SKILL.md": "pin beta"}},
+            known_drift={"retired_skills": ["beta"]},
+        )
+        self.assertEqual(1, code)
+        self.assertIn("NOT installed", err)
+        self.assertIn("alpha", err)
+        self.assertFalse((dest / "alpha").exists())
+
+    def test_a_recorded_removed_file_is_restored_and_nothing_else_is(self):
+        code, out, err, dest = self._install(
+            tip={"alpha": {"SKILL.md": "tip alpha"}, "beta": {"SKILL.md": "tip beta"}},
+            pin={
+                "alpha": {"SKILL.md": "pin alpha", "references/gone.md": "kept",
+                          "references/also-gone.md": "not recorded"},
+                "beta": {"SKILL.md": "pin beta"},
+            },
+            known_drift={"removed_files": ["alpha/references/gone.md"]},
+        )
+        self.assertEqual(0, code, err)
+        self.assertEqual("kept", (dest / "alpha" / "references" / "gone.md").read_text(encoding="utf-8"))
+        self.assertEqual("tip alpha", (dest / "alpha" / "SKILL.md").read_text(encoding="utf-8"))
+        self.assertFalse((dest / "alpha" / "references" / "also-gone.md").exists())
+
+    def test_an_entry_that_is_back_at_the_tip_is_reported_and_the_tip_wins(self):
+        code, out, err, dest = self._install(
+            tip={"alpha": {"SKILL.md": "tip alpha", "references/gone.md": "tip file"},
+                 "beta": {"SKILL.md": "tip beta"}},
+            pin={"alpha": {"SKILL.md": "pin alpha", "references/gone.md": "pin file"},
+                 "beta": {"SKILL.md": "pin beta"}},
+            known_drift={"retired_skills": ["beta"],
+                         "removed_files": ["alpha/references/gone.md"]},
+        )
+        self.assertEqual(0, code, err)
+        self.assertEqual("tip beta", (dest / "beta" / "SKILL.md").read_text(encoding="utf-8"))
+        self.assertEqual("tip file", (dest / "alpha" / "references" / "gone.md").read_text(encoding="utf-8"))
+        self.assertIn("NOTE", out)
+
+    def test_an_entry_the_pin_cannot_supply_fails(self):
+        code, _, err, _ = self._install(
+            tip={"alpha": {"SKILL.md": "tip alpha"}, "beta": {"SKILL.md": "tip beta"}},
+            pin={"alpha": {"SKILL.md": "pin alpha"}, "beta": {"SKILL.md": "pin beta"}},
+            known_drift={"removed_files": ["alpha/references/never-existed.md"]},
+        )
+        self.assertEqual(1, code)
+        self.assertIn("never-existed.md", err)
+
+    def test_a_path_that_leaves_its_skill_is_refused_before_anything_is_fetched(self):
+        for path in ("alpha/../../etc/passwd", "/etc/passwd", "alpha", "alpha//x", "alpha/./x"):
+            with self.subTest(path=path):
+                installer = load_installer()
+                pin_file = self.tmp / "pin.json"
+                pin_file.write_text(
+                    json.dumps({"source": self.SOURCE, "ref": "a" * 40,
+                                "known_drift": {"removed_files": [path]}}),
+                    encoding="utf-8",
+                )
+                with self.assertRaises(ValueError):
+                    installer.read_known_drift(pin_file)
+
+    def test_the_committed_known_drift_names_only_what_the_lock_and_registry_use(self):
+        """An entry for a skill the lock never installs would excuse nothing real."""
+        installer = load_installer()
+        retired, removed = installer.read_known_drift(REPO / "compat" / "ecosystem-pin.json")
+        lock = json.loads((REPO / "skills-lock.json").read_text(encoding="utf-8"))
+        self.assertLessEqual(retired, set(lock["skills"]))
+        registry = (REPO / "compat" / "ecosystem.md").read_text(encoding="utf-8")
+        for path in removed:
+            self.assertIn(path.split("/", 1)[0], lock["skills"])
+            self.assertNotIn(path.split("/", 1)[0], retired)
+            relative = path.split("/", 1)[1]
+            self.assertIn(relative, registry, f"{path} is not a registered path")
+
+
 if __name__ == "__main__":
     unittest.main()

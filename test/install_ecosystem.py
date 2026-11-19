@@ -22,6 +22,12 @@ the tip stays the default and stays in CI, on a schedule: a pin without a drift
 job is how a relayout goes unnoticed, and a drift job without a pin is how it
 blocks everything else.
 
+`--accept-known-drift` is what the drift job runs. It installs the tip, and
+takes only the skills and files listed under `known_drift` in the pin file from
+the pinned commit. Drift that is already recorded therefore passes, and drift
+that is not still fails by name: a job that is red every night for a known
+reason cannot report the next upstream move.
+
 Whatever this installs, CI **executes**: the `STORYBOARD_EXTRA_KEYS` round-trip
 probe imports an upstream ESM module and drives it under node. Since the list of
 what to fetch comes from `skills-lock.json`, a file any PR can edit, the source is
@@ -88,6 +94,58 @@ def read_pin(pin_file=None):
     return source, ref
 
 
+SKILL_NAME = re.compile(r"[a-z0-9][a-z0-9-]{0,99}")
+
+
+def read_known_drift(pin_file=None):
+    """Return (retired skill names, removed file paths) from the pin's `known_drift`.
+
+    The pin file records upstream drift that has already been seen and not yet
+    migrated. `--accept-known-drift` takes exactly those pieces from the pinned
+    commit, so the nightly job fails on NEW drift and not on the same known one.
+    """
+    pin_file = pin_file or PIN_FILE
+    read_pin(pin_file)
+    drift = json.loads(pin_file.read_text(encoding="utf-8")).get("known_drift")
+    if not isinstance(drift, dict):
+        raise ValueError(f"{pin_file} has no `known_drift` object")
+    retired = drift.get("retired_skills", [])
+    removed = drift.get("removed_files", [])
+    for label, values in (("retired_skills", retired), ("removed_files", removed)):
+        if not isinstance(values, list) or not all(isinstance(v, str) for v in values):
+            raise ValueError(f"{pin_file}: known_drift.{label} must be a list of strings")
+    for name in retired:
+        if not SKILL_NAME.fullmatch(name):
+            raise ValueError(f"{pin_file}: known_drift names an invalid skill {name!r}")
+    for path in removed:
+        parts = path.split("/")
+        if (
+            len(parts) < 2
+            or not SKILL_NAME.fullmatch(parts[0])
+            or any(part in ("", ".", "..") or "\\" in part for part in parts)
+        ):
+            raise ValueError(
+                f"{pin_file}: known_drift.removed_files entry {path!r} must be "
+                "`<skill>/<relative/path>` with no empty, `.` or `..` part"
+            )
+    return frozenset(retired), tuple(removed)
+
+
+def skill_dir_in(src, meta):
+    """The skill's directory inside checkout `src`, or None if its path escapes it.
+
+    A recorded path may not reach outside its own checkout: that would copy — and
+    then run — something the source never shipped.
+    """
+    root = src.resolve()
+    skill_dir = (src / meta["skillPath"]).parent
+    try:
+        resolved = skill_dir.resolve()
+    except OSError:
+        return None
+    return skill_dir if (resolved == root or root in resolved.parents) else None
+
+
 def checkout(url, dest, ref=None):
     """Fetch `url` into `dest`: the default branch's tip, or exactly `ref`."""
     if ref is None:
@@ -146,13 +204,20 @@ def main(argv=None):
         help="install the commit recorded in compat/ecosystem-pin.json — the "
         "last one this registry was verified against",
     )
+    which.add_argument(
+        "--accept-known-drift",
+        action="store_true",
+        help="install the default branch's tip, but take the skills and files "
+        "that compat/ecosystem-pin.json lists under `known_drift` from the "
+        "pinned commit — so only drift nobody has recorded yet fails",
+    )
     args = parser.parse_args(argv)
 
-    if args.source_dir and (args.ref or args.pinned):
+    if args.source_dir and (args.ref or args.pinned or args.accept_known_drift):
         print(
             "--source-dir is installed exactly as it is on disk, so it cannot be "
-            "combined with --ref or --pinned; check out the commit you want there "
-            "first",
+            "combined with --ref, --pinned or --accept-known-drift; check out the "
+            "commit you want there first",
             file=sys.stderr,
         )
         return 2
@@ -171,6 +236,15 @@ def main(argv=None):
             print(f"cannot install the pinned ecosystem: {error}", file=sys.stderr)
             return 2
         refs[pin_source] = pin_ref
+    pin_source = pin_ref = None
+    known_retired, known_removed = frozenset(), ()
+    if args.accept_known_drift:
+        try:
+            pin_source, pin_ref = read_pin()
+            known_retired, known_removed = read_known_drift()
+        except ValueError as error:
+            print(f"cannot accept known drift: {error}", file=sys.stderr)
+            return 2
 
     lock = json.loads((ROOT / "skills-lock.json").read_text(encoding="utf-8"))
     by_source = {}
@@ -198,6 +272,7 @@ def main(argv=None):
     dest_root = Path(args.dest)
     dest_root.mkdir(parents=True, exist_ok=True)
     installed, missing, escaping = [], [], []
+    from_pin, restored, stale, bad_baseline = [], [], [], []
 
     with tempfile.TemporaryDirectory() as tmp:
         for (source_type, source), skills in sorted(by_source.items()):
@@ -219,28 +294,71 @@ def main(argv=None):
                     ref=args.ref or refs.get(source),
                 )
             print(f"{source} @ {resolved_commit(src)}")
-            root = src.resolve()
+            pin_src = None
+            if source == pin_source:
+                pin_src = Path(tmp) / (source.replace("/", "__") + "@pin")
+                checkout(f"https://github.com/{source}.git", pin_src, ref=pin_ref)
+                print(f"{source} @ {resolved_commit(pin_src)} (pinned, for known drift)")
             for name, meta in sorted(skills.items()):
-                skill_dir = (src / meta["skillPath"]).parent
-                # A recorded path may not reach outside its own checkout: that
-                # would copy — and then run — something the source never shipped.
-                try:
-                    resolved = skill_dir.resolve()
-                    inside = resolved == root or root in resolved.parents
-                except OSError:
-                    inside = False
-                if not inside:
+                skill_dir = skill_dir_in(src, meta)
+                if skill_dir is None:
                     escaping.append(f"{name} ({meta['skillPath']})")
                     continue
-                if not (skill_dir / "SKILL.md").is_file():
-                    missing.append(name)
-                    continue
+                at_tip = (skill_dir / "SKILL.md").is_file()
+                if at_tip and name in known_retired:
+                    stale.append(f"skill {name}")
+                if not at_tip:
+                    if pin_src is None or name not in known_retired:
+                        missing.append(name)
+                        continue
+                    skill_dir = skill_dir_in(pin_src, meta)
+                    if skill_dir is None:
+                        escaping.append(f"{name} ({meta['skillPath']})")
+                        continue
+                    if not (skill_dir / "SKILL.md").is_file():
+                        bad_baseline.append(f"skill {name}")
+                        continue
+                    from_pin.append(name)
                 target = dest_root / name
                 if target.exists():
                     shutil.rmtree(target)
                 shutil.copytree(skill_dir, target)
                 installed.append(name)
+            if pin_src is None:
+                continue
+            for path in known_removed:
+                name, _, relative = path.partition("/")
+                if name not in skills or name not in installed or name in from_pin:
+                    bad_baseline.append(f"file {path} (its skill was not installed from the tip)")
+                    continue
+                target = dest_root / name / relative
+                if target.exists():
+                    stale.append(f"file {path}")
+                    continue
+                pin_dir = skill_dir_in(pin_src, skills[name])
+                origin = pin_dir / relative if pin_dir is not None else None
+                if origin is None or not origin.is_file() or origin.is_symlink():
+                    bad_baseline.append(f"file {path}")
+                    continue
+                target.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copyfile(origin, target)
+                restored.append(path)
 
+    if from_pin:
+        print("known drift — taken from the pinned commit: " + ", ".join(sorted(from_pin)))
+    if restored:
+        print("known drift — files restored from the pinned commit: " + ", ".join(restored))
+    if stale:
+        print(
+            "NOTE — listed under known_drift but present at the tip again; remove "
+            "from compat/ecosystem-pin.json: " + ", ".join(stale)
+        )
+    if bad_baseline:
+        print(
+            "known_drift names something the pinned commit cannot supply: "
+            + ", ".join(bad_baseline),
+            file=sys.stderr,
+        )
     print(f"installed {len(installed)} skill(s) into {dest_root}")
     if escaping:
         print(
@@ -253,7 +371,7 @@ def main(argv=None):
             "source (upstream relayout?): " + ", ".join(sorted(missing)),
             file=sys.stderr,
         )
-    return 1 if (missing or escaping) else 0
+    return 1 if (missing or escaping or bad_baseline) else 0
 
 
 if __name__ == "__main__":

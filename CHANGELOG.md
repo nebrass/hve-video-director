@@ -23,6 +23,12 @@ working ecosystem installable again and makes the next upstream move visible wit
 - A nightly `ecosystem-drift` CI job installs upstream's default branch and runs the suite with the
   ecosystem required. It also runs on manual dispatch.
 
+- `compat/ecosystem-pin.json` gains `known_drift`, and `test/install_ecosystem.py` gains
+  `--accept-known-drift`: it installs upstream's default branch and takes only the recorded
+  retired skills and removed files from the pinned commit. The nightly `ecosystem-drift` job uses
+  it, so the job fails on drift nobody has recorded yet and not on the 2026-10-21 retirement every
+  night.
+
 ### Changed
 
 - The `ecosystem-tests` CI job now installs the pinned commit instead of upstream's default branch,
