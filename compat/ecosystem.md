@@ -872,6 +872,14 @@ installs upstream's default branch instead and is the relayout alarm. The two ex
 lock above cannot do either job: it holds no commit, so it can neither reproduce a working install
 nor say when upstream moved.
 
+**Known drift.** The pin file's `known_drift` lists the upstream changes a person has already
+looked at and not yet migrated: skills upstream retired and files it removed from a surviving
+skill. The nightly job runs `python3 test/install_ecosystem.py --accept-known-drift`, which
+installs upstream's default branch and takes exactly those pieces from the pinned commit. The job
+is therefore red only for drift that is not in the list. Add an entry only after reading the
+upstream change, never to turn the job green; empty both lists when the registry is migrated. An
+entry that is present upstream again is reported in the job log so it can be removed.
+
 > **Registry status as of 2026-11-17 — behind upstream.** Upstream commit `6882293`
 > (heygen-com/hyperframes#5651, 2026-10-21) retired twelve of the twenty-five skills the lock
 > names, including four domain skills, `general-video` and `motion-graphics`, which between them

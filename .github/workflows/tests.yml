@@ -196,8 +196,10 @@ jobs:
   # upstream commit this registry was verified against. It gates pushes and pull
   # requests, so a change upstream cannot turn an unrelated PR red.
   # `ecosystem-drift` installs upstream's default branch and runs nightly: it is
-  # the relayout alarm, and it is EXPECTED to fail from the day upstream moves
-  # until the registry is migrated and the pin is advanced with it.
+  # the relayout alarm. Drift a person has already recorded under `known_drift`
+  # in compat/ecosystem-pin.json is taken from the pinned commit, so the job is
+  # red only for drift nobody has looked at yet. A job that is red every night
+  # for a known reason cannot report the next one.
   ecosystem-tests:
     if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
@@ -246,9 +248,10 @@ jobs:
 
       # Tracks upstream's default branch on purpose: catching an upstream
       # relayout before a user does is this job's reason to exist. A skill
-      # whose recorded skillPath vanished upstream fails the install by name.
+      # whose recorded skillPath vanished upstream fails the install by name,
+      # unless compat/ecosystem-pin.json already lists it under `known_drift`.
       - name: Install the HyperFrames ecosystem from upstream's default branch
-        run: python3 test/install_ecosystem.py --dest .agents/skills
+        run: python3 test/install_ecosystem.py --accept-known-drift --dest .agents/skills
 
       - name: Run the suite with the ecosystem required
         run: HVE_REQUIRE_ECOSYSTEM=1 bash test/run.sh
