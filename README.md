@@ -1,5 +1,9 @@
 # hve-video-director
 
+<!-- yarkr:badges:start -->
+[![Indexed on Yarkr](https://api.yarkr.com/functions/v1/api/api/v1/badges/repos/nebrass/hve-video-director/version.svg)](https://yarkr.com/arks/nebrass/hve-video-director)
+<!-- yarkr:badges:end -->
+
 **AI-powered video production pipeline verified on Claude Code and GitHub Copilot CLI.**
 OpenCode, Pi, Codex, and Cursor can discover the same Agent Skill; their full Phase 0→5
 pipeline remains unverified.
@@ -354,6 +358,38 @@ question prompts, companion skills, or the complete render pipeline work on that
 
 The workflows resolve question and Chrome DevTools capabilities at runtime; they do not assume
 Claude Code's literal MCP identifiers are available elsewhere.
+
+<!-- yarkr:install:start -->
+## Install with Yarkr
+
+This repo is indexed on [Yarkr](https://yarkr.com/arks/nebrass/hve-video-director) as the ark [nebrass/hve-video-director](https://yarkr.com/arks/nebrass/hve-video-director), so its skills install into Claude Code, Codex, Cursor and other agent harnesses with one command.
+
+### CLI
+
+Install the whole ark, which Yarkr keeps equal to this repo:
+
+```bash
+npx yarkr-cli sync nebrass/hve-video-director
+```
+
+Or add individual skills:
+
+```bash
+npx yarkr-cli add skill:nebrass/hve-video-director/hve-video-director
+```
+
+No Node.js? `curl -fsSL https://yarkr.com/install.sh | sh` (macOS, Linux) or `irm https://yarkr.com/install.ps1 | iex` (Windows PowerShell) installs `yarkr` as a standalone binary; then type `yarkr` in place of `npx yarkr-cli`.
+
+### MCP
+
+Connect your agent to the ark over MCP:
+
+```bash
+npx yarkr-cli mcp add nebrass/hve-video-director
+```
+
+Or point any MCP client at `https://api.yarkr.com/functions/v1/api/mcp/o/nebrass/hve-video-director`.
+<!-- yarkr:install:end -->
 
 ## Updating
 
